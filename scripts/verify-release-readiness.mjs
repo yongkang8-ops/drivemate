@@ -77,12 +77,24 @@ function fail(message) {
   process.exitCode = 1;
 }
 
+function envValue(key) {
+  return process.env[key]?.trim() ?? "";
+}
+
+function looksPlaceholder(value) {
+  return !value || /<|>|pending|placeholder|todo|tbd|example/i.test(value);
+}
+
 function checkEnvironment() {
   const missing = requiredEnv.filter((key) => !process.env[key]?.trim());
   for (const key of missing) fail(`${key} is required for release readiness verification.`);
 
-  const baseUrl = process.env.DRIVEMATE_BASE_URL?.trim() ?? "";
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() ?? "";
+  const baseUrl = envValue("DRIVEMATE_BASE_URL");
+  const siteUrl = envValue("NEXT_PUBLIC_SITE_URL");
+  const legalName = envValue("DRIVEMATE_LEGAL_NAME");
+  const abn = envValue("DRIVEMATE_ABN");
+  const accountsEmail = envValue("DRIVEMATE_ACCOUNTS_EMAIL");
+
   if (baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1")) {
     fail("DRIVEMATE_BASE_URL must be a deployed staging URL, not localhost.");
   }
@@ -94,6 +106,15 @@ function checkEnvironment() {
   }
   if (siteUrl && !siteUrl.startsWith("https://")) {
     fail("NEXT_PUBLIC_SITE_URL must use https.");
+  }
+  if (looksPlaceholder(legalName)) {
+    fail("DRIVEMATE_LEGAL_NAME must be the registered company name, not a placeholder.");
+  }
+  if (!/^\d{11}$/.test(abn.replace(/\s/g, ""))) {
+    fail("DRIVEMATE_ABN must be a real 11-digit Australian Business Number.");
+  }
+  if (looksPlaceholder(accountsEmail) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountsEmail)) {
+    fail("DRIVEMATE_ACCOUNTS_EMAIL must be a real monitored accounts email address.");
   }
 
   if (process.env.DRIVEMATE_REPOSITORY !== "supabase") {
