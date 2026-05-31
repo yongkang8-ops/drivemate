@@ -69,7 +69,18 @@ function expiryLabel(expiresAt) {
   return new Date(expiresAt * 1000).toISOString();
 }
 
-async function signInRole(authClient, config) {
+function createAuthClient(url, anonKey) {
+  return createClient(url, anonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+}
+
+async function signInRole(url, anonKey, config) {
+  const authClient = createAuthClient(url, anonKey);
   const email = requireEnv(config.emailKey);
   const password = requireEnv(config.passwordKey);
   const { data, error } = await authClient.auth.signInWithPassword({ email, password });
@@ -114,17 +125,12 @@ const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
 const anonKey = requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
 const serviceRoleKey = optionalEnv("SUPABASE_SERVICE_ROLE_KEY");
 
-const authClient = createClient(url, anonKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-  },
-});
 const serviceClient = serviceRoleKey
   ? createClient(url, serviceRoleKey, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
+        detectSessionInUrl: false,
       },
     })
   : null;
@@ -135,7 +141,7 @@ console.log("");
 
 const tokens = [];
 for (const config of roleConfigs) {
-  const token = await signInRole(authClient, config);
+  const token = await signInRole(url, anonKey, config);
   const profile = await verifyProfile(serviceClient, token);
 
   if (!profile.ok) {
