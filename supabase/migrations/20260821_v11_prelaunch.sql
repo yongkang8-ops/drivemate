@@ -283,6 +283,12 @@ create table if not exists public.vehicles (
 );
 
 alter table public.vehicle_lookup_requests drop constraint if exists vehicle_lookup_requests_confidence_check;
+update public.vehicle_lookup_requests
+set confidence = case
+  when confidence = 'mock_match' then 'exact'
+  when confidence in ('exact', 'manual_review') then confidence
+  else 'manual_review'
+end;
 alter table public.vehicle_lookup_requests add constraint vehicle_lookup_requests_confidence_check
   check (confidence in ('exact', 'manual_review'));
 

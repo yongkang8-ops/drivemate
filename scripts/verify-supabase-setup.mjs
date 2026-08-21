@@ -203,7 +203,7 @@ await requireQueryable(
   "compliance and VIN model",
   supabase
     .from("compliance_reviews")
-    .select("id, risk_tier, final_decision")
+    .select("id, review_type, outcome")
     .limit(1),
   result,
 );
