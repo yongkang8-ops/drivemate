@@ -23,6 +23,7 @@ export const inventoryMovementImportSchema = z.object({
 });
 
 export const createOrderSchema = z.object({
+  idempotencyKey: z.string().trim().min(8).max(120).optional(),
   tradeAccountId: z.string().trim().min(1).optional(),
   poNumber: z.string().trim().optional(),
   vehicleVin: z.string().trim().optional(),
@@ -38,6 +39,10 @@ export const createOrderSchema = z.object({
 });
 
 export const dispatchOrderSchema = z.object({
+  idempotencyKey: z.string().trim().min(8).max(120).optional(),
+  deliveryChargeExGstCents: z.number().int().nonnegative().optional(),
+  carrier: z.string().trim().min(2).max(100).optional(),
+  trackingNumber: z.string().trim().min(2).max(160).optional(),
   scans: z
     .array(
       z.object({
@@ -56,6 +61,10 @@ export const tradeAccountApplicationSchema = z.object({
   contactPhone: z.string().trim().min(6),
   postcode: z.string().trim().optional(),
   notes: z.string().trim().max(1000).optional(),
+  privacyConsent: z.literal(true),
+  tradeTermsConsent: z.literal(true),
+  consentVersion: z.string().trim().min(1).max(40),
+  turnstileToken: z.string().trim().optional(),
 });
 
 export const tradeAccountStatusUpdateSchema = z.object({

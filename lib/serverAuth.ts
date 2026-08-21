@@ -1,10 +1,13 @@
 import { type AppRole, DEMO_ROLE_HEADER, can, isDemoRoleHeaderEnabled, parseRole } from "./auth";
 import { createServiceSupabaseClient } from "./supabaseClient";
+import { jwtAssuranceLevel, requestSessionTokens } from "./sessionCookies";
 
 export type AuthContext = {
   role: AppRole;
   userId?: string;
   tradeAccountId?: string;
+  assuranceLevel?: "aal1" | "aal2";
+  mfaRequired?: boolean;
 };
 
 function getBearerToken(request: Request): string | null {
@@ -29,10 +32,19 @@ async function getSupabaseAuthContextFromToken(token: string): Promise<AuthConte
       .maybeSingle();
 
     if (profileError) return { role: "public", userId: userResult.user.id };
+    const role = parseRole(profile?.role);
+    const assuranceLevel = jwtAssuranceLevel(token);
+    const mfaRequired =
+      process.env.DRIVEMATE_REQUIRE_STAFF_MFA === "true" &&
+      (role === "admin" || role === "warehouse") &&
+      assuranceLevel !== "aal2";
+
     return {
-      role: parseRole(profile?.role),
+      role,
       userId: userResult.user.id,
       tradeAccountId: profile?.trade_account_id ?? undefined,
+      assuranceLevel,
+      mfaRequired,
     };
   } catch {
     return { role: "public" };
@@ -52,7 +64,7 @@ export async function getRequestContext(request: Request): Promise<AuthContext> 
     }
   }
 
-  const token = getBearerToken(request);
+  const token = getBearerToken(request) ?? requestSessionTokens(request).accessToken;
   if (!token) return { role: "public" };
 
   return getSupabaseAuthContextFromToken(token);
@@ -63,5 +75,6 @@ export async function getRequestRole(request: Request): Promise<AppRole> {
 }
 
 export async function requestCan(request: Request, capability: Parameters<typeof can>[1]): Promise<boolean> {
-  return can((await getRequestContext(request)).role, capability);
+  const context = await getRequestContext(request);
+  return !context.mfaRequired && can(context.role, capability);
 }

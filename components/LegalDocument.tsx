@@ -1,0 +1,2 @@
+import type { ReactNode } from "react";
+export function LegalDocument({ eyebrow, title, intro, children }: { eyebrow: string; title: string; intro: string; children: ReactNode }) { return <main className="page-main legal-page"><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p className="legal-intro">{intro}</p><div className="legal-content">{children}</div><p className="legal-review">Production publication is subject to final company details and Australian legal review.</p></main>; }

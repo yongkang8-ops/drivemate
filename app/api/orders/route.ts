@@ -3,8 +3,12 @@ import { getRepository } from "../../../lib/repository";
 import { can } from "../../../lib/auth";
 import { getRequestContext } from "../../../lib/serverAuth";
 import { createOrderSchema } from "../../../lib/validators";
+import { mutationRequestAllowed } from "../../../lib/requestSecurity";
 
 export async function POST(request: Request) {
+  if (!mutationRequestAllowed(request)) {
+    return NextResponse.json({ ok: false, message: "Request security validation failed." }, { status: 403 });
+  }
   const authContext = await getRequestContext(request);
   if (!can(authContext.role, "create_order")) {
     return NextResponse.json({ ok: false, message: "Order submission requires a trade role." }, { status: 403 });
@@ -23,10 +27,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message: "Trade account is required for staff-created orders." }, { status: 400 });
   }
 
+  const idempotencyKey = parsed.data.idempotencyKey ?? request.headers.get("idempotency-key")?.trim();
+  if (!idempotencyKey) {
+    return NextResponse.json({ ok: false, message: "Idempotency-Key is required." }, { status: 400 });
+  }
   const orderInput =
     authContext.role === "trade"
-      ? { ...parsed.data, tradeAccountId: authContext.tradeAccountId as string }
-      : { ...parsed.data, tradeAccountId: parsed.data.tradeAccountId as string };
+      ? { ...parsed.data, idempotencyKey, tradeAccountId: authContext.tradeAccountId as string }
+      : { ...parsed.data, idempotencyKey, tradeAccountId: parsed.data.tradeAccountId as string };
 
   const result = await getRepository().submitOrder(orderInput, { actorId: authContext.userId });
   if (!result.ok) return NextResponse.json(result, { status: 422 });

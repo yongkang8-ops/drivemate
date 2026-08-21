@@ -10,10 +10,10 @@ export type VehicleLookupInput = {
 export type VehicleProfile = {
   make: string;
   model: string;
-  year: number;
+  year?: number;
   engine?: string;
   market: "AU-spec";
-  confidence: "mock_match" | "manual_review";
+  confidence: "exact" | "manual_review";
 };
 
 function normalise(value?: string): string {
@@ -30,27 +30,24 @@ export function lookupVehicle(input: VehicleLookupInput): VehicleProfile {
   const haystack = [input.rego, input.vin, input.query].map(normalise).join(" ");
 
   if (haystack.includes("byd") || haystack.includes("atto")) {
-    return { make: "BYD", model: "Atto 3", year: 2023, market: "AU-spec", confidence: "mock_match" };
+    return { make: "BYD", model: "Atto 3", year: 2023, market: "AU-spec", confidence: "manual_review" };
   }
 
   if (haystack.includes("mg4") || haystack.includes("mg")) {
-    return { make: "MG", model: "MG4", year: 2023, market: "AU-spec", confidence: "mock_match" };
+    return { make: "MG", model: "MG4", year: 2023, market: "AU-spec", confidence: "manual_review" };
   }
 
-  return {
-    make: "GWM",
-    model: "Cannon Alpha",
-    year: 2024,
-    engine: "GW4D24",
-    market: "AU-spec",
-    confidence: "mock_match",
-  };
+  if (haystack.includes("cannon alpha")) {
+    return { make: "GWM", model: "Cannon Alpha", year: 2024, engine: "GW4D24", market: "AU-spec", confidence: "manual_review" };
+  }
+  return { make: "Unknown", model: "Manual review", market: "AU-spec", confidence: "manual_review" };
 }
 
 function ruleMatchesVehicle(rule: FitmentRule, vehicle: VehicleProfile) {
   return (
     normalise(rule.make) === normalise(vehicle.make) &&
     normalise(rule.model) === normalise(vehicle.model) &&
+    vehicle.year !== undefined &&
     rule.yearFrom <= vehicle.year &&
     (!rule.yearTo || rule.yearTo >= vehicle.year)
   );
@@ -66,6 +63,15 @@ export function matchCataloguePartsForVehicle<T extends MatchableCatalogueRow>(
   rules: FitmentRule[],
 ) {
   const vehicle = lookupVehicle(input);
+
+  return matchCatalogueForVehicleProfile(vehicle, catalogue, rules);
+}
+
+export function matchCatalogueForVehicleProfile<T extends MatchableCatalogueRow>(
+  vehicle: VehicleProfile,
+  catalogue: T[],
+  rules: FitmentRule[],
+) {
 
   const matches = catalogue
     .map((product) => {

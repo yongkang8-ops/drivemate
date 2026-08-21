@@ -119,7 +119,7 @@ export type AdminLookupRequest = {
   query?: string;
   vehicle: string;
   matchCount: number;
-  confidence: "mock_match" | "manual_review";
+  confidence: "exact" | "manual_review";
   createdBy?: string;
   createdAt: string;
 };
@@ -157,7 +157,7 @@ export type AdminState = {
 export type AccountDocument = {
   id: string;
   tradeAccountId: string;
-  type: "invoice" | "statement" | "delivery_record";
+  type: "order_confirmation" | "invoice" | "credit_note" | "statement" | "delivery_record";
   reference: string;
   storagePath?: string;
   createdAt: string;
@@ -177,10 +177,10 @@ export type VehicleLookupResult = {
   vehicle: {
     make: string;
     model: string;
-    year: number;
+    year?: number;
     engine?: string;
     market: "AU-spec";
-    confidence: "mock_match" | "manual_review";
+    confidence: "exact" | "manual_review";
   };
   matches: Array<AdminCatalogueRow & { vehicle: string; fitment: string; fitmentConfidence: string }>;
 };

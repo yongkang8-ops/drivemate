@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { type AuthenticatedRole } from "../lib/clientAuth";
-import { createBrowserSupabaseClient } from "../lib/supabaseClient";
 
 type Profile = {
   role?: string;
-  display_name?: string | null;
+  displayName?: string | null;
 };
 
 type AuthPanelProps = {
@@ -33,10 +32,15 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
 
   async function refreshSession() {
     try {
-      const supabase = createBrowserSupabaseClient();
-      const { data: sessionResult } = await supabase.auth.getSession();
+      const response = await fetch("/api/auth/session", { cache: "no-store" });
+      const body = (await response.json()) as {
+        authenticated?: boolean;
+        profile?: Profile;
+        mfaRequired?: boolean;
+        message?: string;
+      };
 
-      if (!sessionResult.session) {
+      if (!response.ok || !body.authenticated || !body.profile) {
         if (localDemoWorkspaceEnabled()) {
           setConfigured(false);
           setProfile(null);
@@ -51,17 +55,17 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
         return;
       }
 
-      const { data } = await supabase
-        .from("user_profiles")
-        .select("role, display_name")
-        .eq("id", sessionResult.session.user.id)
-        .maybeSingle();
-
-      const nextProfile = (data as Profile | null) ?? { role: "profile pending" };
+      const nextProfile = body.profile;
       const hasAccess = roleCanAccess(nextProfile.role, expectedRole);
       setProfile(nextProfile);
-      onAccessChange?.(hasAccess);
-      setMessage(hasAccess ? "Session active." : "Signed-in role cannot access this workspace.");
+      onAccessChange?.(hasAccess && !body.mfaRequired);
+      setMessage(
+        body.mfaRequired
+          ? "Multi-factor verification is required for this staff account."
+          : hasAccess
+            ? "Session active."
+            : "Signed-in role cannot access this workspace.",
+      );
     } catch {
       setConfigured(false);
       setProfile(null);
@@ -77,10 +81,14 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
 
   async function signIn() {
     try {
-      const supabase = createBrowserSupabaseClient();
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        setMessage(error.message);
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const body = (await response.json()) as { ok?: boolean; message?: string };
+      if (!response.ok || !body.ok) {
+        setMessage(body.message || "Sign-in failed. Check the account details and try again.");
         return;
       }
 
@@ -93,8 +101,7 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
 
   async function signOut() {
     try {
-      const supabase = createBrowserSupabaseClient();
-      await supabase.auth.signOut();
+      await fetch("/api/auth/logout", { method: "POST" });
     } finally {
       setProfile(null);
       onAccessChange?.(false);
@@ -113,7 +120,7 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
         <h2>{expectedRole === "trade" ? "Trade login" : "Staff login"}</h2>
         <p>
           {profile
-            ? `${profile.display_name ?? "Signed-in user"} · ${profile.role ?? "role pending"}`
+            ? `${profile.displayName ?? "Signed-in user"} | ${profile.role ?? "role pending"}`
             : "Approved users can sign in with email and password."}
         </p>
       </div>

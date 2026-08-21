@@ -4,6 +4,7 @@ import { getRepository } from "../../../../lib/repository";
 import type { AdminCatalogueRow } from "../../../../lib/repository";
 import { getRequestContext } from "../../../../lib/serverAuth";
 import { productMasterImportSchema } from "../../../../lib/validators";
+import { mutationRequestAllowed } from "../../../../lib/requestSecurity";
 
 type ImportFailure = {
   row: number;
@@ -12,6 +13,9 @@ type ImportFailure = {
 };
 
 export async function POST(request: Request) {
+  if (!mutationRequestAllowed(request)) {
+    return NextResponse.json({ ok: false, message: "Request security validation failed." }, { status: 403 });
+  }
   const authContext = await getRequestContext(request);
   if (!can(authContext.role, "admin_write")) {
     return NextResponse.json({ ok: false, message: "Product master import requires an admin role." }, { status: 403 });

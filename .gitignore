@@ -9,3 +9,7 @@ test-results/
 playwright-report/
 coverage/
 tsconfig.tsbuildinfo
+
+# Private commercial import artifacts. Never commit supplier pricing or shipment source files.
+data/private/
+*.import-preview.json

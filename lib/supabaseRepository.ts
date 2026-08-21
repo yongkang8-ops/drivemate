@@ -1,8 +1,7 @@
-import { randomBytes } from "node:crypto";
 import { createAccountDocumentText } from "./accountDocumentContent";
 import type { CreateFitmentRuleInput, CreateProductMasterInput, FitmentRule, UpdateProductMasterInput } from "./catalogue";
 import { demoUserRoles, pilotPricingRules, pilotRfqReviews } from "./adminMasterData";
-import { matchCataloguePartsForVehicle, type VehicleLookupInput } from "./fitment";
+import { matchCatalogueForVehicleProfile, type VehicleLookupInput, type VehicleProfile } from "./fitment";
 import { availableStock, type InventoryRow } from "./inventory";
 import { calculateOrderPricing, defaultPriceResolver } from "./pricing";
 import {
@@ -134,7 +133,7 @@ type SalesOrderRecord = {
 type AccountDocumentRecord = {
   id: string;
   trade_account_id: string;
-  document_type: "invoice" | "statement" | "delivery_record";
+  document_type: "order_confirmation" | "invoice" | "credit_note" | "statement" | "delivery_record";
   document_ref: string;
   storage_path: string;
   created_at: string;
@@ -179,7 +178,7 @@ type LookupRequestRecord = {
   query?: string | null;
   vehicle: string;
   match_count: number;
-  confidence: "mock_match" | "manual_review";
+  confidence: "exact" | "manual_review";
   created_by?: string | null;
   created_at: string;
 };
@@ -398,10 +397,6 @@ function deliveryRecordStoragePath(orderId: string): string {
   return `generated/delivery-records/${orderId}.txt`;
 }
 
-function temporaryPassword(): string {
-  return `DMp-${randomBytes(12).toString("base64url")}-1aA!`;
-}
-
 export class SupabaseRepository implements DrivemateRepository {
   mode = "supabase" as const;
 
@@ -411,6 +406,153 @@ export class SupabaseRepository implements DrivemateRepository {
 
   private accountDocumentsBucket() {
     return process.env.SUPABASE_ACCOUNT_DOCUMENTS_BUCKET ?? "account-documents";
+  }
+
+  private async submitOrderTransactional(
+    input: CreateOrderInput,
+    context: RepositoryWriteContext,
+  ): Promise<SubmitOrderResult> {
+    if (!input.idempotencyKey) return { ok: false, message: "Idempotency key is required." };
+    const supabase = this.client();
+    const { data: orderId, error } = await supabase.rpc("dm_reserve_sales_order", {
+      p_trade_account_id: input.tradeAccountId,
+      p_lines: input.lines,
+      p_idempotency_key: input.idempotencyKey,
+      p_po_number: input.poNumber ?? null,
+      p_vehicle_vin: input.vehicleVin ?? null,
+      p_vehicle_rego: input.vehicleRego ?? null,
+      p_created_by: context.actorId ?? null,
+    });
+    if (error) return { ok: false, message: error.message };
+
+    const confirmationReference = `OC-${orderId}`;
+    const confirmationPath = `generated/order-confirmations/${orderId}.txt`;
+    const state = await this.getAdminState();
+    const order = state.orders.find((candidate) => candidate.id === orderId);
+    if (!order) return { ok: false, message: "Order was reserved but could not be reloaded." };
+    await this.uploadGeneratedAccountDocument({
+      storagePath: confirmationPath,
+      type: "order_confirmation",
+      reference: confirmationReference,
+      tradeAccountId: order.tradeAccountId,
+      contentLines: [
+        `Order: ${order.id}`,
+        `PO number: ${order.poNumber ?? "Not supplied"}`,
+        `Subtotal ex GST: ${order.subtotalExGstCents ?? 0} cents`,
+        `GST: ${order.gstCents ?? 0} cents`,
+        `Total inc GST: ${order.totalIncGstCents ?? 0} cents`,
+        ...order.lines.map((line) => `- ${line.sku} x ${line.quantity}`),
+      ],
+    });
+    await supabase.from("account_documents").upsert({
+      trade_account_id: order.tradeAccountId,
+      document_type: "order_confirmation",
+      document_ref: confirmationReference,
+      storage_path: confirmationPath,
+    }, { onConflict: "trade_account_id,document_type,document_ref" });
+
+    return {
+      ok: true,
+      order,
+      inventory: state.catalogue.map((row) => ({ sku: row.sku, onHand: row.onHand, reserved: row.reserved, quarantine: row.quarantine })),
+    };
+  }
+
+  private async dispatchOrderTransactional(
+    orderId: string,
+    input: DispatchOrderInput,
+    context: RepositoryWriteContext,
+  ): Promise<DispatchOrderResult> {
+    if (!input.idempotencyKey || input.deliveryChargeExGstCents === undefined || !input.carrier || !input.trackingNumber) {
+      return { ok: false, message: "Idempotency key, delivery charge, carrier and tracking number are required." };
+    }
+    const before = await this.getAdminState();
+    const order = before.orders.find((candidate) => candidate.id === orderId);
+    if (!order) return { ok: false, message: "Order was not found." };
+    const scanValidation = validateDispatchScans(order.lines, input.scans);
+    if (!scanValidation.ok) return scanValidation;
+
+    const supabase = this.client();
+    const { error } = await supabase.rpc("dm_dispatch_sales_order", {
+      p_order_id: orderId,
+      p_delivery_charge_ex_gst_cents: input.deliveryChargeExGstCents,
+      p_carrier: input.carrier,
+      p_tracking_number: input.trackingNumber,
+      p_idempotency_key: input.idempotencyKey,
+      p_actor_id: context.actorId ?? null,
+    });
+    if (error) return { ok: false, message: error.message };
+    const state = await this.getAdminState();
+    const dispatched = state.orders.find((candidate) => candidate.id === orderId);
+    if (!dispatched) return { ok: false, message: "Dispatched order could not be reloaded." };
+
+    const invoiceReference = `INV-${orderId}`;
+    const invoicePath = invoiceStoragePath(orderId);
+    const deliveryReference = `DEL-${orderId}`;
+    const deliveryPath = deliveryRecordStoragePath(orderId);
+    await this.uploadGeneratedAccountDocument({
+      storagePath: invoicePath,
+      type: "invoice",
+      reference: invoiceReference,
+      tradeAccountId: dispatched.tradeAccountId,
+      contentLines: [
+        `Order: ${orderId}`,
+        `Carrier: ${input.carrier}`,
+        `Tracking: ${input.trackingNumber}`,
+        `Delivery ex GST: ${input.deliveryChargeExGstCents} cents`,
+        `Subtotal ex GST: ${dispatched.subtotalExGstCents ?? 0} cents`,
+        `GST: ${dispatched.gstCents ?? 0} cents`,
+        `Total inc GST: ${dispatched.totalIncGstCents ?? 0} cents`,
+      ],
+    });
+    await this.uploadGeneratedAccountDocument({
+      storagePath: deliveryPath,
+      type: "delivery_record",
+      reference: deliveryReference,
+      tradeAccountId: dispatched.tradeAccountId,
+      contentLines: [
+        `Order: ${orderId}`,
+        `Carrier: ${input.carrier}`,
+        `Tracking: ${input.trackingNumber}`,
+        ...dispatched.lines.map((line) => `- ${line.sku} x ${line.quantity}`),
+      ],
+    });
+    const { error: documentError } = await supabase.from("account_documents").upsert([
+      { trade_account_id: dispatched.tradeAccountId, document_type: "invoice", document_ref: invoiceReference, storage_path: invoicePath },
+      { trade_account_id: dispatched.tradeAccountId, document_type: "delivery_record", document_ref: deliveryReference, storage_path: deliveryPath },
+    ], { onConflict: "trade_account_id,document_type,document_ref" });
+    if (documentError) return { ok: false, message: documentError.message };
+
+    return {
+      ok: true,
+      order: dispatched,
+      inventory: state.catalogue.map((row) => ({ sku: row.sku, onHand: row.onHand, reserved: row.reserved, quarantine: row.quarantine })),
+      movements: state.stockMovements.filter((movement) => movement.reference === orderId),
+    };
+  }
+
+  private async cancelOrderTransactional(
+    orderId: string,
+    input: CancelOrderInput,
+    context: RepositoryWriteContext,
+  ): Promise<CancelOrderResult> {
+    if (!input.idempotencyKey) return { ok: false, message: "Idempotency key is required." };
+    const supabase = this.client();
+    if (input.tradeAccountId) {
+      const { data: owned } = await supabase.from("sales_orders").select("id").eq("id", orderId).eq("trade_account_id", input.tradeAccountId).maybeSingle();
+      if (!owned) return { ok: false, message: "Order was not found." };
+    }
+    const { error } = await supabase.rpc("dm_cancel_sales_order", {
+      p_order_id: orderId,
+      p_idempotency_key: input.idempotencyKey,
+      p_actor_id: context.actorId ?? null,
+    });
+    if (error) return { ok: false, message: error.message };
+    const state = await this.getAdminState();
+    const order = state.orders.find((candidate) => candidate.id === orderId);
+    return order
+      ? { ok: true, order, inventory: state.catalogue.map((row) => ({ sku: row.sku, onHand: row.onHand, reserved: row.reserved, quarantine: row.quarantine })) }
+      : { ok: false, message: "Cancelled order could not be reloaded." };
   }
 
   private async uploadGeneratedAccountDocument(input: {
@@ -866,6 +1008,35 @@ export class SupabaseRepository implements DrivemateRepository {
   async lookupVehicle(input: VehicleLookupInput, context: RepositoryWriteContext = {}) {
     const supabase = this.client();
     const state = await this.getAdminState();
+    const vin = input.vin?.trim().toUpperCase();
+    let vehicle: VehicleProfile = {
+      make: "Unknown",
+      model: "Manual review",
+      market: "AU-spec",
+      confidence: "manual_review",
+    };
+
+    if (vin && /^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) {
+      const { data: vehicleRecord, error: vehicleError } = await supabase
+        .from("vehicles")
+        .select("vin, vehicle_configurations!inner(make, model, year, engine, market, status)")
+        .eq("vin", vin)
+        .maybeSingle();
+      if (vehicleError) throw vehicleError;
+      const configuration = Array.isArray(vehicleRecord?.vehicle_configurations)
+        ? vehicleRecord.vehicle_configurations[0]
+        : vehicleRecord?.vehicle_configurations;
+      if (configuration?.status === "approved") {
+        vehicle = {
+          make: configuration.make,
+          model: configuration.model,
+          year: configuration.year,
+          engine: configuration.engine ?? undefined,
+          market: "AU-spec",
+          confidence: "exact",
+        };
+      }
+    }
     const { data, error } = await supabase
       .from("fitment_rules")
       .select("make, model, year_from, year_to, engine, confidence, products(sku)")
@@ -873,13 +1044,15 @@ export class SupabaseRepository implements DrivemateRepository {
 
     if (error) throw error;
     const rules = ((data ?? []) as FitmentRuleRecord[]).map(toFitmentRule).filter((rule) => rule !== null);
-    const result = matchCataloguePartsForVehicle(input, state.catalogue, rules);
+    const result = vehicle.confidence === "exact"
+      ? matchCatalogueForVehicleProfile(vehicle, state.catalogue.filter((product) => product.status === "active"), rules)
+      : { vehicle, matches: [] };
     const { error: lookupError } = await supabase.from("vehicle_lookup_requests").insert({
       trade_account_id: context.tradeAccountId,
       rego: input.rego,
       vin: input.vin,
       query: input.query,
-      vehicle: `${result.vehicle.make} ${result.vehicle.model} ${result.vehicle.year}`,
+      vehicle: [result.vehicle.make, result.vehicle.model, result.vehicle.year].filter(Boolean).join(" "),
       match_count: result.matches.length,
       confidence: result.vehicle.confidence,
       created_by: context.actorId,
@@ -1192,6 +1365,8 @@ export class SupabaseRepository implements DrivemateRepository {
   }
 
   async submitOrder(input: CreateOrderInput, context: RepositoryWriteContext = {}): Promise<SubmitOrderResult> {
+    return this.submitOrderTransactional(input, context);
+    /* Legacy prototype flow retained below for migration reference.
     const supabase = this.client();
     const state = await this.getAdminState();
     const { data: tradeAccount, error: tradeAccountError } = await supabase
@@ -1318,6 +1493,7 @@ export class SupabaseRepository implements DrivemateRepository {
       order: storedOrder,
       inventory: adminState.catalogue.map((row) => ({ sku: row.sku, onHand: row.onHand, reserved: row.reserved, quarantine: row.quarantine })),
     };
+  */
   }
 
   async dispatchOrder(
@@ -1325,6 +1501,8 @@ export class SupabaseRepository implements DrivemateRepository {
     input: DispatchOrderInput,
     context: RepositoryWriteContext = {},
   ): Promise<DispatchOrderResult> {
+    return this.dispatchOrderTransactional(orderId, input, context);
+    /* Legacy prototype flow retained below for migration reference.
     const supabase = this.client();
     const { data: order, error: orderError } = await supabase
       .from("sales_orders")
@@ -1461,9 +1639,16 @@ export class SupabaseRepository implements DrivemateRepository {
       inventory: adminState.catalogue.map((row) => ({ sku: row.sku, onHand: row.onHand, reserved: row.reserved, quarantine: row.quarantine })),
       movements,
     };
+  */
   }
 
-  async cancelOrder(orderId: string, input: CancelOrderInput = {}): Promise<CancelOrderResult> {
+  async cancelOrder(
+    orderId: string,
+    input: CancelOrderInput = {},
+    context: RepositoryWriteContext = {},
+  ): Promise<CancelOrderResult> {
+    return this.cancelOrderTransactional(orderId, input, context);
+    /* Legacy prototype flow retained below for migration reference.
     const supabase = this.client();
     let query = supabase
       .from("sales_orders")
@@ -1530,6 +1715,7 @@ export class SupabaseRepository implements DrivemateRepository {
       order: adminState.orders.find((candidate) => candidate.id === orderRecord.id) ?? cancelledOrder,
       inventory: adminState.catalogue.map((row) => ({ sku: row.sku, onHand: row.onHand, reserved: row.reserved, quarantine: row.quarantine })),
     };
+  */
   }
 
   async submitTradeAccountApplication(
@@ -1547,6 +1733,9 @@ export class SupabaseRepository implements DrivemateRepository {
         postcode: input.postcode,
         notes: input.notes,
         status: "pending",
+        privacy_consent_at: input.privacyConsent ? new Date().toISOString() : null,
+        trade_terms_consent_at: input.tradeTermsConsent ? new Date().toISOString() : null,
+        consent_version: input.consentVersion,
       })
       .select("id, account_name, abn, contact_name, contact_email, contact_phone, postcode, notes, status, created_at")
       .single();
@@ -1594,23 +1783,28 @@ export class SupabaseRepository implements DrivemateRepository {
       return { ok: false, message: "Trade account contact email is required before login can be provisioned." };
     }
 
-    const password = temporaryPassword();
     const existingUser = await this.findAuthUserByEmail(account.contact_email);
     let user = existingUser;
     if (!user) {
-      const { data: createdUser, error: createError } = await supabase.auth.admin.createUser({
-        email: account.contact_email,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          display_name: account.contact_name ?? account.account_name,
-          drivemate_role: "trade",
-          trade_account_id: account.id,
+      const { data: invitedUser, error: createError } = await supabase.auth.admin.inviteUserByEmail(
+        account.contact_email,
+        {
+          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/auth/confirm?next=/password-setup`,
+          data: {
+            display_name: account.contact_name ?? account.account_name,
+            drivemate_role: "trade",
+            trade_account_id: account.id,
+          },
         },
-      });
+      );
 
       if (createError) throw createError;
-      user = createdUser.user;
+      user = invitedUser.user;
+    } else {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(account.contact_email, {
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/auth/confirm?next=/password-setup`,
+      });
+      if (resetError) throw resetError;
     }
 
     if (!user) return { ok: false, message: "Trade account user could not be created." };
@@ -1643,7 +1837,7 @@ export class SupabaseRepository implements DrivemateRepository {
         email: account.contact_email,
         userId: user.id,
         created: !existingUser,
-        temporaryPassword: existingUser ? undefined : password,
+        setupEmailSent: true,
       },
     };
   }

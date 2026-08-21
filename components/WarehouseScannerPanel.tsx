@@ -86,6 +86,7 @@ export function WarehouseScannerPanel() {
     "sku,quantity,reference,location\nDMPGWMOF001,10,BNE-2026-06-PILOT,BNE receiving\nDMPGWMAF002,10,BNE-2026-06-PILOT,BNE receiving",
   );
   const [dispatchScansByOrder, setDispatchScansByOrder] = useState<Record<string, string>>({});
+  const [dispatchMetaByOrder, setDispatchMetaByOrder] = useState<Record<string, { deliveryCharge: string; carrier: string; trackingNumber: string }>>({});
   const [message, setMessage] = useState("Ready to scan stock movements.");
 
   async function loadWarehouseState() {
@@ -379,15 +380,20 @@ export function WarehouseScannerPanel() {
 
   async function dispatchOrder(orderId: string) {
     const scans = parseDispatchScans(dispatchScansByOrder[orderId] ?? "");
+    const dispatchMeta = dispatchMetaByOrder[orderId];
     if (!scans.length) {
       setMessage("Scan each order line before confirming dispatch.");
+      return;
+    }
+    if (!dispatchMeta?.carrier.trim() || !dispatchMeta.trackingNumber.trim() || !Number.isFinite(Number(dispatchMeta.deliveryCharge))) {
+      setMessage("Delivery charge, carrier and tracking number are required before dispatch.");
       return;
     }
 
     const response = await fetch(`/api/orders/${orderId}/dispatch`, {
       method: "POST",
-      headers: await buildApiHeaders("warehouse", { "Content-Type": "application/json" }),
-      body: JSON.stringify({ scans }),
+      headers: await buildApiHeaders("warehouse", { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }),
+      body: JSON.stringify({ scans, deliveryChargeExGstCents: Math.round(Number(dispatchMeta.deliveryCharge) * 100), carrier: dispatchMeta.carrier.trim(), trackingNumber: dispatchMeta.trackingNumber.trim() }),
     });
 
     const body = (await response.json()) as
@@ -412,7 +418,7 @@ export function WarehouseScannerPanel() {
 
   return (
     <>
-      <section className="two-column" style={{ marginTop: 18 }}>
+      <section className="two-column" id="putaway" style={{ marginTop: 18 }}>
         <div className="panel">
           <h2>Inbound receiving</h2>
           <div className="form-grid">
@@ -665,7 +671,7 @@ export function WarehouseScannerPanel() {
         {message}
       </p>
 
-      <section className="two-column" style={{ marginTop: 18 }}>
+      <section className="two-column" id="dispatch" style={{ marginTop: 18 }}>
         <div className="table-shell">
           <table>
             <thead>
@@ -676,6 +682,7 @@ export function WarehouseScannerPanel() {
                 <th>Lines</th>
                 <th>Created by</th>
                 <th>Scanned lines</th>
+                <th>Delivery</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -705,6 +712,13 @@ export function WarehouseScannerPanel() {
                       </label>
                     </td>
                     <td>
+                      <div className="dispatch-meta">
+                        <label>Charge ex GST<input inputMode="decimal" placeholder="0.00" value={dispatchMetaByOrder[order.id]?.deliveryCharge ?? ""} onChange={(event) => setDispatchMetaByOrder((current) => ({ ...current, [order.id]: { deliveryCharge: event.target.value, carrier: current[order.id]?.carrier ?? "", trackingNumber: current[order.id]?.trackingNumber ?? "" } }))} /></label>
+                        <label>Carrier<input placeholder="Courier" value={dispatchMetaByOrder[order.id]?.carrier ?? ""} onChange={(event) => setDispatchMetaByOrder((current) => ({ ...current, [order.id]: { deliveryCharge: current[order.id]?.deliveryCharge ?? "", carrier: event.target.value, trackingNumber: current[order.id]?.trackingNumber ?? "" } }))} /></label>
+                        <label>Tracking<input placeholder="Tracking number" value={dispatchMetaByOrder[order.id]?.trackingNumber ?? ""} onChange={(event) => setDispatchMetaByOrder((current) => ({ ...current, [order.id]: { deliveryCharge: current[order.id]?.deliveryCharge ?? "", carrier: current[order.id]?.carrier ?? "", trackingNumber: event.target.value } }))} /></label>
+                      </div>
+                    </td>
+                    <td>
                       <button className="primary-button" onClick={() => void dispatchOrder(order.id)} type="button">
                         Confirm dispatch
                       </button>
@@ -713,7 +727,7 @@ export function WarehouseScannerPanel() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7}>No pick orders ready.</td>
+                  <td colSpan={8}>No pick orders ready.</td>
                 </tr>
               )}
             </tbody>

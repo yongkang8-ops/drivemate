@@ -3,8 +3,12 @@ import { can } from "../../../lib/auth";
 import { getRepository } from "../../../lib/repository";
 import { getRequestContext } from "../../../lib/serverAuth";
 import { vehicleLookupSchema } from "../../../lib/validators";
+import { mutationRequestAllowed } from "../../../lib/requestSecurity";
 
 export async function POST(request: Request) {
+  if (!mutationRequestAllowed(request)) {
+    return NextResponse.json({ ok: false, message: "Request security validation failed." }, { status: 403 });
+  }
   const context = await getRequestContext(request);
   if (!can(context.role, "vehicle_lookup")) {
     return NextResponse.json({ ok: false, message: "Vehicle lookup requires a trade account role." }, { status: 403 });

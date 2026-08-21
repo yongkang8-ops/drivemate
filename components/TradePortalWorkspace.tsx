@@ -6,10 +6,10 @@ import { buildApiHeaders } from "../lib/clientAuth";
 type VehicleProfile = {
   make: string;
   model: string;
-  year: number;
+  year?: number;
   engine?: string;
   market: "AU-spec";
-  confidence: "mock_match" | "manual_review";
+  confidence: "exact" | "manual_review";
 };
 
 type MatchedPart = {
@@ -47,7 +47,7 @@ type TradeOrder = {
 
 type AccountDocument = {
   id: string;
-  type: "invoice" | "statement" | "delivery_record";
+  type: "order_confirmation" | "invoice" | "credit_note" | "statement" | "delivery_record";
   reference: string;
   createdAt: string;
 };
@@ -103,7 +103,7 @@ export function TradePortalWorkspace() {
     const body = (await response.json()) as { vehicle: VehicleProfile; matches: MatchedPart[] };
     setVehicle(body.vehicle);
     setMatches(body.matches);
-    setMessage(`${body.matches.length} matching parts found for ${body.vehicle.make} ${body.vehicle.model}.`);
+    setMessage(body.vehicle.confidence === "manual_review" ? "No approved VIN match. A manual review request has been recorded." : `${body.matches.length} matching parts found for ${body.vehicle.make} ${body.vehicle.model}.`);
   }
 
   function addToOrder(part: MatchedPart) {
@@ -143,7 +143,7 @@ export function TradePortalWorkspace() {
   async function submitOrder() {
     const response = await fetch("/api/orders", {
       method: "POST",
-      headers: await buildApiHeaders("trade", { "Content-Type": "application/json" }),
+      headers: await buildApiHeaders("trade", { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }),
       body: JSON.stringify({
         poNumber,
         vehicleVin: vin,
@@ -169,7 +169,7 @@ export function TradePortalWorkspace() {
   async function cancelOrder(orderId: string) {
     const response = await fetch(`/api/orders/${orderId}/cancel`, {
       method: "POST",
-      headers: await buildApiHeaders("trade"),
+      headers: await buildApiHeaders("trade", { "Idempotency-Key": crypto.randomUUID() }),
     });
 
     const body = (await response.json()) as
@@ -208,7 +208,7 @@ export function TradePortalWorkspace() {
 
   return (
     <>
-      <section className="two-column" style={{ marginTop: 18 }}>
+      <section className="two-column" id="lookup" style={{ marginTop: 18 }}>
         <div className="panel">
           <h2>Vehicle lookup</h2>
           <div className="form-grid">
@@ -246,7 +246,7 @@ export function TradePortalWorkspace() {
               </div>
               <div className="card">
                 <span>Year</span>
-                <strong>{vehicle.year}</strong>
+                <strong>{vehicle.year ?? "Review"}</strong>
               </div>
               <div className="card">
                 <span>Market</span>
@@ -351,7 +351,7 @@ export function TradePortalWorkspace() {
         </table>
       </section>
 
-      <section className="two-column" style={{ marginTop: 18 }}>
+      <section className="two-column" id="orders" style={{ marginTop: 18 }}>
         <div className="table-shell">
           <table>
             <thead>
@@ -394,7 +394,7 @@ export function TradePortalWorkspace() {
           </table>
         </div>
 
-        <div className="table-shell">
+        <div className="table-shell" id="documents">
           <table>
             <thead>
               <tr>

@@ -6,12 +6,19 @@ export type TradeAccountApplicationInput = {
   contactPhone: string;
   postcode?: string;
   notes?: string;
+  privacyConsent: boolean;
+  tradeTermsConsent: boolean;
+  consentVersion: string;
+  turnstileToken?: string;
 };
 
-export type TradeAccountApplication = TradeAccountApplicationInput & {
+export type TradeAccountApplication = Omit<TradeAccountApplicationInput, "privacyConsent" | "tradeTermsConsent" | "consentVersion" | "turnstileToken"> & {
   id: string;
   status: "pending" | "approved" | "paused" | "closed";
   createdAt: string;
+  privacyConsent?: boolean;
+  tradeTermsConsent?: boolean;
+  consentVersion?: string;
 };
 
 export type TradeAccountStatus = TradeAccountApplication["status"];
@@ -32,7 +39,7 @@ export type ProvisionTradeAccountLoginResult =
         email: string;
         userId: string;
         created: boolean;
-        temporaryPassword?: string;
+        setupEmailSent: boolean;
       };
     }
   | { ok: false; message: string };

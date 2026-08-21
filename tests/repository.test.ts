@@ -520,6 +520,9 @@ describe("repository boundary", () => {
       contactPhone: "0400000000",
       postcode: "4000",
       notes: "Interested in GWM and BYD service parts.",
+      privacyConsent: true,
+      tradeTermsConsent: true,
+      consentVersion: "2026-08-21",
     });
 
     expect(result.ok).toBe(true);
@@ -540,6 +543,9 @@ describe("repository boundary", () => {
       contactName: "Morgan Lee",
       contactEmail: "morgan@example.com",
       contactPhone: "0400000002",
+      privacyConsent: true,
+      tradeTermsConsent: true,
+      consentVersion: "2026-08-21",
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -553,7 +559,7 @@ describe("repository boundary", () => {
       email: "morgan@example.com",
       created: true,
     });
-    expect(provisioned.login.temporaryPassword).toBeTruthy();
+    expect(provisioned.login.setupEmailSent).toBe(true);
   });
 
   it("approves pending trade account applications and removes them from admin queue", async () => {
@@ -565,6 +571,9 @@ describe("repository boundary", () => {
       contactName: "Taylor Smith",
       contactEmail: "taylor@example.com",
       contactPhone: "0400000001",
+      privacyConsent: true,
+      tradeTermsConsent: true,
+      consentVersion: "2026-08-21",
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;

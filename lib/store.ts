@@ -398,7 +398,7 @@ export function provisionTradeAccountLogin(applicationId: string) {
       email: application.contactEmail,
       userId: `demo-user-${suffix}`,
       created: true,
-      temporaryPassword: `Demo-${suffix}-Access!`,
+      setupEmailSent: true,
     },
   };
 }

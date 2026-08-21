@@ -1,0 +1,11 @@
+"use client";
+import { Barcode, Package } from "@phosphor-icons/react";
+import { useState } from "react";
+import { buildApiHeaders } from "../lib/clientAuth";
+
+function parseLines(value: string) { return value.split(/\r?\n/).map((row) => row.trim()).filter(Boolean).map((row) => { const [sku, received, damaged = "0"] = row.split(",").map((cell) => cell.trim()); return { sku, receivedQuantity: Number(received), damagedQuantity: Number(damaged), evidence: [] }; }); }
+export function GoodsReceiptPanel() {
+  const [shipmentId, setShipmentId] = useState(""); const [receiptNumber, setReceiptNumber] = useState(""); const [locationId, setLocationId] = useState(""); const [lines, setLines] = useState(""); const [message, setMessage] = useState("Scan or paste confirmed shipment lines. Received quantities enter quarantine.");
+  async function submit() { const payload = { shipmentId, receiptNumber, locationId, idempotencyKey: crypto.randomUUID(), lines: parseLines(lines) }; const response = await fetch("/api/warehouse/receipts", { method: "POST", headers: await buildApiHeaders("warehouse", { "Content-Type": "application/json" }), body: JSON.stringify(payload) }); const body = await response.json(); setMessage(response.ok && body.ok ? `Receipt ${body.goodsReceiptId} completed. Stock remains quarantined.` : body.message || "Receipt could not be completed."); }
+  return <section className="panel receipt-panel" id="receiving"><div className="panel-title"><div><p className="eyebrow">Purchase receiving</p><h2>Receive against shipment</h2></div><Package size={28} weight="duotone" /></div><div className="form-grid"><label>Shipment ID<input value={shipmentId} onChange={(e) => setShipmentId(e.target.value)} /></label><label>Receipt number<input value={receiptNumber} onChange={(e) => setReceiptNumber(e.target.value)} /></label><label>Receiving location ID<input value={locationId} onChange={(e) => setLocationId(e.target.value)} /></label><label>Scan lines: SKU, received, damaged<textarea value={lines} onChange={(e) => setLines(e.target.value)} placeholder="DM-GWM-0001,4,0" /></label></div><div className="import-actions"><button className="button button-primary" type="button" onClick={() => void submit()}><Barcode size={18} />Complete receipt</button><p role="status">{message}</p></div></section>;
+}

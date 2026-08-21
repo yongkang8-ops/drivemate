@@ -28,6 +28,11 @@ export function getRuntimeReadiness() {
   const hasSupabaseServiceKey = hasValue(process.env.SUPABASE_SERVICE_ROLE_KEY);
   const accountDocumentsBucket = process.env.SUPABASE_ACCOUNT_DOCUMENTS_BUCKET ?? "account-documents";
   const businessProfileConfigured = hasConfiguredBusinessProfile();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  const staffMfaRequired = process.env.DRIVEMATE_REQUIRE_STAFF_MFA === "true";
+  const turnstileReady = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() && process.env.TURNSTILE_SECRET_KEY?.trim() && process.env.DRIVEMATE_TURNSTILE_REQUIRED === "true");
+  const importSigningReady = (process.env.DRIVEMATE_IMPORT_SIGNING_SECRET?.trim().length ?? 0) >= 32;
+  const isolatedProductionData = process.env.DRIVEMATE_ENVIRONMENT === "production" && process.env.DRIVEMATE_SUPABASE_ENVIRONMENT === "production";
   const checks: ReadinessCheck[] = [];
 
   if (isProduction && repositoryMode !== "supabase") {
@@ -80,6 +85,12 @@ export function getRuntimeReadiness() {
       "Business legal name, ABN, and accounts email should be configured before live account documents are issued.",
     );
   }
+
+  addCheck(checks, "site_url", !isProduction || siteUrl === "https://drivemateparts.com.au" ? "pass" : "fail", siteUrl === "https://drivemateparts.com.au" ? "Production domain is configured." : "Production requires https://drivemateparts.com.au.");
+  addCheck(checks, "staff_mfa", !isProduction || staffMfaRequired ? "pass" : "fail", staffMfaRequired ? "Admin and warehouse MFA enforcement is enabled." : "Production requires DRIVEMATE_REQUIRE_STAFF_MFA=true.");
+  addCheck(checks, "turnstile", !isProduction || turnstileReady ? "pass" : "fail", turnstileReady ? "Trade account bot protection is configured." : "Production requires Turnstile keys and enforcement.");
+  addCheck(checks, "import_signing", !isProduction || importSigningReady ? "pass" : "fail", importSigningReady ? "Import preview tokens have a dedicated signing secret." : "Production requires a 32+ character import signing secret.");
+  addCheck(checks, "data_isolation", !isProduction || isolatedProductionData ? "pass" : "fail", isolatedProductionData ? "Production data environment is explicitly selected." : "Production requires a dedicated production Supabase environment marker.");
 
   const hasFailures = checks.some((check) => check.status === "fail");
 

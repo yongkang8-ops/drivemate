@@ -4,6 +4,7 @@ import type { InventoryMovementInput, StockMovement } from "../../../../lib/repo
 import { getRepository } from "../../../../lib/repository";
 import { getRequestContext } from "../../../../lib/serverAuth";
 import { inventoryMovementImportSchema } from "../../../../lib/validators";
+import { mutationRequestAllowed } from "../../../../lib/requestSecurity";
 import type { InventoryRow } from "../../../../lib/inventory";
 
 type ImportFailure = {
@@ -14,6 +15,9 @@ type ImportFailure = {
 };
 
 export async function POST(request: Request) {
+  if (!mutationRequestAllowed(request)) {
+    return NextResponse.json({ ok: false, message: "Request security validation failed." }, { status: 403 });
+  }
   const authContext = await getRequestContext(request);
   if (!can(authContext.role, "inventory_write")) {
     return NextResponse.json({ ok: false, message: "Inventory movement import requires a warehouse role." }, { status: 403 });

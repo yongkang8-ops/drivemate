@@ -122,7 +122,7 @@ type AdminState = {
     query?: string;
     vehicle: string;
     matchCount: number;
-    confidence: "mock_match" | "manual_review";
+    confidence: "exact" | "manual_review";
     createdBy?: string;
     createdAt: string;
   }>;
@@ -233,7 +233,7 @@ export function AdminDashboard() {
   async function approveApplication(applicationId: string) {
     const response = await fetch(`/api/trade-account-applications/${applicationId}/approve`, {
       method: "POST",
-      headers: await buildApiHeaders("admin"),
+      headers: await buildApiHeaders("admin", { "Idempotency-Key": crypto.randomUUID() }),
     });
 
     const body = (await response.json()) as
@@ -259,7 +259,7 @@ export function AdminDashboard() {
       | {
           ok: true;
           application: { id: string; accountName: string; status: string };
-          login: { email: string; created: boolean; temporaryPassword?: string };
+          login: { email: string; created: boolean; setupEmailSent: boolean };
         }
       | { ok: false; message: string };
 
@@ -269,11 +269,7 @@ export function AdminDashboard() {
     }
 
     await refresh();
-    setMessage(
-      body.login.temporaryPassword
-        ? `Login provisioned for ${body.login.email}. Temporary password: ${body.login.temporaryPassword}`
-        : `Login already exists for ${body.login.email}; trade profile linked.`,
-    );
+    setMessage(`Login provisioned for ${body.login.email}. Password setup email sent.`);
   }
 
   async function updateTradeAccountStatus(
@@ -302,7 +298,7 @@ export function AdminDashboard() {
   async function cancelOrder(orderId: string) {
     const response = await fetch(`/api/orders/${orderId}/cancel`, {
       method: "POST",
-      headers: await buildApiHeaders("admin"),
+      headers: await buildApiHeaders("admin", { "Idempotency-Key": crypto.randomUUID() }),
     });
 
     const body = (await response.json()) as
@@ -667,7 +663,7 @@ export function AdminDashboard() {
 
   return (
     <>
-      <section className="metric-grid" style={{ marginTop: 18 }}>
+      <section className="metric-grid" id="overview" style={{ marginTop: 18 }}>
         <article className="metric">
           <span>Active SKUs</span>
           <strong>{state.metrics.activeSkus}</strong>
@@ -732,7 +728,7 @@ export function AdminDashboard() {
         </table>
       </section>
 
-      <section className="panel" style={{ marginTop: 18 }}>
+      <section className="panel" id="reports" style={{ marginTop: 18 }}>
         <h2>Operating exports</h2>
         <p>Download CSV snapshots for stock review, order follow-up, warehouse audit and account onboarding.</p>
         <p>
@@ -766,7 +762,7 @@ export function AdminDashboard() {
         </p>
       </section>
 
-      <section className="two-column" style={{ marginTop: 18 }}>
+      <section className="two-column" id="products" style={{ marginTop: 18 }}>
         <div className="table-shell" style={{ gridColumn: "1 / -1" }}>
           <table>
             <thead>

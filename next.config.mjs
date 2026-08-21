@@ -13,6 +13,7 @@ const noIndexHeaders = [{ key: "X-Robots-Tag", value: "noindex, nofollow" }];
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
+  serverExternalPackages: ["read-excel-file", "unzipper"],
   async headers() {
     return [
       {

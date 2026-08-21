@@ -9,6 +9,7 @@ export type OrderLineInput = {
 };
 
 export type CreateOrderInput = {
+  idempotencyKey?: string;
   tradeAccountId: string;
   poNumber?: string;
   vehicleVin?: string;
@@ -23,10 +24,15 @@ export type DispatchScanInput = {
 
 export type DispatchOrderInput = {
   scans?: DispatchScanInput[];
+  deliveryChargeExGstCents?: number;
+  carrier?: string;
+  trackingNumber?: string;
+  idempotencyKey?: string;
 };
 
 export type CancelOrderInput = {
   tradeAccountId?: string;
+  idempotencyKey?: string;
 };
 
 export type SalesOrder = {

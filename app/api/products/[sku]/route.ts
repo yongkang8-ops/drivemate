@@ -3,8 +3,12 @@ import { can } from "../../../../lib/auth";
 import { getRepository } from "../../../../lib/repository";
 import { getRequestContext } from "../../../../lib/serverAuth";
 import { productMasterUpdateSchema } from "../../../../lib/validators";
+import { mutationRequestAllowed } from "../../../../lib/requestSecurity";
 
 export async function PATCH(request: Request, context: { params: Promise<{ sku: string }> }) {
+  if (!mutationRequestAllowed(request)) {
+    return NextResponse.json({ ok: false, message: "Request security validation failed." }, { status: 403 });
+  }
   const authContext = await getRequestContext(request);
   if (!can(authContext.role, "admin_write")) {
     return NextResponse.json({ ok: false, message: "Product master updates require an admin role." }, { status: 403 });

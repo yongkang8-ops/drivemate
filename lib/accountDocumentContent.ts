@@ -34,7 +34,9 @@ export function hasConfiguredBusinessProfile(): boolean {
 }
 
 function documentLabel(type: AccountDocument["type"]) {
-  if (type === "invoice") return "Invoice record";
+  if (type === "order_confirmation") return "Order confirmation";
+  if (type === "invoice") return "Tax invoice";
+  if (type === "credit_note") return "Credit note";
   if (type === "delivery_record") return "Delivery record";
   return "Monthly statement";
 }
@@ -88,8 +90,7 @@ export function createAccountDocumentText(input: {
     "",
     ...(input.contentLines ?? []),
     "",
-    "Status: Operational account record.",
-    "Amounts: Final payable amounts are issued by the connected accounting system.",
+    "Status: Issued account record.",
   ].join("\n");
 }
 

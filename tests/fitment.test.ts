@@ -21,4 +21,10 @@ describe("vehicle lookup and fitment matching", () => {
     expect(result.matches[0]).toHaveProperty("available");
     expect(result.matches[0]).toHaveProperty("fitmentConfidence");
   });
+
+  it("never defaults an unknown VIN to GWM", () => {
+    const result = matchPartsForVehicle({ vin: "LGWUNKNOWN00000000" });
+    expect(result.vehicle).toMatchObject({ make: "Unknown", confidence: "manual_review" });
+    expect(result.matches).toEqual([]);
+  });
 });

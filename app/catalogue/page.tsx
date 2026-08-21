@@ -1,54 +1,19 @@
-const rows = [
-  ["DM-GWM-OF-001", "GWM", "Genuine Engine Oil Filter", "Service Filter", "Brisbane stock"],
-  ["DM-GWM-AF-002", "GWM", "Genuine Air Filter", "Service Filter", "Brisbane stock"],
-  ["DM-GWM-CF-003", "GWM", "Genuine Cabin Filter", "Service Filter", "Brisbane stock"],
-  ["DM-BYD-CF-007", "BYD", "Cabin Filter", "Service Filter", "Brisbane stock"],
-];
+import type { Metadata } from "next";
+import { CatalogueBrowser } from "../../components/CatalogueBrowser";
 
-export default function CataloguePage() {
+export const metadata: Metadata = {
+  title: "Parts Catalogue",
+  description: "Browse released DriveMate parts by Part Number, vehicle and engine.",
+};
+
+export default async function CataloguePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const { q = "" } = await searchParams;
   return (
-    <main className="page-main">
-      <p className="eyebrow">Catalogue</p>
-      <h1>Search AU-fitment parts by vehicle and stock</h1>
-      <section className="panel" style={{ marginTop: 18 }}>
-        <div className="form-grid">
-          <label>
-            Keyword
-            <input defaultValue="filter" />
-          </label>
-          <label>
-            Brand
-            <select defaultValue="all">
-              <option value="all">All brands</option>
-              <option>GWM</option>
-              <option>BYD</option>
-              <option>MG</option>
-            </select>
-          </label>
-        </div>
-      </section>
-      <section className="table-shell" style={{ marginTop: 16 }}>
-        <table>
-          <thead>
-            <tr>
-              <th>SKU</th>
-              <th>Brand</th>
-              <th>Part</th>
-              <th>Category</th>
-              <th>Availability</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row[0]}>
-                {row.map((cell) => (
-                  <td key={cell}>{cell}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+    <main className="page-main catalogue-page">
+      <div className="workspace-header">
+        <div><p className="eyebrow">Released catalogue</p><h1>Find the part for the job.</h1><p>Public results show released fitment and availability. Sign in for stock quantity and trade pricing.</p></div>
+      </div>
+      <CatalogueBrowser initialQuery={q} />
     </main>
   );
 }
