@@ -1,148 +1,67 @@
-# DriveMate Parts Launch Environment Setup / 上线环境搭建清单
+# DriveMate V1.1 Launch Ownership / V1.1 上线环境归属
 
-## Conclusion / 结论
+## Ownership / 归属
 
-Li / Chris / James only need to provide account ownership, project credentials, and one-time external service access. The technical setup, environment file preparation, SQL verification, deployment checks, and release gate can be handled from this workspace after those inputs are available.
+| Asset / 资产 | Recommended owner / 建议归属                                 | Reason / 原因                                                                   |
+| ------------ | ------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| Vercel       | Australian operating company                                 | Hosting, domain and billing are operating assets / 托管、域名和账单属于运营资产 |
+| Supabase     | Australian operating company with two owner-level custodians | Database, Auth and documents are core records / 数据库、Auth 和文件属于核心记录 |
+| Domain       | Australian operating company                                 | Brand, email and invoices must align / 品牌、邮箱和发票主体需一致               |
+| GitHub       | Business organisation, not a personal-only repository        | Source and deployment history require continuity / 源码和部署历史需要可持续交接 |
 
-Li / Chris / James 只需要提供外部账号归属、项目密钥和一次性外部服务访问。拿到这些信息后，技术配置、环境变量整理、SQL 验证、部署检查和 release gate 可以在当前工作区继续完成。
-
-## What Can Be Handled Here / 当前工作区可完成事项
+## Responsibility / 责任分工
 
 ```text
-1. Prepare Vercel project environment variables.
-2. Prepare Supabase SQL execution order and migration checklist.
-3. Create staging seed users for trade, warehouse, and admin roles.
-4. Generate short-lived smoke-test access tokens.
-5. Run local preflight, Supabase verification, staging verification, and strict release verification.
-6. Update deployment documentation after each environment decision.
+Li / China side:
+- Maintain authoritative PI, supplier evidence, packing data and China compliance evidence.
+- Do not place private supplier prices in Git or public Vercel variables.
+
+James / Australia side:
+- Hold Australian company, domain and operational accounts.
+- Confirm ABN, accounts email, warehouse identity, customer terms and local acceptance evidence.
+
+Technical operator:
+- Maintain migration, deployment, backups, MFA, secrets, monitoring and release evidence.
 ```
 
 ```text
-1. 准备 Vercel 项目环境变量。
-2. 准备 Supabase SQL 执行顺序和增量迁移清单。
-3. 创建 staging 的 trade、warehouse、admin 三类测试用户。
-4. 生成短期 smoke test access token。
-5. 运行本地 preflight、Supabase 验证、staging 验证和严格 release 验证。
-6. 每次环境决策后同步更新部署文档。
+Li / 中国端：
+- 维护权威 PI、供应商证据、包装数据和中国端合规证据。
+- 不得把供应商价格放入 Git 或公开 Vercel 变量。
+
+James / 澳洲端：
+- 持有澳洲公司、域名和运营账号。
+- 确认 ABN、accounts email、仓库身份、客户条款和澳洲验收证据。
+
+技术维护方：
+- 维护 migration、部署、备份、MFA、密钥、监控和 release 证据。
 ```
 
-## What Requires Shareholder / Account Owner Input / 需要股东或账号持有人提供的信息
+## Immediate Staging Sequence / 当前 Staging 执行顺序
 
-```text
-1. Vercel account access or an invited project role.
-2. Supabase account access or a project owner/admin role.
-3. Staging domain or Vercel preview URL decision.
-4. Production domain decision, if already available.
-5. Registered company legal name, ABN, and accounts email.
-6. Supabase project URL, anon key, and service role key.
-7. Staging test emails and temporary passwords for trade, warehouse, and admin users.
-```
+1. Sign in to Supabase and export a staging backup.
+2. Apply `20260821_v11_prelaunch.sql` to staging.
+3. Add missing Preview environment variables in Vercel and redeploy `feat/v1.1-prelaunch`.
+4. Preserve the designated Trade, Warehouse and Admin test users; remove obsolete smoke business records.
+5. Enroll Admin and Warehouse TOTP factors.
+6. Run PI Preview, review all 119 rows, then Commit.
+7. Verify 706 units are on order and public availability remains zero.
+8. Run AAL2 staging smoke tests and browser tests.
 
-```text
-1. Vercel 账号访问权限，或邀请当前操作者进入项目。
-2. Supabase 账号访问权限，或项目 owner/admin 权限。
-3. staging 域名或 Vercel preview URL 的选择。
-4. 正式生产域名，如果已经确定。
-5. 澳洲公司 legal name、ABN 和 accounts email。
-6. Supabase project URL、anon key 和 service role key。
-7. trade、warehouse、admin 三类 staging 测试邮箱和临时密码。
-```
+9. 登录 Supabase 并导出 staging 备份。
+10. 在 staging 执行 `20260821_v11_prelaunch.sql`。
+11. 在 Vercel 补齐 Preview 环境变量并重新部署 `feat/v1.1-prelaunch`。
+12. 保留指定的 Trade、Warehouse、Admin 测试用户，清理旧 smoke 业务数据。
+13. 为 Admin 和 Warehouse 注册 TOTP。
+14. 执行 PI Preview，逐行审核 119 行后 Commit。
+15. 验证 706 件仅计入 on-order，公开可售库存仍为零。
+16. 执行 AAL2 staging smoke 与浏览器测试。
 
-## Recommended Environment Ownership / 推荐环境归属
+## Human Intervention Still Required / 仍需人工介入
 
-```text
-Vercel:
-  Owner: Australian operating company or James-controlled business account.
-  Reason: hosting, domain, and billing should sit with the Australian operating entity.
-
-Supabase:
-  Owner: Australian operating company or a shared business email with two-factor authentication.
-  Reason: database, auth users, order records, stock records, and account documents are operational assets.
-
-Domain:
-  Owner: Australian operating company.
-  Reason: future brand, email, invoices, and customer trust should align.
-```
-
-```text
-Vercel:
-  建议归属：澳洲运营公司，或 James 可控的 business account。
-  原因：网站托管、域名和账单应归属澳洲运营主体。
-
-Supabase:
-  建议归属：澳洲运营公司，或启用双重验证的共享业务邮箱。
-  原因：数据库、登录用户、订单记录、库存记录和账户文件都是核心运营资产。
-
-Domain:
-  建议归属：澳洲运营公司。
-  原因：未来品牌、邮箱、发票和客户信任应统一。
-```
-
-## Minimum Staging Values / Staging 最小必需变量
-
-```text
-NEXT_PUBLIC_SITE_URL=https://<staging-or-production-url>
-DRIVEMATE_LEGAL_NAME=<registered company name>
-DRIVEMATE_ABN=<company ABN>
-DRIVEMATE_ACCOUNTS_EMAIL=accounts@<domain>
-DRIVEMATE_WAREHOUSE_LABEL=Brisbane dispatch warehouse
-DRIVEMATE_REPOSITORY=supabase
-DRIVEMATE_ENABLE_DEMO_AUTH=false
-NEXT_PUBLIC_SHOW_INTERNAL_NAV=false
-NEXT_PUBLIC_SUPABASE_URL=<supabase project url>
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase anon key>
-SUPABASE_SERVICE_ROLE_KEY=<supabase service role key>
-SUPABASE_ACCOUNT_DOCUMENTS_BUCKET=account-documents
-```
-
-## Execution Order / 执行顺序
-
-```text
-1. Create or confirm Supabase project.
-2. Run supabase/schema.sql.
-3. Run supabase/policies.sql.
-4. Run supabase/seed.sql.
-5. If the project already used an older schema, run migrations in supabase/migrations/.
-6. Create Vercel project with root apps/drivemate-web.
-7. Add environment variables in Vercel.
-8. Deploy staging.
-9. Run npm run verify:supabase.
-10. Run npm run seed:users.
-11. Run npm run smoke:tokens.
-12. Run npm run verify:staging against the Vercel URL.
-13. Run npm run verify:release before any real pilot use.
-```
-
-```text
-1. 创建或确认 Supabase 项目。
-2. 执行 supabase/schema.sql。
-3. 执行 supabase/policies.sql。
-4. 执行 supabase/seed.sql。
-5. 如果项目已经跑过旧 schema，则执行 supabase/migrations/ 内的增量迁移。
-6. 创建 Vercel 项目，root 设为 apps/drivemate-web。
-7. 在 Vercel 添加环境变量。
-8. 部署 staging。
-9. 运行 npm run verify:supabase。
-10. 运行 npm run seed:users。
-11. 运行 npm run smoke:tokens。
-12. 针对 Vercel URL 运行 npm run verify:staging。
-13. 真实 pilot 使用前运行 npm run verify:release。
-```
-
-## Current Local Status / 当前本地状态
-
-```text
-Vercel CLI: not installed locally
-Supabase CLI: not installed locally
-.env.local: not present
-Local preflight: passed in the latest run
-External release readiness: pending Vercel and Supabase environment
-```
-
-```text
-Vercel CLI：本机未安装
-Supabase CLI：本机未安装
-.env.local：尚未创建
-本地 preflight：最近一次已通过
-外部 release readiness：等待 Vercel 和 Supabase 环境
-```
+- Supabase/Vercel owner login and MFA.
+- Supabase/Vercel owner 登录及 MFA。
+- Real ABN, monitored accounts email and final legal review.
+- 真实 ABN、可监控 accounts email 及最终法律审核。
+- DNS change for `drivemateparts.com.au` only after production gate passes.
+- 仅在 production gate 通过后修改 `drivemateparts.com.au` DNS。

@@ -14,12 +14,14 @@ const roleConfigs = [
     tokenKey: "DRIVEMATE_SMOKE_WAREHOUSE_TOKEN",
     emailKey: "DRIVEMATE_SEED_WAREHOUSE_EMAIL",
     passwordKey: "DRIVEMATE_SEED_WAREHOUSE_PASSWORD",
+    totpCodeKey: "DRIVEMATE_SMOKE_WAREHOUSE_TOTP_CODE",
   },
   {
     role: "admin",
     tokenKey: "DRIVEMATE_SMOKE_ADMIN_TOKEN",
     emailKey: "DRIVEMATE_SEED_ADMIN_EMAIL",
     passwordKey: "DRIVEMATE_SEED_ADMIN_PASSWORD",
+    totpCodeKey: "DRIVEMATE_SMOKE_ADMIN_TOTP_CODE",
   },
 ];
 
@@ -83,10 +85,47 @@ async function signInRole(url, anonKey, config) {
   const authClient = createAuthClient(url, anonKey);
   const email = requireEnv(config.emailKey);
   const password = requireEnv(config.passwordKey);
-  const { data, error } = await authClient.auth.signInWithPassword({ email, password });
+  const { data, error } = await authClient.auth.signInWithPassword({
+    email,
+    password,
+  });
 
   if (error || !data.session || !data.user) {
-    throw new Error(`Could not sign in ${config.role} user ${email}: ${error?.message ?? "missing session"}`);
+    throw new Error(
+      `Could not sign in ${config.role} user ${email}: ${error?.message ?? "missing session"}`,
+    );
+  }
+
+  let accessToken = data.session.access_token;
+  let expiresAt = data.session.expires_at;
+  if (
+    config.totpCodeKey &&
+    process.env.DRIVEMATE_REQUIRE_STAFF_MFA === "true"
+  ) {
+    const code = requireEnv(config.totpCodeKey);
+    const factors = await authClient.auth.mfa.listFactors();
+    const factor = factors.data?.totp.find(
+      (candidate) => candidate.status === "verified",
+    );
+    if (!factor)
+      throw new Error(`${config.role} user has no verified TOTP factor.`);
+    const verified = await authClient.auth.mfa.challengeAndVerify({
+      factorId: factor.id,
+      code,
+    });
+    if (verified.error || !verified.data?.access_token) {
+      throw new Error(
+        `Could not complete ${config.role} MFA: ${verified.error?.message ?? "missing AAL2 token"}`,
+      );
+    }
+    accessToken = verified.data.access_token;
+    try {
+      expiresAt = JSON.parse(
+        Buffer.from(accessToken.split(".")[1], "base64url").toString("utf8"),
+      ).exp;
+    } catch {
+      expiresAt = undefined;
+    }
   }
 
   return {
@@ -94,8 +133,8 @@ async function signInRole(url, anonKey, config) {
     tokenKey: config.tokenKey,
     email,
     userId: data.user.id,
-    accessToken: data.session.access_token,
-    expiresAt: data.session.expires_at,
+    accessToken,
+    expiresAt,
   };
 }
 
@@ -110,7 +149,8 @@ async function verifyProfile(serviceClient, token) {
 
   if (error) throw error;
   if (!data) return { ok: false, message: "profile row missing" };
-  if (data.role !== token.role) return { ok: false, message: `expected ${token.role}, got ${data.role}` };
+  if (data.role !== token.role)
+    return { ok: false, message: `expected ${token.role}, got ${data.role}` };
   if (token.role === "trade" && !data.trade_account_id) {
     return { ok: false, message: "trade profile missing trade_account_id" };
   }
@@ -149,15 +189,21 @@ for (const config of roleConfigs) {
   }
 
   const suffix = profile.skipped ? "profile check skipped" : "profile checked";
-  console.log(`PASS ${config.role} token created for ${token.email} (${suffix}, expires ${expiryLabel(token.expiresAt)})`);
+  console.log(
+    `PASS ${config.role} token created for ${token.email} (${suffix}, expires ${expiryLabel(token.expiresAt)})`,
+  );
   tokens.push(token);
 }
 
 console.log("");
-console.log("Sensitive output follows. Use these only in your local shell or CI secret store.");
+console.log(
+  "Sensitive output follows. Use these only in your local shell or CI secret store.",
+);
 console.log("");
 for (const token of tokens) {
-  console.log(`# ${token.role}: ${token.email}, ${maskToken(token.accessToken)}, expires ${expiryLabel(token.expiresAt)}`);
+  console.log(
+    `# ${token.role}: ${token.email}, ${maskToken(token.accessToken)}, expires ${expiryLabel(token.expiresAt)}`,
+  );
   console.log(`$env:${token.tokenKey}='${powershellQuote(token.accessToken)}'`);
 }
 

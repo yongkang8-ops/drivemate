@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AdminDashboard } from "../../components/AdminDashboard";
 import { RoleGate } from "../../components/RoleGate";
 import { PurchaseImportPanel } from "../../components/PurchaseImportPanel";
+import { AdminOperationsPanel } from "../../components/AdminOperationsPanel";
 
 export const metadata: Metadata = {
   title: "Admin Backend | DriveMate Parts",
@@ -17,7 +18,7 @@ export default function AdminPage() {
       <div className="workspace-header"><div><p className="eyebrow">Administration</p><h1>Control purchasing, release gates and trade operations.</h1><p>Costs and compliance evidence remain restricted to authorised staff.</p></div></div>
       <nav className="internal-tabs" aria-label="Admin modules"><a href="#overview">Overview</a><a href="#purchasing">Purchasing</a><a href="#products">Products</a><a href="#inventory">Inventory</a><a href="#orders">Orders</a><a href="#accounts">Accounts</a><a href="#compliance">Compliance</a><a href="#pricing">Pricing</a><a href="#reports">Reports</a></nav>
       <RoleGate expectedRole="admin">
-        <><PurchaseImportPanel /><AdminDashboard /></>
+        <><PurchaseImportPanel /><AdminOperationsPanel /><AdminDashboard /></>
       </RoleGate>
     </main>
   );

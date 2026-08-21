@@ -13,6 +13,9 @@ const requiredEnv = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
   "SUPABASE_SERVICE_ROLE_KEY",
+  "DRIVEMATE_IMPORT_SIGNING_SECRET",
+  "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
+  "TURNSTILE_SECRET_KEY",
   "DRIVEMATE_SMOKE_TRADE_TOKEN",
   "DRIVEMATE_SMOKE_WAREHOUSE_TOKEN",
   "DRIVEMATE_SMOKE_ADMIN_TOKEN",
@@ -67,7 +70,8 @@ function run(command, args, env) {
     child.on("error", reject);
     child.on("exit", (code) => {
       if (code === 0) resolveRun();
-      else reject(new Error(`${command} ${args.join(" ")} exited with ${code}`));
+      else
+        reject(new Error(`${command} ${args.join(" ")} exited with ${code}`));
     });
   });
 }
@@ -87,13 +91,15 @@ function looksPlaceholder(value) {
 
 function checkEnvironment() {
   const missing = requiredEnv.filter((key) => !process.env[key]?.trim());
-  for (const key of missing) fail(`${key} is required for release readiness verification.`);
+  for (const key of missing)
+    fail(`${key} is required for release readiness verification.`);
 
   const baseUrl = envValue("DRIVEMATE_BASE_URL");
   const siteUrl = envValue("NEXT_PUBLIC_SITE_URL");
   const legalName = envValue("DRIVEMATE_LEGAL_NAME");
   const abn = envValue("DRIVEMATE_ABN");
   const accountsEmail = envValue("DRIVEMATE_ACCOUNTS_EMAIL");
+  const importSigningSecret = envValue("DRIVEMATE_IMPORT_SIGNING_SECRET");
 
   if (baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1")) {
     fail("DRIVEMATE_BASE_URL must be a deployed staging URL, not localhost.");
@@ -101,20 +107,33 @@ function checkEnvironment() {
   if (baseUrl && !baseUrl.startsWith("https://")) {
     fail("DRIVEMATE_BASE_URL must use https.");
   }
-  if (siteUrl.includes("localhost") || siteUrl.includes("127.0.0.1") || siteUrl.includes("<")) {
-    fail("NEXT_PUBLIC_SITE_URL must be a real public site URL, not localhost or a placeholder.");
+  if (
+    siteUrl.includes("localhost") ||
+    siteUrl.includes("127.0.0.1") ||
+    siteUrl.includes("<")
+  ) {
+    fail(
+      "NEXT_PUBLIC_SITE_URL must be a real public site URL, not localhost or a placeholder.",
+    );
   }
   if (siteUrl && !siteUrl.startsWith("https://")) {
     fail("NEXT_PUBLIC_SITE_URL must use https.");
   }
   if (looksPlaceholder(legalName)) {
-    fail("DRIVEMATE_LEGAL_NAME must be the registered company name, not a placeholder.");
+    fail(
+      "DRIVEMATE_LEGAL_NAME must be the registered company name, not a placeholder.",
+    );
   }
   if (!/^\d{11}$/.test(abn.replace(/\s/g, ""))) {
     fail("DRIVEMATE_ABN must be a real 11-digit Australian Business Number.");
   }
-  if (looksPlaceholder(accountsEmail) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountsEmail)) {
-    fail("DRIVEMATE_ACCOUNTS_EMAIL must be a real monitored accounts email address.");
+  if (
+    looksPlaceholder(accountsEmail) ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountsEmail)
+  ) {
+    fail(
+      "DRIVEMATE_ACCOUNTS_EMAIL must be a real monitored accounts email address.",
+    );
   }
 
   if (process.env.DRIVEMATE_REPOSITORY !== "supabase") {
@@ -127,7 +146,23 @@ function checkEnvironment() {
     fail("NEXT_PUBLIC_SHOW_INTERNAL_NAV must be false.");
   }
   if (process.env.DRIVEMATE_SMOKE_USE_DEMO_HEADERS === "true") {
-    fail("DRIVEMATE_SMOKE_USE_DEMO_HEADERS must not be true for release readiness.");
+    fail(
+      "DRIVEMATE_SMOKE_USE_DEMO_HEADERS must not be true for release readiness.",
+    );
+  }
+  if (importSigningSecret.length < 32)
+    fail("DRIVEMATE_IMPORT_SIGNING_SECRET must be at least 32 characters.");
+  if (process.env.DRIVEMATE_REQUIRE_STAFF_MFA !== "true")
+    fail("DRIVEMATE_REQUIRE_STAFF_MFA must be true.");
+  if (process.env.DRIVEMATE_TURNSTILE_REQUIRED !== "true")
+    fail("DRIVEMATE_TURNSTILE_REQUIRED must be true.");
+  if (
+    process.env.DRIVEMATE_ENVIRONMENT !== "production" ||
+    process.env.DRIVEMATE_SUPABASE_ENVIRONMENT !== "production"
+  ) {
+    fail(
+      "Production release requires explicit production app and Supabase environment markers.",
+    );
   }
 
   if (process.exitCode) process.exit();

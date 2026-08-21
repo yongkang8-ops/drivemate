@@ -1,9 +1,31 @@
-import { findProductBySku, initialInventory, resolveSkuIdentifier } from "./catalogue";
-import { availableStock, dispatchStock, quarantineStock, receiveStock, type InventoryRow } from "./inventory";
-import { createDraftOrder, type CreateOrderInput, type SalesOrder } from "./orders";
+import {
+  findProductBySku,
+  initialInventory,
+  resolveSkuIdentifier,
+} from "./catalogue";
+import {
+  availableStock,
+  dispatchStock,
+  quarantineStock,
+  receiveStock,
+  type InventoryRow,
+} from "./inventory";
+import {
+  createDraftOrder,
+  type CreateOrderInput,
+  type SalesOrder,
+} from "./orders";
 import type { PriceResolver } from "./pricing";
-import type { AccountDocument, AdminLookupRequest, AdminPurchaseBatch } from "./repository";
-import type { TradeAccountApplicationInput, TradeAccountApplication, TradeAccountStatus } from "./tradeAccounts";
+import type {
+  AccountDocument,
+  AdminLookupRequest,
+  AdminPurchaseBatch,
+} from "./repository";
+import type {
+  TradeAccountApplicationInput,
+  TradeAccountApplication,
+  TradeAccountStatus,
+} from "./tradeAccounts";
 
 export type StockMovement = {
   id: string;
@@ -74,7 +96,9 @@ function statementMonth(date = new Date()): string {
   return date.toISOString().slice(0, 7);
 }
 
-function ensureMonthlyStatementDocument(tradeAccountId: string): AccountDocument {
+function ensureMonthlyStatementDocument(
+  tradeAccountId: string,
+): AccountDocument {
   const month = statementMonth();
   const reference = `STMT-${month}-${tradeAccountId}`;
   const existing = state.accountDocuments.find(
@@ -98,17 +122,29 @@ function ensureMonthlyStatementDocument(tradeAccountId: string): AccountDocument
 
 export function getInventoryState(): StoreState {
   return {
-    inventory: state.inventory.map((row) => ({ ...row, quarantine: row.quarantine ?? 0 })),
+    inventory: state.inventory.map((row) => ({
+      ...row,
+      quarantine: row.quarantine ?? 0,
+    })),
     stockMovements: state.stockMovements.map((movement) => ({ ...movement })),
-    orders: state.orders.map((order) => ({ ...order, lines: order.lines.map((line) => ({ ...line })) })),
-    accountDocuments: state.accountDocuments.map((document) => ({ ...document })),
-    accountApplications: state.accountApplications.map((application) => ({ ...application })),
+    orders: state.orders.map((order) => ({
+      ...order,
+      lines: order.lines.map((line) => ({ ...line })),
+    })),
+    accountDocuments: state.accountDocuments.map((document) => ({
+      ...document,
+    })),
+    accountApplications: state.accountApplications.map((application) => ({
+      ...application,
+    })),
     purchaseBatches: state.purchaseBatches.map((batch) => ({ ...batch })),
     lookupRequests: state.lookupRequests.map((request) => ({ ...request })),
   };
 }
 
-export function recordLookupRequest(input: Omit<AdminLookupRequest, "id" | "createdAt">) {
+export function recordLookupRequest(
+  input: Omit<AdminLookupRequest, "id" | "createdAt">,
+) {
   const request: AdminLookupRequest = {
     id: `LOOKUP-${Date.now()}`,
     createdAt: new Date().toISOString(),
@@ -126,12 +162,20 @@ export function ensureInventoryRow(sku: string) {
 
 function isTradeAccountApprovedForOrdering(tradeAccountId: string) {
   if (tradeAccountId === "acct-demo") return true;
-  const application = state.accountApplications.find((candidate) => candidate.id === tradeAccountId);
+  const application = state.accountApplications.find(
+    (candidate) => candidate.id === tradeAccountId,
+  );
   return application?.status === "approved";
 }
 
 export function applyInventoryMovement(input: {
-  type: "inbound" | "putaway" | "dispatch" | "return" | "quarantine" | "adjustment";
+  type:
+    | "inbound"
+    | "putaway"
+    | "dispatch"
+    | "return"
+    | "quarantine"
+    | "adjustment";
   sku: string;
   quantity: number;
   reference: string;
@@ -173,11 +217,17 @@ export function applyInventoryMovement(input: {
       if (input.quarantineAction) {
         const currentQuarantine = row.quarantine ?? 0;
         if (currentQuarantine < input.quantity) {
-          return { ok: false as const, message: "Not enough quarantined stock." };
+          return {
+            ok: false as const,
+            message: "Not enough quarantined stock.",
+          };
         }
         if (input.quarantineAction === "writeoff") {
           if (row.onHand < input.quantity) {
-            return { ok: false as const, message: "Not enough on-hand stock to write off." };
+            return {
+              ok: false as const,
+              message: "Not enough on-hand stock to write off.",
+            };
           }
           row.onHand -= input.quantity;
         }
@@ -209,15 +259,16 @@ export function applyInventoryMovement(input: {
     input.type === "putaway"
       ? (input.toLocation ?? input.location ?? "BNE putaway")
       : input.type === "adjustment"
-        ? (input.location ?? (input.quarantineAction ? "BNE quarantine" : "BNE adjustment"))
-      : (input.location ??
-        (input.type === "inbound"
-          ? "BNE receiving"
-          : input.type === "return"
-            ? "BNE returns"
-            : input.type === "quarantine"
-              ? "BNE quarantine"
-              : "BNE dispatch"));
+        ? (input.location ??
+          (input.quarantineAction ? "BNE quarantine" : "BNE adjustment"))
+        : (input.location ??
+          (input.type === "inbound"
+            ? "BNE receiving"
+            : input.type === "return"
+              ? "BNE returns"
+              : input.type === "quarantine"
+                ? "BNE quarantine"
+                : "BNE dispatch"));
 
   const movement: StockMovement = {
     id: `SM-${Date.now()}`,
@@ -240,8 +291,10 @@ export function applyInventoryMovement(input: {
       (batch) => batch.batchNo === input.reference && batch.sku === sku,
     );
     if (existingBatch) {
-      existingBatch.receivedQuantity = (existingBatch.receivedQuantity ?? 0) + input.quantity;
-      existingBatch.receivedDate = existingBatch.receivedDate ?? movement.createdAt.slice(0, 10);
+      existingBatch.receivedQuantity =
+        (existingBatch.receivedQuantity ?? 0) + input.quantity;
+      existingBatch.receivedDate =
+        existingBatch.receivedDate ?? movement.createdAt.slice(0, 10);
     } else {
       state.purchaseBatches.unshift({
         batchNo: input.reference,
@@ -255,23 +308,41 @@ export function applyInventoryMovement(input: {
   }
 
   state.stockMovements.unshift(movement);
-  return { ok: true as const, inventory: getInventoryState().inventory, movement };
+  return {
+    ok: true as const,
+    inventory: getInventoryState().inventory,
+    movement,
+  };
 }
 
-export function submitOrder(input: CreateOrderInput, context: { createdBy?: string; priceResolver?: PriceResolver } = {}) {
+export function submitOrder(
+  input: CreateOrderInput,
+  context: { createdBy?: string; priceResolver?: PriceResolver } = {},
+) {
   if (!isTradeAccountApprovedForOrdering(input.tradeAccountId)) {
-    return { ok: false as const, message: "Trade account must be approved before orders can be submitted." };
+    return {
+      ok: false as const,
+      message: "Trade account must be approved before orders can be submitted.",
+    };
   }
 
   for (const line of input.lines) {
     const product = findProductBySku(line.sku);
-    if (!product) return { ok: false as const, message: `SKU ${line.sku} was not found.` };
+    if (!product)
+      return { ok: false as const, message: `SKU ${line.sku} was not found.` };
     if (product.status !== "active") {
-      return { ok: false as const, message: `SKU ${line.sku} is not active for trade ordering.` };
+      return {
+        ok: false as const,
+        message: `SKU ${line.sku} is not active for trade ordering.`,
+      };
     }
   }
 
-  const result = createDraftOrder(state.inventory, input, context.priceResolver);
+  const result = createDraftOrder(
+    state.inventory,
+    input,
+    context.priceResolver,
+  );
   if (!result.ok) return result;
 
   state.inventory = result.inventory;
@@ -280,9 +351,9 @@ export function submitOrder(input: CreateOrderInput, context: { createdBy?: stri
   state.accountDocuments.unshift(
     createAccountDocument({
       tradeAccountId: order.tradeAccountId,
-      type: "invoice",
-      reference: `INV-${order.id}`,
-      storagePath: `generated/invoices/${order.id}.txt`,
+      type: "order_confirmation",
+      reference: `OC-${order.id}`,
+      storagePath: `generated/order-confirmations/${order.id}.txt`,
     }),
   );
   ensureMonthlyStatementDocument(order.tradeAccountId);
@@ -290,17 +361,32 @@ export function submitOrder(input: CreateOrderInput, context: { createdBy?: stri
   return { ok: true as const, order, inventory: getInventoryState().inventory };
 }
 
-export function dispatchOrder(orderId: string, context: { createdBy?: string } = {}) {
+export function dispatchOrder(
+  orderId: string,
+  context: { createdBy?: string } = {},
+) {
   const order = state.orders.find((candidate) => candidate.id === orderId);
   if (!order) return { ok: false as const, message: "Order was not found." };
-  if (order.status === "dispatched") return { ok: false as const, message: "Order has already been dispatched." };
-  if (order.status === "cancelled") return { ok: false as const, message: "Cancelled orders cannot be dispatched." };
+  if (order.status === "dispatched")
+    return {
+      ok: false as const,
+      message: "Order has already been dispatched.",
+    };
+  if (order.status === "cancelled")
+    return {
+      ok: false as const,
+      message: "Cancelled orders cannot be dispatched.",
+    };
 
   for (const line of order.lines) {
     const row = state.inventory.find((item) => item.sku === line.sku);
-    if (!row) return { ok: false as const, message: `SKU ${line.sku} was not found.` };
+    if (!row)
+      return { ok: false as const, message: `SKU ${line.sku} was not found.` };
     if (row.reserved < line.quantity || row.onHand < line.quantity) {
-      return { ok: false as const, message: `SKU ${line.sku} does not have enough reserved stock.` };
+      return {
+        ok: false as const,
+        message: `SKU ${line.sku} does not have enough reserved stock.`,
+      };
     }
   }
 
@@ -330,22 +416,43 @@ export function dispatchOrder(orderId: string, context: { createdBy?: string } =
   state.accountDocuments.unshift(
     createAccountDocument({
       tradeAccountId: order.tradeAccountId,
+      type: "invoice",
+      reference: `INV-${order.id}`,
+      storagePath: `generated/invoices/${order.id}.txt`,
+    }),
+  );
+  state.accountDocuments.unshift(
+    createAccountDocument({
+      tradeAccountId: order.tradeAccountId,
       type: "delivery_record",
       reference: `DEL-${order.id}`,
       storagePath: `generated/delivery-records/${order.id}.txt`,
     }),
   );
-  return { ok: true as const, order: { ...order, lines: order.lines.map((line) => ({ ...line })) }, inventory: getInventoryState().inventory, movements };
+  return {
+    ok: true as const,
+    order: { ...order, lines: order.lines.map((line) => ({ ...line })) },
+    inventory: getInventoryState().inventory,
+    movements,
+  };
 }
 
-export function cancelOrder(orderId: string, input: { tradeAccountId?: string } = {}) {
+export function cancelOrder(
+  orderId: string,
+  input: { tradeAccountId?: string } = {},
+) {
   const order = state.orders.find((candidate) => candidate.id === orderId);
   if (!order) return { ok: false as const, message: "Order was not found." };
   if (input.tradeAccountId && order.tradeAccountId !== input.tradeAccountId) {
     return { ok: false as const, message: "Order was not found." };
   }
-  if (order.status === "dispatched") return { ok: false as const, message: "Dispatched orders cannot be cancelled." };
-  if (order.status === "cancelled") return { ok: false as const, message: "Order has already been cancelled." };
+  if (order.status === "dispatched")
+    return {
+      ok: false as const,
+      message: "Dispatched orders cannot be cancelled.",
+    };
+  if (order.status === "cancelled")
+    return { ok: false as const, message: "Order has already been cancelled." };
 
   for (const line of order.lines) {
     const row = state.inventory.find((item) => item.sku === line.sku);
@@ -353,10 +460,16 @@ export function cancelOrder(orderId: string, input: { tradeAccountId?: string } 
   }
 
   order.status = "cancelled";
-  return { ok: true as const, order: { ...order, lines: order.lines.map((line) => ({ ...line })) }, inventory: getInventoryState().inventory };
+  return {
+    ok: true as const,
+    order: { ...order, lines: order.lines.map((line) => ({ ...line })) },
+    inventory: getInventoryState().inventory,
+  };
 }
 
-export function submitTradeAccountApplication(input: TradeAccountApplicationInput) {
+export function submitTradeAccountApplication(
+  input: TradeAccountApplicationInput,
+) {
   const application: TradeAccountApplication = {
     ...input,
     id: `TA-${Date.now()}`,
@@ -369,10 +482,19 @@ export function submitTradeAccountApplication(input: TradeAccountApplicationInpu
 }
 
 export function approveTradeAccountApplication(applicationId: string) {
-  const application = state.accountApplications.find((candidate) => candidate.id === applicationId);
-  if (!application) return { ok: false as const, message: "Trade account application was not found." };
+  const application = state.accountApplications.find(
+    (candidate) => candidate.id === applicationId,
+  );
+  if (!application)
+    return {
+      ok: false as const,
+      message: "Trade account application was not found.",
+    };
   if (application.status !== "pending") {
-    return { ok: false as const, message: "Trade account application is not pending." };
+    return {
+      ok: false as const,
+      message: "Trade account application is not pending.",
+    };
   }
 
   application.status = "approved";
@@ -380,17 +502,31 @@ export function approveTradeAccountApplication(applicationId: string) {
 }
 
 export function provisionTradeAccountLogin(applicationId: string) {
-  const application = state.accountApplications.find((candidate) => candidate.id === applicationId);
-  if (!application) return { ok: false as const, message: "Trade account application was not found." };
+  const application = state.accountApplications.find(
+    (candidate) => candidate.id === applicationId,
+  );
+  if (!application)
+    return {
+      ok: false as const,
+      message: "Trade account application was not found.",
+    };
   if (application.status === "paused" || application.status === "closed") {
-    return { ok: false as const, message: "Paused or closed trade accounts cannot be provisioned." };
+    return {
+      ok: false as const,
+      message: "Paused or closed trade accounts cannot be provisioned.",
+    };
   }
   if (!application.contactEmail) {
-    return { ok: false as const, message: "Trade account contact email is required before login can be provisioned." };
+    return {
+      ok: false as const,
+      message:
+        "Trade account contact email is required before login can be provisioned.",
+    };
   }
 
   application.status = "approved";
-  const suffix = application.id.replace(/[^0-9A-Za-z]/g, "").slice(-6) || "demo";
+  const suffix =
+    application.id.replace(/[^0-9A-Za-z]/g, "").slice(-6) || "demo";
   return {
     ok: true as const,
     application: { ...application },
@@ -403,13 +539,22 @@ export function provisionTradeAccountLogin(applicationId: string) {
   };
 }
 
-export function updateTradeAccountStatus(applicationId: string, status: TradeAccountStatus) {
+export function updateTradeAccountStatus(
+  applicationId: string,
+  status: TradeAccountStatus,
+) {
   if (applicationId === "acct-demo") {
-    return { ok: false as const, message: "Demo trade account status cannot be changed." };
+    return {
+      ok: false as const,
+      message: "Demo trade account status cannot be changed.",
+    };
   }
 
-  const application = state.accountApplications.find((candidate) => candidate.id === applicationId);
-  if (!application) return { ok: false as const, message: "Trade account was not found." };
+  const application = state.accountApplications.find(
+    (candidate) => candidate.id === applicationId,
+  );
+  if (!application)
+    return { ok: false as const, message: "Trade account was not found." };
 
   application.status = status;
   return { ok: true as const, application: { ...application } };

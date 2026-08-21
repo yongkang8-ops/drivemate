@@ -9,6 +9,16 @@ export default defineConfig({
     url: "http://127.0.0.1:3100",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    env: {
+      ...process.env,
+      DRIVEMATE_REPOSITORY: "memory",
+      DRIVEMATE_ENABLE_DEMO_AUTH: "true",
+      NEXT_PUBLIC_SHOW_INTERNAL_NAV: "true",
+      NEXT_PUBLIC_SITE_URL: "http://127.0.0.1:3100",
+      DRIVEMATE_TURNSTILE_REQUIRED: "false",
+      REQUIRE_SUPABASE_USERS: "false",
+      REQUIRE_SUPABASE_STORAGE: "false",
+    },
   },
   use: {
     baseURL: "http://127.0.0.1:3100",

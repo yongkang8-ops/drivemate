@@ -18,10 +18,15 @@ type BusinessProfile = {
 
 export function getBusinessProfile(): BusinessProfile {
   return {
-    legalName: process.env.DRIVEMATE_LEGAL_NAME?.trim() || "DriveMate Parts Pty Ltd",
+    legalName:
+      process.env.DRIVEMATE_LEGAL_NAME?.trim() || "DriveMate Parts Pty Ltd",
     abn: process.env.DRIVEMATE_ABN?.trim() || "ABN pending",
-    accountsEmail: process.env.DRIVEMATE_ACCOUNTS_EMAIL?.trim() || "accounts@drivemateparts.com.au",
-    warehouseLabel: process.env.DRIVEMATE_WAREHOUSE_LABEL?.trim() || "Brisbane dispatch warehouse",
+    accountsEmail:
+      process.env.DRIVEMATE_ACCOUNTS_EMAIL?.trim() ||
+      "accounts@drivemateparts.com.au",
+    warehouseLabel:
+      process.env.DRIVEMATE_WAREHOUSE_LABEL?.trim() ||
+      "Brisbane dispatch warehouse",
   };
 }
 
@@ -43,22 +48,31 @@ function documentLabel(type: AccountDocument["type"]) {
 
 function formatDate(value: string | Date = new Date()) {
   const date = typeof value === "string" ? new Date(value) : value;
-  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+  return Number.isNaN(date.getTime())
+    ? new Date().toISOString()
+    : date.toISOString();
 }
 
 function lineItems(lines: DocumentLine[]) {
   if (!lines.length) return ["- No order lines recorded on this document."];
   return lines.map((line) =>
-    line.lineTotalIncGstCents !== undefined && line.unitPriceExGstCents !== undefined
+    line.lineTotalIncGstCents !== undefined &&
+    line.unitPriceExGstCents !== undefined
       ? `- ${line.sku} x ${line.quantity} @ ${formatAudCents(line.unitPriceExGstCents)} ex GST = ${formatAudCents(line.lineTotalIncGstCents)} inc GST`
       : `- ${line.sku} x ${line.quantity}`,
   );
 }
 
 function orderTotals(lines: DocumentLine[]) {
-  const subtotalExGstCents = lines.reduce((sum, line) => sum + (line.lineTotalExGstCents ?? 0), 0);
+  const subtotalExGstCents = lines.reduce(
+    (sum, line) => sum + (line.lineTotalExGstCents ?? 0),
+    0,
+  );
   const gstCents = lines.reduce((sum, line) => sum + (line.gstCents ?? 0), 0);
-  const totalIncGstCents = lines.reduce((sum, line) => sum + (line.lineTotalIncGstCents ?? 0), 0);
+  const totalIncGstCents = lines.reduce(
+    (sum, line) => sum + (line.lineTotalIncGstCents ?? 0),
+    0,
+  );
   if (!totalIncGstCents) return [];
 
   return [
@@ -115,6 +129,33 @@ export function createInvoiceDocumentText(input: {
       `Vehicle VIN: ${input.vehicleVin || "Not supplied"}`,
       `Vehicle rego: ${input.vehicleRego || "Not supplied"}`,
       "Lines:",
+      ...lineItems(input.lines),
+      ...orderTotals(input.lines),
+    ],
+  });
+}
+
+export function createOrderConfirmationDocumentText(input: {
+  reference: string;
+  tradeAccountId: string;
+  orderId: string;
+  poNumber?: string;
+  vehicleVin?: string;
+  vehicleRego?: string;
+  lines: DocumentLine[];
+  generatedAt?: string | Date;
+}) {
+  return createAccountDocumentText({
+    type: "order_confirmation",
+    reference: input.reference,
+    tradeAccountId: input.tradeAccountId,
+    generatedAt: input.generatedAt,
+    contentLines: [
+      `Order: ${input.orderId}`,
+      `PO / job: ${input.poNumber || "Not supplied"}`,
+      `Vehicle VIN: ${input.vehicleVin || "Not supplied"}`,
+      `Vehicle rego: ${input.vehicleRego || "Not supplied"}`,
+      "Reserved lines:",
       ...lineItems(input.lines),
       ...orderTotals(input.lines),
     ],

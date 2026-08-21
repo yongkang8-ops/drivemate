@@ -42,19 +42,31 @@ type TradeOrder = {
   subtotalExGstCents?: number;
   gstCents?: number;
   totalIncGstCents?: number;
-  lines: Array<{ sku: string; quantity: number; lineTotalIncGstCents?: number }>;
+  lines: Array<{
+    sku: string;
+    quantity: number;
+    lineTotalIncGstCents?: number;
+  }>;
 };
 
 type AccountDocument = {
   id: string;
-  type: "order_confirmation" | "invoice" | "credit_note" | "statement" | "delivery_record";
+  type:
+    | "order_confirmation"
+    | "invoice"
+    | "credit_note"
+    | "statement"
+    | "delivery_record";
   reference: string;
   createdAt: string;
 };
 
 function formatMoney(value: number | undefined) {
   if (value === undefined) return "Not priced";
-  return new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" }).format(value / 100);
+  return new Intl.NumberFormat("en-AU", {
+    style: "currency",
+    currency: "AUD",
+  }).format(value / 100);
 }
 
 export function TradePortalWorkspace() {
@@ -65,9 +77,18 @@ export function TradePortalWorkspace() {
   const [matches, setMatches] = useState<MatchedPart[]>([]);
   const [orderLines, setOrderLines] = useState<OrderLine[]>([]);
   const [orders, setOrders] = useState<TradeOrder[]>([]);
-  const [accountDocuments, setAccountDocuments] = useState<AccountDocument[]>([]);
+  const [accountDocuments, setAccountDocuments] = useState<AccountDocument[]>(
+    [],
+  );
   const [poNumber, setPoNumber] = useState("JOB-1842");
-  const [message, setMessage] = useState("Ready to search by rego, VIN or part number.");
+  const [message, setMessage] = useState(
+    "Ready to search by rego, VIN or part number.",
+  );
+  const [rmaOrderId, setRmaOrderId] = useState("");
+  const [rmaReason, setRmaReason] = useState<
+    "quality" | "incorrect_fitment" | "damaged_delivery" | "other"
+  >("quality");
+  const [rmaLines, setRmaLines] = useState("");
 
   async function loadTradeState() {
     const response = await fetch("/api/trade-state", {
@@ -79,7 +100,10 @@ export function TradePortalWorkspace() {
       return;
     }
 
-    const body = (await response.json()) as { orders: TradeOrder[]; accountDocuments: AccountDocument[] };
+    const body = (await response.json()) as {
+      orders: TradeOrder[];
+      accountDocuments: AccountDocument[];
+    };
     setOrders(body.orders);
     setAccountDocuments(body.accountDocuments);
   }
@@ -91,7 +115,9 @@ export function TradePortalWorkspace() {
   async function searchParts() {
     const response = await fetch("/api/vehicle-lookup", {
       method: "POST",
-      headers: await buildApiHeaders("trade", { "Content-Type": "application/json" }),
+      headers: await buildApiHeaders("trade", {
+        "Content-Type": "application/json",
+      }),
       body: JSON.stringify({ rego, vin, query }),
     });
 
@@ -100,10 +126,17 @@ export function TradePortalWorkspace() {
       return;
     }
 
-    const body = (await response.json()) as { vehicle: VehicleProfile; matches: MatchedPart[] };
+    const body = (await response.json()) as {
+      vehicle: VehicleProfile;
+      matches: MatchedPart[];
+    };
     setVehicle(body.vehicle);
     setMatches(body.matches);
-    setMessage(body.vehicle.confidence === "manual_review" ? "No approved VIN match. A manual review request has been recorded." : `${body.matches.length} matching parts found for ${body.vehicle.make} ${body.vehicle.model}.`);
+    setMessage(
+      body.vehicle.confidence === "manual_review"
+        ? "No approved VIN match. A manual review request has been recorded."
+        : `${body.matches.length} matching parts found for ${body.vehicle.make} ${body.vehicle.model}.`,
+    );
   }
 
   function addToOrder(part: MatchedPart) {
@@ -113,14 +146,21 @@ export function TradePortalWorkspace() {
         return current.map((line) => {
           if (line.sku !== part.sku) return line;
           const quantity = line.quantity + 1;
-          const lineTotalExGstCents = line.unitPriceExGstCents ? line.unitPriceExGstCents * quantity : undefined;
-          const gstCents = lineTotalExGstCents ? Math.round(lineTotalExGstCents * 0.1) : undefined;
+          const lineTotalExGstCents = line.unitPriceExGstCents
+            ? line.unitPriceExGstCents * quantity
+            : undefined;
+          const gstCents = lineTotalExGstCents
+            ? Math.round(lineTotalExGstCents * 0.1)
+            : undefined;
           return {
             ...line,
             quantity,
             lineTotalExGstCents,
             gstCents,
-            lineTotalIncGstCents: lineTotalExGstCents && gstCents ? lineTotalExGstCents + gstCents : undefined,
+            lineTotalIncGstCents:
+              lineTotalExGstCents && gstCents
+                ? lineTotalExGstCents + gstCents
+                : undefined,
           };
         });
       }
@@ -132,8 +172,12 @@ export function TradePortalWorkspace() {
           quantity: 1,
           unitPriceExGstCents: part.tradePriceExGstCents,
           lineTotalExGstCents: part.tradePriceExGstCents,
-          gstCents: part.tradePriceExGstCents ? Math.round(part.tradePriceExGstCents * 0.1) : undefined,
-          lineTotalIncGstCents: part.tradePriceExGstCents ? Math.round(part.tradePriceExGstCents * 1.1) : undefined,
+          gstCents: part.tradePriceExGstCents
+            ? Math.round(part.tradePriceExGstCents * 0.1)
+            : undefined,
+          lineTotalIncGstCents: part.tradePriceExGstCents
+            ? Math.round(part.tradePriceExGstCents * 1.1)
+            : undefined,
         },
       ];
     });
@@ -143,12 +187,18 @@ export function TradePortalWorkspace() {
   async function submitOrder() {
     const response = await fetch("/api/orders", {
       method: "POST",
-      headers: await buildApiHeaders("trade", { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }),
+      headers: await buildApiHeaders("trade", {
+        "Content-Type": "application/json",
+        "Idempotency-Key": crypto.randomUUID(),
+      }),
       body: JSON.stringify({
         poNumber,
         vehicleVin: vin,
         vehicleRego: rego,
-        lines: orderLines.map((line) => ({ sku: line.sku, quantity: line.quantity })),
+        lines: orderLines.map((line) => ({
+          sku: line.sku,
+          quantity: line.quantity,
+        })),
       }),
     });
 
@@ -157,7 +207,9 @@ export function TradePortalWorkspace() {
       | { ok: false; message: string };
 
     if (!response.ok || !body.ok) {
-      setMessage("message" in body ? body.message : "Order could not be submitted.");
+      setMessage(
+        "message" in body ? body.message : "Order could not be submitted.",
+      );
       return;
     }
 
@@ -169,7 +221,9 @@ export function TradePortalWorkspace() {
   async function cancelOrder(orderId: string) {
     const response = await fetch(`/api/orders/${orderId}/cancel`, {
       method: "POST",
-      headers: await buildApiHeaders("trade", { "Idempotency-Key": crypto.randomUUID() }),
+      headers: await buildApiHeaders("trade", {
+        "Idempotency-Key": crypto.randomUUID(),
+      }),
     });
 
     const body = (await response.json()) as
@@ -177,7 +231,9 @@ export function TradePortalWorkspace() {
       | { ok: false; message: string };
 
     if (!response.ok || !body.ok) {
-      setMessage("message" in body ? body.message : "Order could not be cancelled.");
+      setMessage(
+        "message" in body ? body.message : "Order could not be cancelled.",
+      );
       return;
     }
 
@@ -194,7 +250,9 @@ export function TradePortalWorkspace() {
       | { ok: false; message: string };
 
     if (!response.ok || !body.ok) {
-      setMessage("message" in body ? body.message : "Document could not be opened.");
+      setMessage(
+        "message" in body ? body.message : "Document could not be opened.",
+      );
       return;
     }
 
@@ -202,8 +260,48 @@ export function TradePortalWorkspace() {
     setMessage(`${document.reference} opened.`);
   }
 
-  const orderSubtotalExGstCents = orderLines.reduce((sum, line) => sum + (line.lineTotalExGstCents ?? 0), 0);
-  const orderGstCents = orderLines.reduce((sum, line) => sum + (line.gstCents ?? 0), 0);
+  async function submitRma() {
+    const lines = rmaLines
+      .split(/\r?\n/)
+      .map((row) => row.trim())
+      .filter(Boolean)
+      .map((row) => {
+        const [sku, quantity] = row.split(",").map((value) => value.trim());
+        return { sku, quantity: Number(quantity) };
+      });
+    const response = await fetch("/api/rma", {
+      method: "POST",
+      headers: await buildApiHeaders("trade", {
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({
+        salesOrderId: rmaOrderId,
+        reasonType: rmaReason,
+        lines,
+        evidence: [],
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    });
+    const body = (await response.json()) as {
+      ok?: boolean;
+      rmaId?: string;
+      message?: string;
+    };
+    setMessage(
+      response.ok && body.ok
+        ? `RMA ${body.rmaId} submitted for review.`
+        : body.message || "RMA could not be submitted.",
+    );
+  }
+
+  const orderSubtotalExGstCents = orderLines.reduce(
+    (sum, line) => sum + (line.lineTotalExGstCents ?? 0),
+    0,
+  );
+  const orderGstCents = orderLines.reduce(
+    (sum, line) => sum + (line.gstCents ?? 0),
+    0,
+  );
   const orderTotalIncGstCents = orderSubtotalExGstCents + orderGstCents;
 
   return (
@@ -214,28 +312,47 @@ export function TradePortalWorkspace() {
           <div className="form-grid">
             <label>
               Rego
-              <input value={rego} onChange={(event) => setRego(event.target.value)} />
+              <input
+                value={rego}
+                onChange={(event) => setRego(event.target.value)}
+              />
             </label>
             <label>
               VIN
-              <input value={vin} onChange={(event) => setVin(event.target.value)} />
+              <input
+                value={vin}
+                onChange={(event) => setVin(event.target.value)}
+              />
             </label>
             <label>
               Search keyword
-              <input value={query} onChange={(event) => setQuery(event.target.value)} />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
             </label>
             <label>
               PO / job number
-              <input value={poNumber} onChange={(event) => setPoNumber(event.target.value)} />
+              <input
+                value={poNumber}
+                onChange={(event) => setPoNumber(event.target.value)}
+              />
             </label>
           </div>
           <p>
-            <button className="primary-button" onClick={searchParts} type="button">
+            <button
+              className="primary-button"
+              onClick={searchParts}
+              type="button"
+            >
               Search matching parts
             </button>
           </p>
           {vehicle ? (
-            <div className="card-grid" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+            <div
+              className="card-grid"
+              style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}
+            >
               <div className="card">
                 <span>Make</span>
                 <strong>{vehicle.make}</strong>
@@ -258,7 +375,10 @@ export function TradePortalWorkspace() {
 
         <div className="panel">
           <h2>Quote / order pad</h2>
-          <p>Trade pricing and account terms are shown only after account approval and login.</p>
+          <p>
+            Trade pricing and account terms are shown only after account
+            approval and login.
+          </p>
           <div className="table-shell">
             <table>
               <thead>
@@ -291,12 +411,18 @@ export function TradePortalWorkspace() {
           </div>
           {orderLines.length ? (
             <p>
-              Subtotal {formatMoney(orderSubtotalExGstCents)} ex GST · GST {formatMoney(orderGstCents)} · Total{" "}
+              Subtotal {formatMoney(orderSubtotalExGstCents)} ex GST · GST{" "}
+              {formatMoney(orderGstCents)} · Total{" "}
               <strong>{formatMoney(orderTotalIncGstCents)} inc GST</strong>
             </p>
           ) : null}
           <p>
-            <button className="primary-button" disabled={!orderLines.length} onClick={submitOrder} type="button">
+            <button
+              className="primary-button"
+              disabled={!orderLines.length}
+              onClick={submitOrder}
+              type="button"
+            >
               Submit order
             </button>
           </p>
@@ -371,12 +497,18 @@ export function TradePortalWorkspace() {
                     <td>{order.id}</td>
                     <td>{order.status}</td>
                     <td>{order.poNumber ?? "Not supplied"}</td>
-                    <td>{order.lines.map((line) => `${line.sku} x ${line.quantity}`).join(", ")}</td>
+                    <td>
+                      {order.lines
+                        .map((line) => `${line.sku} x ${line.quantity}`)
+                        .join(", ")}
+                    </td>
                     <td>{formatMoney(order.totalIncGstCents)} inc GST</td>
                     <td>
                       <button
                         className="secondary-button"
-                        disabled={["dispatched", "cancelled"].includes(order.status)}
+                        disabled={["dispatched", "cancelled"].includes(
+                          order.status,
+                        )}
                         onClick={() => void cancelOrder(order.id)}
                         type="button"
                       >
@@ -410,9 +542,15 @@ export function TradePortalWorkspace() {
                   <tr key={document.id}>
                     <td>{document.type.replace("_", " ")}</td>
                     <td>{document.reference}</td>
-                    <td>{new Date(document.createdAt).toLocaleDateString("en-AU")}</td>
                     <td>
-                      <button className="secondary-button" onClick={() => void openDocument(document)} type="button">
+                      {new Date(document.createdAt).toLocaleDateString("en-AU")}
+                    </td>
+                    <td>
+                      <button
+                        className="secondary-button"
+                        onClick={() => void openDocument(document)}
+                        type="button"
+                      >
                         Open {document.reference}
                       </button>
                     </td>
@@ -420,12 +558,72 @@ export function TradePortalWorkspace() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={4}>Invoices, delivery records and statements will appear here after release.</td>
+                  <td colSpan={4}>
+                    Invoices, delivery records and statements will appear here
+                    after release.
+                  </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+      </section>
+      <section className="panel" id="returns">
+        <h2>Return request</h2>
+        <p>
+          Quality concerns are reviewed by DriveMate. Incorrect VIN or vehicle
+          details supplied by the workshop remain a workshop fitment issue.
+        </p>
+        <div className="form-grid">
+          <label>
+            Dispatched order
+            <select
+              value={rmaOrderId}
+              onChange={(event) => setRmaOrderId(event.target.value)}
+            >
+              <option value="">Select order</option>
+              {orders
+                .filter((order) => order.status === "dispatched")
+                .map((order) => (
+                  <option key={order.id} value={order.id}>
+                    {order.id} {order.poNumber ?? ""}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label>
+            Reason
+            <select
+              value={rmaReason}
+              onChange={(event) =>
+                setRmaReason(event.target.value as typeof rmaReason)
+              }
+            >
+              <option value="quality">Quality concern</option>
+              <option value="incorrect_fitment">
+                Incorrect fitment information
+              </option>
+              <option value="damaged_delivery">Damaged in delivery</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label>
+            Return lines: SKU, quantity
+            <textarea
+              value={rmaLines}
+              onChange={(event) => setRmaLines(event.target.value)}
+              placeholder="DM-GWM-0001,1"
+            />
+          </label>
+        </div>
+        <button
+          className="button button-secondary"
+          type="button"
+          disabled={!rmaOrderId || !rmaLines.trim()}
+          onClick={() => void submitRma()}
+        >
+          Submit return request
+        </button>
       </section>
     </>
   );

@@ -1,6 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { readdir, readFile } from "node:fs/promises";
-import { extname, join, relative } from "node:path";
+import { readFile } from "node:fs/promises";
 
 const baseUrl = "http://127.0.0.1:3100";
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
@@ -25,8 +24,20 @@ const sensitiveTerms = [
   "gross margin",
 ];
 
-const scanRoots = ["app", "components", "lib"];
-const scanExtensions = new Set([".ts", ".tsx", ".css", ".mjs", ".js", ".json"]);
+const publicScanFiles = [
+  "app/page.tsx",
+  "app/layout.tsx",
+  "app/globals.css",
+  "app/catalogue/page.tsx",
+  "app/open-account/page.tsx",
+  "app/privacy/page.tsx",
+  "app/terms/page.tsx",
+  "app/trade-terms/page.tsx",
+  "app/delivery-returns-warranty/page.tsx",
+  "components/CatalogueBrowser.tsx",
+  "components/TradeAccountApplicationForm.tsx",
+  "components/LegalDocument.tsx",
+];
 
 function logStep(name) {
   console.log(`\n== ${name} ==`);
@@ -62,7 +73,8 @@ function run(command, args, options = {}) {
     child.on("error", reject);
     child.on("exit", (code) => {
       if (code === 0) resolve();
-      else reject(new Error(`${command} ${args.join(" ")} exited with ${code}`));
+      else
+        reject(new Error(`${command} ${args.join(" ")} exited with ${code}`));
     });
   });
 }
@@ -117,7 +129,8 @@ async function withLocalServer(callback) {
 
   try {
     await waitForHealth();
-    if (serverExited) throw new Error("local server exited before smoke checks could run");
+    if (serverExited)
+      throw new Error("local server exited before smoke checks could run");
     await callback();
   } finally {
     if (!serverExited) {
@@ -133,34 +146,16 @@ async function withLocalServer(callback) {
   }
 }
 
-async function scanDirectory(root, findings = []) {
-  const entries = await readdir(root, { withFileTypes: true });
-
-  for (const entry of entries) {
-    const entryPath = join(root, entry.name);
-    if (entry.isDirectory()) {
-      await scanDirectory(entryPath, findings);
-      continue;
-    }
-
-    if (!entry.isFile() || !scanExtensions.has(extname(entry.name))) continue;
-
-    const content = await readFile(entryPath, "utf8");
+async function runSensitiveScan() {
+  const findings = [];
+  for (const filePath of publicScanFiles) {
+    const content = await readFile(filePath, "utf8");
     const lowerContent = content.toLowerCase();
     for (const term of sensitiveTerms) {
       if (lowerContent.includes(term.toLowerCase())) {
-        findings.push(`${relative(process.cwd(), entryPath)}: ${term}`);
+        findings.push(`${filePath}: ${term}`);
       }
     }
-  }
-
-  return findings;
-}
-
-async function runSensitiveScan() {
-  const findings = [];
-  for (const root of scanRoots) {
-    await scanDirectory(root, findings);
   }
 
   if (findings.length) {

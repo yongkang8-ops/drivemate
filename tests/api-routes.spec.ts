@@ -1,27 +1,68 @@
 import { expect, test } from "@playwright/test";
 
+let requestSequence = 0;
+function roleHeaders(role: "trade" | "warehouse" | "admin") {
+  requestSequence += 1;
+  return {
+    "x-drivemate-role": role,
+    "Idempotency-Key": `playwright-${role}-${requestSequence}`,
+  };
+}
+function publicHeaders() {
+  requestSequence += 1;
+  return { "x-forwarded-for": `198.51.100.${requestSequence % 250}` };
+}
+
+function tradeApplication(overrides: Record<string, unknown>) {
+  return {
+    privacyConsent: true,
+    tradeTermsConsent: true,
+    consentVersion: "2026-08-21",
+    ...overrides,
+  };
+}
+
+function dispatchPayload(scans?: Array<{ sku: string; quantity: number }>) {
+  return {
+    scans,
+    deliveryChargeExGstCents: 1200,
+    carrier: "Test Courier",
+    trackingNumber: `TRACK-${requestSequence}`,
+  };
+}
+
 test.beforeEach(async ({ request }) => {
   await request.post("/api/test/reset");
 });
 
 test("vehicle lookup API returns matched parts", async ({ request }) => {
   const response = await request.post("/api/vehicle-lookup", {
-    headers: { "x-drivemate-role": "trade" },
+    headers: roleHeaders("trade"),
     data: { query: "GWM Cannon Alpha filters", rego: "QLD 24ALPHA" },
   });
 
   expect(response.ok()).toBeTruthy();
   const body = await response.json();
   expect(body.vehicle.make).toBe("GWM");
-  expect(body.matches.some((match: { sku: string }) => match.sku === "DM-GWM-OF-001")).toBeTruthy();
+  expect(
+    body.matches.some(
+      (match: { sku: string }) => match.sku === "DM-GWM-OF-001",
+    ),
+  ).toBeTruthy();
 
   const adminState = await request.get("/api/admin-state", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
   });
   const state = await adminState.json();
   expect(
     state.lookupRequests.some(
-      (lookup: { query?: string; rego?: string; vehicle: string; matchCount: number; tradeAccountId?: string }) =>
+      (lookup: {
+        query?: string;
+        rego?: string;
+        vehicle: string;
+        matchCount: number;
+        tradeAccountId?: string;
+      }) =>
         lookup.query === "GWM Cannon Alpha filters" &&
         lookup.rego === "QLD 24ALPHA" &&
         lookup.vehicle === "GWM Cannon Alpha 2024" &&
@@ -31,7 +72,9 @@ test("vehicle lookup API returns matched parts", async ({ request }) => {
   ).toBeTruthy();
 });
 
-test("health API reports deployment readiness without exposing secrets", async ({ request }) => {
+test("health API reports deployment readiness without exposing secrets", async ({
+  request,
+}) => {
   const response = await request.get("/api/health");
 
   expect(response.ok()).toBeTruthy();
@@ -40,7 +83,14 @@ test("health API reports deployment readiness without exposing secrets", async (
   expect(body.repository.mode).toBeTruthy();
   expect(body.ready).toBe(true);
   expect(body.checks.map((check: { name: string }) => check.name)).toEqual(
-    expect.arrayContaining(["repository", "auth", "navigation", "supabase_env", "document_bucket", "business_profile"]),
+    expect.arrayContaining([
+      "repository",
+      "auth",
+      "navigation",
+      "supabase_env",
+      "document_bucket",
+      "business_profile",
+    ]),
   );
   expect(JSON.stringify(body)).not.toContain("SERVICE_ROLE_KEY");
   expect(JSON.stringify(body)).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
@@ -48,7 +98,7 @@ test("health API reports deployment readiness without exposing secrets", async (
 
 test("orders API creates a submitted order", async ({ request }) => {
   const response = await request.post("/api/orders", {
-    headers: { "x-drivemate-role": "trade" },
+    headers: roleHeaders("trade"),
     data: {
       poNumber: "JOB-API-1",
       vehicleVin: "LGWFFEA6XRA000245",
@@ -72,9 +122,11 @@ test("orders API creates a submitted order", async ({ request }) => {
   expect(body.order.totalIncGstCents).toBe(3794);
 });
 
-test("orders API rejects draft or paused SKUs from trade ordering", async ({ request }) => {
+test("orders API rejects draft or paused SKUs from trade ordering", async ({
+  request,
+}) => {
   const pause = await request.patch("/api/products/DM-GWM-OF-001", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
     data: {
       status: "paused",
     },
@@ -82,7 +134,7 @@ test("orders API rejects draft or paused SKUs from trade ordering", async ({ req
   expect(pause.ok()).toBeTruthy();
 
   const response = await request.post("/api/orders", {
-    headers: { "x-drivemate-role": "trade" },
+    headers: roleHeaders("trade"),
     data: {
       poNumber: "JOB-PAUSED-SKU",
       lines: [{ sku: "DM-GWM-OF-001", quantity: 1 }],
@@ -91,10 +143,12 @@ test("orders API rejects draft or paused SKUs from trade ordering", async ({ req
 
   expect(response.status()).toBe(422);
   const body = await response.json();
-  expect(body.message).toBe("SKU DM-GWM-OF-001 is not active for trade ordering.");
+  expect(body.message).toBe(
+    "SKU DM-GWM-OF-001 is not active for trade ordering.",
+  );
 
   const warehouseReceive = await request.post("/api/inventory-movement", {
-    headers: { "x-drivemate-role": "warehouse" },
+    headers: roleHeaders("warehouse"),
     data: {
       type: "inbound",
       sku: "DMPGWMOF001",
@@ -106,54 +160,73 @@ test("orders API rejects draft or paused SKUs from trade ordering", async ({ req
   expect(warehouseReceive.ok()).toBeTruthy();
 });
 
-test("trade state API returns only the current trade account records", async ({ request }) => {
+test("trade state API returns only the current trade account records", async ({
+  request,
+}) => {
   await request.post("/api/orders", {
-    headers: { "x-drivemate-role": "trade" },
+    headers: roleHeaders("trade"),
     data: {
       poNumber: "JOB-TRADE-STATE",
       lines: [{ sku: "DM-GWM-AF-002", quantity: 1 }],
     },
   });
 
-  const response = await request.get("/api/trade-state?tradeAccountId=forged-account", {
-    headers: { "x-drivemate-role": "trade" },
-  });
+  const response = await request.get(
+    "/api/trade-state?tradeAccountId=forged-account",
+    {
+      headers: roleHeaders("trade"),
+    },
+  );
 
   expect(response.ok()).toBeTruthy();
   const body = await response.json();
   expect(body.tradeAccountId).toBe("acct-demo");
-  expect(body.orders.some((order: { poNumber?: string }) => order.poNumber === "JOB-TRADE-STATE")).toBeTruthy();
   expect(
-    body.accountDocuments.some(
-      (document: { type: string; reference: string }) =>
-        document.type === "invoice" && /^INV-SO-\d+/.test(document.reference),
+    body.orders.some(
+      (order: { poNumber?: string }) => order.poNumber === "JOB-TRADE-STATE",
     ),
   ).toBeTruthy();
   expect(
     body.accountDocuments.some(
       (document: { type: string; reference: string }) =>
-        document.type === "statement" && /^STMT-\d{4}-\d{2}-acct-demo$/.test(document.reference),
+        document.type === "order_confirmation" &&
+        /^OC-SO-\d+/.test(document.reference),
     ),
   ).toBeTruthy();
-  const invoice = body.accountDocuments.find((document: { type: string }) => document.type === "invoice");
-  const access = await request.get(`/api/account-documents/${invoice.id}`, {
-    headers: { "x-drivemate-role": "trade" },
-  });
+  expect(
+    body.accountDocuments.some(
+      (document: { type: string; reference: string }) =>
+        document.type === "statement" &&
+        /^STMT-\d{4}-\d{2}-acct-demo$/.test(document.reference),
+    ),
+  ).toBeTruthy();
+  const confirmation = body.accountDocuments.find(
+    (document: { type: string }) => document.type === "order_confirmation",
+  );
+  const access = await request.get(
+    `/api/account-documents/${confirmation.id}`,
+    {
+      headers: roleHeaders("trade"),
+    },
+  );
   expect(access.ok()).toBeTruthy();
   const accessBody = await access.json();
   expect(accessBody.downloadUrl).toContain("data:text/plain");
-  const documentText = decodeURIComponent(accessBody.downloadUrl.split(",")[1] ?? "");
+  const documentText = decodeURIComponent(
+    accessBody.downloadUrl.split(",")[1] ?? "",
+  );
   expect(documentText).toContain("DriveMate Parts account document");
-  expect(documentText).toContain("Document: Invoice record");
+  expect(documentText).toContain("Document: Order confirmation");
   expect(documentText).toContain("PO / job: JOB-TRADE-STATE");
-  expect(documentText).toContain("Lines:");
+  expect(documentText).toContain("Reserved lines:");
   expect(documentText).toContain("- DM-GWM-AF-002 x 1");
-  expect(documentText).toContain("Final payable amounts are issued by the connected accounting system.");
 });
 
-test("order dispatch API confirms a warehouse dispatch", async ({ request }) => {
+test("order dispatch API confirms a warehouse dispatch", async ({
+  request,
+}) => {
   const orderResponse = await request.post("/api/orders", {
-    headers: { "x-drivemate-role": "trade" },
+    headers: roleHeaders("trade"),
     data: {
       poNumber: "JOB-DISPATCH",
       lines: [{ sku: "DM-GWM-OF-001", quantity: 1 }],
@@ -162,10 +235,13 @@ test("order dispatch API confirms a warehouse dispatch", async ({ request }) => 
   expect(orderResponse.ok()).toBeTruthy();
   const orderBody = await orderResponse.json();
 
-  const dispatchResponse = await request.post(`/api/orders/${orderBody.order.id}/dispatch`, {
-    headers: { "x-drivemate-role": "warehouse" },
-    data: { scans: [{ sku: "DMPGWMOF001", quantity: 1 }] },
-  });
+  const dispatchResponse = await request.post(
+    `/api/orders/${orderBody.order.id}/dispatch`,
+    {
+      headers: roleHeaders("warehouse"),
+      data: dispatchPayload([{ sku: "DMPGWMOF001", quantity: 1 }]),
+    },
+  );
 
   expect(dispatchResponse.ok()).toBeTruthy();
   const dispatchBody = await dispatchResponse.json();
@@ -182,31 +258,41 @@ test("order dispatch API confirms a warehouse dispatch", async ({ request }) => 
   );
 
   const tradeState = await request.get("/api/trade-state", {
-    headers: { "x-drivemate-role": "trade" },
+    headers: roleHeaders("trade"),
   });
   const stateBody = await tradeState.json();
   expect(
     stateBody.accountDocuments.some(
       (document: { type: string; reference: string }) =>
-        document.type === "delivery_record" && document.reference === `DEL-${orderBody.order.id}`,
+        document.type === "delivery_record" &&
+        document.reference === `DEL-${orderBody.order.id}`,
     ),
   ).toBeTruthy();
-  const delivery = stateBody.accountDocuments.find((document: { type: string }) => document.type === "delivery_record");
+  const delivery = stateBody.accountDocuments.find(
+    (document: { type: string }) => document.type === "delivery_record",
+  );
   expect(delivery).toBeTruthy();
-  const deliveryAccess = await request.get(`/api/account-documents/${delivery!.id}`, {
-    headers: { "x-drivemate-role": "trade" },
-  });
+  const deliveryAccess = await request.get(
+    `/api/account-documents/${delivery!.id}`,
+    {
+      headers: roleHeaders("trade"),
+    },
+  );
   expect(deliveryAccess.ok()).toBeTruthy();
   const deliveryBody = await deliveryAccess.json();
-  const deliveryText = decodeURIComponent(deliveryBody.downloadUrl.split(",")[1] ?? "");
+  const deliveryText = decodeURIComponent(
+    deliveryBody.downloadUrl.split(",")[1] ?? "",
+  );
   expect(deliveryText).toContain("Document: Delivery record");
   expect(deliveryText).toContain(`Order: ${orderBody.order.id}`);
   expect(deliveryText).toContain("- DM-GWM-OF-001 x 1");
 });
 
-test("order dispatch API requires scanned lines that match the order", async ({ request }) => {
+test("order dispatch API requires scanned lines that match the order", async ({
+  request,
+}) => {
   const orderResponse = await request.post("/api/orders", {
-    headers: { "x-drivemate-role": "trade" },
+    headers: roleHeaders("trade"),
     data: {
       poNumber: "JOB-DISPATCH-SCAN",
       lines: [{ sku: "DM-GWM-OF-001", quantity: 1 }],
@@ -215,29 +301,41 @@ test("order dispatch API requires scanned lines that match the order", async ({ 
   expect(orderResponse.ok()).toBeTruthy();
   const orderBody = await orderResponse.json();
 
-  const missingScans = await request.post(`/api/orders/${orderBody.order.id}/dispatch`, {
-    headers: { "x-drivemate-role": "warehouse" },
-  });
+  const missingScans = await request.post(
+    `/api/orders/${orderBody.order.id}/dispatch`,
+    {
+      headers: roleHeaders("warehouse"),
+      data: dispatchPayload(),
+    },
+  );
   expect(missingScans.status()).toBe(400);
 
-  const wrongScan = await request.post(`/api/orders/${orderBody.order.id}/dispatch`, {
-    headers: { "x-drivemate-role": "warehouse" },
-    data: { scans: [{ sku: "DM-GWM-AF-002", quantity: 1 }] },
-  });
+  const wrongScan = await request.post(
+    `/api/orders/${orderBody.order.id}/dispatch`,
+    {
+      headers: roleHeaders("warehouse"),
+      data: dispatchPayload([{ sku: "DM-GWM-AF-002", quantity: 1 }]),
+    },
+  );
   expect(wrongScan.status()).toBe(422);
   const wrongScanBody = await wrongScan.json();
   expect(wrongScanBody.message).toContain("not on this order");
 
-  const barcodeScan = await request.post(`/api/orders/${orderBody.order.id}/dispatch`, {
-    headers: { "x-drivemate-role": "warehouse" },
-    data: { scans: [{ sku: "DMPGWMOF001", quantity: 1 }] },
-  });
+  const barcodeScan = await request.post(
+    `/api/orders/${orderBody.order.id}/dispatch`,
+    {
+      headers: roleHeaders("warehouse"),
+      data: dispatchPayload([{ sku: "DMPGWMOF001", quantity: 1 }]),
+    },
+  );
   expect(barcodeScan.ok()).toBeTruthy();
 });
 
-test("order cancel API releases reserved stock before dispatch", async ({ request }) => {
+test("order cancel API releases reserved stock before dispatch", async ({
+  request,
+}) => {
   const orderResponse = await request.post("/api/orders", {
-    headers: { "x-drivemate-role": "trade" },
+    headers: roleHeaders("trade"),
     data: {
       poNumber: "JOB-CANCEL",
       lines: [{ sku: "DM-GWM-OF-001", quantity: 1 }],
@@ -247,42 +345,52 @@ test("order cancel API releases reserved stock before dispatch", async ({ reques
   const orderBody = await orderResponse.json();
 
   const reservedState = await request.get("/api/warehouse-state", {
-    headers: { "x-drivemate-role": "warehouse" },
+    headers: roleHeaders("warehouse"),
   });
   const reservedBody = await reservedState.json();
   expect(
     reservedBody.inventory.some(
-      (row: { sku: string; reserved: number }) => row.sku === "DM-GWM-OF-001" && row.reserved === 2,
+      (row: { sku: string; reserved: number }) =>
+        row.sku === "DM-GWM-OF-001" && row.reserved === 2,
     ),
   ).toBeTruthy();
 
-  const cancel = await request.post(`/api/orders/${orderBody.order.id}/cancel`, {
-    headers: { "x-drivemate-role": "trade" },
-  });
+  const cancel = await request.post(
+    `/api/orders/${orderBody.order.id}/cancel`,
+    {
+      headers: roleHeaders("trade"),
+    },
+  );
   expect(cancel.ok()).toBeTruthy();
   const cancelBody = await cancel.json();
   expect(cancelBody.order.status).toBe("cancelled");
 
   const releasedState = await request.get("/api/warehouse-state", {
-    headers: { "x-drivemate-role": "warehouse" },
+    headers: roleHeaders("warehouse"),
   });
   const releasedBody = await releasedState.json();
   expect(
     releasedBody.inventory.some(
-      (row: { sku: string; reserved: number }) => row.sku === "DM-GWM-OF-001" && row.reserved === 1,
+      (row: { sku: string; reserved: number }) =>
+        row.sku === "DM-GWM-OF-001" && row.reserved === 1,
     ),
   ).toBeTruthy();
 
-  const dispatchCancelled = await request.post(`/api/orders/${orderBody.order.id}/dispatch`, {
-    headers: { "x-drivemate-role": "warehouse" },
-    data: { scans: [{ sku: "DM-GWM-OF-001", quantity: 1 }] },
-  });
+  const dispatchCancelled = await request.post(
+    `/api/orders/${orderBody.order.id}/dispatch`,
+    {
+      headers: roleHeaders("warehouse"),
+      data: dispatchPayload([{ sku: "DM-GWM-OF-001", quantity: 1 }]),
+    },
+  );
   expect(dispatchCancelled.status()).toBe(422);
 });
 
-test("orders API ignores a forged trade account from trade users", async ({ request }) => {
+test("orders API ignores a forged trade account from trade users", async ({
+  request,
+}) => {
   const response = await request.post("/api/orders", {
-    headers: { "x-drivemate-role": "trade" },
+    headers: roleHeaders("trade"),
     data: {
       tradeAccountId: "client-forged-account",
       poNumber: "JOB-FORGED",
@@ -296,9 +404,11 @@ test("orders API ignores a forged trade account from trade users", async ({ requ
   expect(body.order.createdBy).toBe("demo-trade-user");
 });
 
-test("orders API requires a trade account for staff-created orders", async ({ request }) => {
+test("orders API requires a trade account for staff-created orders", async ({
+  request,
+}) => {
   const response = await request.post("/api/orders", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
     data: {
       poNumber: "JOB-ADMIN-NO-ACCOUNT",
       lines: [{ sku: "DM-GWM-CF-003", quantity: 1 }],
@@ -307,23 +417,26 @@ test("orders API requires a trade account for staff-created orders", async ({ re
 
   expect(response.status()).toBe(400);
   const body = await response.json();
-  expect(body.message).toBe("Trade account is required for staff-created orders.");
+  expect(body.message).toBe(
+    "Trade account is required for staff-created orders.",
+  );
 });
 
 test("orders API requires an approved trade account", async ({ request }) => {
   const application = await request.post("/api/trade-account-applications", {
-    data: {
+    headers: publicHeaders(),
+    data: tradeApplication({
       accountName: "Pending Order Workshop",
       contactName: "Morgan Lane",
       contactEmail: "morgan@example.com",
       contactPhone: "0400000004",
-    },
+    }),
   });
   expect(application.ok()).toBeTruthy();
   const applicationBody = await application.json();
 
   const pendingOrder = await request.post("/api/orders", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
     data: {
       tradeAccountId: applicationBody.application.id,
       poNumber: "JOB-PENDING-ACCOUNT",
@@ -332,15 +445,20 @@ test("orders API requires an approved trade account", async ({ request }) => {
   });
   expect(pendingOrder.status()).toBe(422);
   const pendingBody = await pendingOrder.json();
-  expect(pendingBody.message).toBe("Trade account must be approved before orders can be submitted.");
+  expect(pendingBody.message).toBe(
+    "Trade account must be approved before orders can be submitted.",
+  );
 
-  const approval = await request.post(`/api/trade-account-applications/${applicationBody.application.id}/approve`, {
-    headers: { "x-drivemate-role": "admin" },
-  });
+  const approval = await request.post(
+    `/api/trade-account-applications/${applicationBody.application.id}/approve`,
+    {
+      headers: roleHeaders("admin"),
+    },
+  );
   expect(approval.ok()).toBeTruthy();
 
   const approvedOrder = await request.post("/api/orders", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
     data: {
       tradeAccountId: applicationBody.application.id,
       poNumber: "JOB-APPROVED-ACCOUNT",
@@ -349,18 +467,23 @@ test("orders API requires an approved trade account", async ({ request }) => {
   });
   expect(approvedOrder.ok()).toBeTruthy();
   const approvedBody = await approvedOrder.json();
-  expect(approvedBody.order.tradeAccountId).toBe(applicationBody.application.id);
+  expect(approvedBody.order.tradeAccountId).toBe(
+    applicationBody.application.id,
+  );
 
-  const pause = await request.patch(`/api/trade-account-applications/${applicationBody.application.id}/status`, {
-    headers: { "x-drivemate-role": "admin" },
-    data: { status: "paused" },
-  });
+  const pause = await request.patch(
+    `/api/trade-account-applications/${applicationBody.application.id}/status`,
+    {
+      headers: roleHeaders("admin"),
+      data: { status: "paused" },
+    },
+  );
   expect(pause.ok()).toBeTruthy();
   const pauseBody = await pause.json();
   expect(pauseBody.application.status).toBe("paused");
 
   const pausedOrder = await request.post("/api/orders", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
     data: {
       tradeAccountId: applicationBody.application.id,
       poNumber: "JOB-PAUSED-ACCOUNT",
@@ -369,16 +492,21 @@ test("orders API requires an approved trade account", async ({ request }) => {
   });
   expect(pausedOrder.status()).toBe(422);
   const pausedBody = await pausedOrder.json();
-  expect(pausedBody.message).toBe("Trade account must be approved before orders can be submitted.");
+  expect(pausedBody.message).toBe(
+    "Trade account must be approved before orders can be submitted.",
+  );
 
-  const reactivate = await request.patch(`/api/trade-account-applications/${applicationBody.application.id}/status`, {
-    headers: { "x-drivemate-role": "admin" },
-    data: { status: "approved" },
-  });
+  const reactivate = await request.patch(
+    `/api/trade-account-applications/${applicationBody.application.id}/status`,
+    {
+      headers: roleHeaders("admin"),
+      data: { status: "approved" },
+    },
+  );
   expect(reactivate.ok()).toBeTruthy();
 
   const reactivatedOrder = await request.post("/api/orders", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
     data: {
       tradeAccountId: applicationBody.application.id,
       poNumber: "JOB-REACTIVATED-ACCOUNT",
@@ -388,9 +516,11 @@ test("orders API requires an approved trade account", async ({ request }) => {
   expect(reactivatedOrder.ok()).toBeTruthy();
 });
 
-test("inventory movement API validates stock availability", async ({ request }) => {
+test("inventory movement API validates stock availability", async ({
+  request,
+}) => {
   const response = await request.post("/api/inventory-movement", {
-    headers: { "x-drivemate-role": "warehouse" },
+    headers: roleHeaders("warehouse"),
     data: {
       type: "dispatch",
       sku: "DM-MG-CF-008",
@@ -405,9 +535,11 @@ test("inventory movement API validates stock availability", async ({ request }) 
   expect(body.message).toBe("Not enough available stock.");
 });
 
-test("inventory movement API records and reviews quarantine stock", async ({ request }) => {
+test("inventory movement API records and reviews quarantine stock", async ({
+  request,
+}) => {
   const response = await request.post("/api/inventory-movement", {
-    headers: { "x-drivemate-role": "warehouse" },
+    headers: roleHeaders("warehouse"),
     data: {
       type: "quarantine",
       sku: "DM-GWM-OF-001",
@@ -425,11 +557,13 @@ test("inventory movement API records and reviews quarantine stock", async ({ req
     reference: "RET-QA-API",
     createdBy: "demo-warehouse-user",
   });
-  const row = body.inventory.find((item: { sku: string }) => item.sku === "DM-GWM-OF-001");
+  const row = body.inventory.find(
+    (item: { sku: string }) => item.sku === "DM-GWM-OF-001",
+  );
   expect(row).toMatchObject({ onHand: 42, reserved: 1, quarantine: 3 });
 
   const release = await request.post("/api/inventory-movement", {
-    headers: { "x-drivemate-role": "warehouse" },
+    headers: roleHeaders("warehouse"),
     data: {
       type: "adjustment",
       sku: "DM-GWM-OF-001",
@@ -446,11 +580,13 @@ test("inventory movement API records and reviews quarantine stock", async ({ req
     movement: "Quarantine Release",
     reference: "QA-RELEASE-API",
   });
-  const releasedRow = releaseBody.inventory.find((item: { sku: string }) => item.sku === "DM-GWM-OF-001");
+  const releasedRow = releaseBody.inventory.find(
+    (item: { sku: string }) => item.sku === "DM-GWM-OF-001",
+  );
   expect(releasedRow).toMatchObject({ onHand: 42, reserved: 1, quarantine: 2 });
 
   const writeoff = await request.post("/api/inventory-movement", {
-    headers: { "x-drivemate-role": "warehouse" },
+    headers: roleHeaders("warehouse"),
     data: {
       type: "adjustment",
       sku: "DM-GWM-OF-001",
@@ -467,13 +603,17 @@ test("inventory movement API records and reviews quarantine stock", async ({ req
     movement: "Quarantine Write-off",
     reference: "QA-WRITEOFF-API",
   });
-  const writeoffRow = writeoffBody.inventory.find((item: { sku: string }) => item.sku === "DM-GWM-OF-001");
+  const writeoffRow = writeoffBody.inventory.find(
+    (item: { sku: string }) => item.sku === "DM-GWM-OF-001",
+  );
   expect(writeoffRow).toMatchObject({ onHand: 41, reserved: 1, quarantine: 1 });
 });
 
-test("inventory movement API records putaway transfers", async ({ request }) => {
+test("inventory movement API records putaway transfers", async ({
+  request,
+}) => {
   const response = await request.post("/api/inventory-movement", {
-    headers: { "x-drivemate-role": "warehouse" },
+    headers: roleHeaders("warehouse"),
     data: {
       type: "putaway",
       sku: "DMPGWMOF001",
@@ -495,9 +635,11 @@ test("inventory movement API records putaway transfers", async ({ request }) => 
   });
 });
 
-test("inventory movement API records stock adjustments", async ({ request }) => {
+test("inventory movement API records stock adjustments", async ({
+  request,
+}) => {
   const response = await request.post("/api/inventory-movement", {
-    headers: { "x-drivemate-role": "warehouse" },
+    headers: roleHeaders("warehouse"),
     data: {
       type: "adjustment",
       sku: "DM-GWM-OF-001",
@@ -517,13 +659,17 @@ test("inventory movement API records stock adjustments", async ({ request }) => 
     location: "BNE-A01-03",
     createdBy: "demo-warehouse-user",
   });
-  const row = body.inventory.find((item: { sku: string }) => item.sku === "DM-GWM-OF-001");
+  const row = body.inventory.find(
+    (item: { sku: string }) => item.sku === "DM-GWM-OF-001",
+  );
   expect(row).toMatchObject({ onHand: 41, reserved: 1, quarantine: 0 });
 });
 
-test("inventory movement import API records bulk inbound receiving", async ({ request }) => {
+test("inventory movement import API records bulk inbound receiving", async ({
+  request,
+}) => {
   const response = await request.post("/api/inventory-movement/import", {
-    headers: { "x-drivemate-role": "warehouse" },
+    headers: roleHeaders("warehouse"),
     data: {
       rows: [
         {
@@ -549,8 +695,16 @@ test("inventory movement import API records bulk inbound receiving", async ({ re
   expect(body.summary).toMatchObject({ processed: 2, created: 2, failed: 0 });
   expect(body.movements).toEqual(
     expect.arrayContaining([
-      expect.objectContaining({ sku: "DM-GWM-OF-001", movement: "Inbound", quantity: 2 }),
-      expect.objectContaining({ sku: "DM-GWM-AF-002", movement: "Inbound", quantity: 3 }),
+      expect.objectContaining({
+        sku: "DM-GWM-OF-001",
+        movement: "Inbound",
+        quantity: 2,
+      }),
+      expect.objectContaining({
+        sku: "DM-GWM-AF-002",
+        movement: "Inbound",
+        quantity: 3,
+      }),
     ]),
   );
   expect(body.inventory).toEqual(
@@ -561,7 +715,7 @@ test("inventory movement import API records bulk inbound receiving", async ({ re
   );
 
   const adminState = await request.get("/api/admin-state", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
   });
   expect(adminState.ok()).toBeTruthy();
   const state = await adminState.json();
@@ -581,9 +735,11 @@ test("inventory movement import API records bulk inbound receiving", async ({ re
   );
 });
 
-test("warehouse state API returns inventory and pick orders for warehouse users", async ({ request }) => {
+test("warehouse state API returns inventory and pick orders for warehouse users", async ({
+  request,
+}) => {
   await request.post("/api/orders", {
-    headers: { "x-drivemate-role": "trade" },
+    headers: roleHeaders("trade"),
     data: {
       poNumber: "JOB-WH-STATE",
       lines: [{ sku: "DM-GWM-OF-001", quantity: 1 }],
@@ -591,23 +747,31 @@ test("warehouse state API returns inventory and pick orders for warehouse users"
   });
 
   const response = await request.get("/api/warehouse-state", {
-    headers: { "x-drivemate-role": "warehouse" },
+    headers: roleHeaders("warehouse"),
   });
 
   expect(response.ok()).toBeTruthy();
   const body = await response.json();
   expect(
     body.inventory.some(
-      (row: { sku: string; quarantine: number }) => row.sku === "DM-GWM-OF-001" && row.quarantine === 0,
+      (row: { sku: string; quarantine: number }) =>
+        row.sku === "DM-GWM-OF-001" && row.quarantine === 0,
     ),
   ).toBeTruthy();
-  expect(body.pickOrders.some((order: { poNumber?: string }) => order.poNumber === "JOB-WH-STATE")).toBeTruthy();
+  expect(
+    body.pickOrders.some(
+      (order: { poNumber?: string }) => order.poNumber === "JOB-WH-STATE",
+    ),
+  ).toBeTruthy();
   expect(Array.isArray(body.stockMovements)).toBeTruthy();
 });
 
-test("trade account application API creates an admin-visible pending account", async ({ request }) => {
+test("trade account application API creates an admin-visible pending account", async ({
+  request,
+}) => {
   const response = await request.post("/api/trade-account-applications", {
-    data: {
+    headers: publicHeaders(),
+    data: tradeApplication({
       accountName: "Northside Workshop",
       abn: "12345678901",
       contactName: "Jamie Lee",
@@ -615,7 +779,7 @@ test("trade account application API creates an admin-visible pending account", a
       contactPhone: "0400000000",
       postcode: "4000",
       notes: "Interested in GWM and BYD service parts.",
-    },
+    }),
   });
 
   expect(response.ok()).toBeTruthy();
@@ -623,61 +787,76 @@ test("trade account application API creates an admin-visible pending account", a
   expect(body.application.status).toBe("pending");
 
   const adminState = await request.get("/api/admin-state", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
   });
   const state = await adminState.json();
   expect(
     state.accountApplications.some(
       (application: { accountName: string; contactEmail: string }) =>
-        application.accountName === "Northside Workshop" && application.contactEmail === "jamie@example.com",
+        application.accountName === "Northside Workshop" &&
+        application.contactEmail === "jamie@example.com",
     ),
   ).toBeTruthy();
 });
 
-test("admin can approve a pending trade account application", async ({ request }) => {
+test("admin can approve a pending trade account application", async ({
+  request,
+}) => {
   const response = await request.post("/api/trade-account-applications", {
-    data: {
+    headers: publicHeaders(),
+    data: tradeApplication({
       accountName: "Southside Workshop",
       contactName: "Taylor Smith",
       contactEmail: "taylor@example.com",
       contactPhone: "0400000001",
-    },
+    }),
   });
   expect(response.ok()).toBeTruthy();
   const body = await response.json();
 
-  const approval = await request.post(`/api/trade-account-applications/${body.application.id}/approve`, {
-    headers: { "x-drivemate-role": "admin" },
-  });
+  const approval = await request.post(
+    `/api/trade-account-applications/${body.application.id}/approve`,
+    {
+      headers: roleHeaders("admin"),
+    },
+  );
 
   expect(approval.ok()).toBeTruthy();
   const approvalBody = await approval.json();
   expect(approvalBody.application.status).toBe("approved");
 
   const adminState = await request.get("/api/admin-state", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
   });
   const state = await adminState.json();
   expect(
-    state.accountApplications.some((application: { id: string }) => application.id === body.application.id),
+    state.accountApplications.some(
+      (application: { id: string }) => application.id === body.application.id,
+    ),
   ).toBe(false);
 });
 
-test("admin can provision a trade login from a pending application", async ({ request }) => {
+test("admin can provision a trade login from a pending application", async ({
+  request,
+}) => {
   const response = await request.post("/api/trade-account-applications", {
-    data: {
+    headers: publicHeaders(),
+    data: tradeApplication({
       accountName: "Provisioned Workshop",
       contactName: "Riley Chen",
       contactEmail: "riley@example.com",
       contactPhone: "0400000003",
-    },
+    }),
   });
   expect(response.ok()).toBeTruthy();
   const body = await response.json();
 
-  const provision = await request.post(`/api/trade-account-applications/${body.application.id}/provision-login`, {
-    headers: { "x-drivemate-role": "admin" },
-  });
+  const provision = await request.post(
+    `/api/trade-account-applications/${body.application.id}/provision-login`,
+    {
+      headers: roleHeaders("admin"),
+    },
+  );
 
   expect(provision.ok()).toBeTruthy();
   const provisionBody = await provision.json();
@@ -686,23 +865,35 @@ test("admin can provision a trade login from a pending application", async ({ re
     email: "riley@example.com",
     created: true,
   });
-  expect(provisionBody.login.temporaryPassword).toBeTruthy();
+  expect(provisionBody.login.setupEmailSent).toBe(true);
 });
 
-test("admin state API returns metrics, catalogue and operating records", async ({ request }) => {
+test("admin state API returns metrics, catalogue and operating records", async ({
+  request,
+}) => {
   const response = await request.get("/api/admin-state", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
   });
 
   expect(response.ok()).toBeTruthy();
   const body = await response.json();
   expect(body.metrics.activeSkus).toBeGreaterThan(0);
   expect(body.metrics.reorderAlerts).toBeGreaterThan(0);
-  expect(body.catalogue.some((row: { sku: string }) => row.sku === "DM-GWM-OF-001")).toBeTruthy();
+  expect(
+    body.catalogue.some((row: { sku: string }) => row.sku === "DM-GWM-OF-001"),
+  ).toBeTruthy();
   expect(
     body.reorderAlerts.some(
-      (alert: { sku: string; available: number; reorderPoint: number; suggestedOrderQty: number }) =>
-        alert.sku === "DM-MG-CF-008" && alert.available === 0 && alert.reorderPoint > 0 && alert.suggestedOrderQty > 0,
+      (alert: {
+        sku: string;
+        available: number;
+        reorderPoint: number;
+        suggestedOrderQty: number;
+      }) =>
+        alert.sku === "DM-MG-CF-008" &&
+        alert.available === 0 &&
+        alert.reorderPoint > 0 &&
+        alert.suggestedOrderQty > 0,
     ),
   ).toBeTruthy();
   expect(Array.isArray(body.orders)).toBeTruthy();
@@ -710,22 +901,39 @@ test("admin state API returns metrics, catalogue and operating records", async (
   expect(Array.isArray(body.stockMovements)).toBeTruthy();
   expect(Array.isArray(body.accountApplications)).toBeTruthy();
   expect(Array.isArray(body.tradeAccounts)).toBeTruthy();
-  expect(body.fitmentRules.some((rule: { sku: string }) => rule.sku === "DM-GWM-OF-001")).toBeTruthy();
-  expect(body.purchaseBatches.some((batch: { batchNo: string }) => batch.batchNo === "BNE-2026-06-PILOT")).toBeTruthy();
+  expect(
+    body.fitmentRules.some(
+      (rule: { sku: string }) => rule.sku === "DM-GWM-OF-001",
+    ),
+  ).toBeTruthy();
+  expect(
+    body.purchaseBatches.some(
+      (batch: { batchNo: string }) => batch.batchNo === "BNE-2026-06-PILOT",
+    ),
+  ).toBeTruthy();
   expect(
     body.pricingRules.some(
       (rule: { id: string; unitPriceExGstCents?: number }) =>
-        rule.id === "PRICE-GWM-SERVICE-FILTERS" && rule.unitPriceExGstCents === 2595,
+        rule.id === "PRICE-GWM-SERVICE-FILTERS" &&
+        rule.unitPriceExGstCents === 2595,
     ),
   ).toBeTruthy();
-  expect(body.rfqReviews.some((review: { id: string }) => review.id === "RFQ-GWM-ALPHA-FUEL-FILTER")).toBeTruthy();
+  expect(
+    body.rfqReviews.some(
+      (review: { id: string }) => review.id === "RFQ-GWM-ALPHA-FUEL-FILTER",
+    ),
+  ).toBeTruthy();
   expect(Array.isArray(body.lookupRequests)).toBeTruthy();
-  expect(body.userRoles.some((user: { role: string }) => user.role === "admin")).toBeTruthy();
+  expect(
+    body.userRoles.some((user: { role: string }) => user.role === "admin"),
+  ).toBeTruthy();
 });
 
-test("admin export API returns operating CSV snapshots", async ({ request }) => {
+test("admin export API returns operating CSV snapshots", async ({
+  request,
+}) => {
   await request.post("/api/orders", {
-    headers: { "x-drivemate-role": "trade" },
+    headers: roleHeaders("trade"),
     data: {
       poNumber: "JOB-EXPORT",
       vehicleVin: "LGWDCF196RM608238",
@@ -733,91 +941,130 @@ test("admin export API returns operating CSV snapshots", async ({ request }) => 
     },
   });
   const account = await request.post("/api/trade-account-applications", {
-    data: {
+    headers: publicHeaders(),
+    data: tradeApplication({
       accountName: "Export Workshop",
       contactName: "Alex Export",
       contactEmail: "export@example.com",
       contactPhone: "0400000010",
-    },
+    }),
   });
   expect(account.ok()).toBeTruthy();
   const accountBody = await account.json();
-  await request.post(`/api/trade-account-applications/${accountBody.application.id}/approve`, {
-    headers: { "x-drivemate-role": "admin" },
-  });
+  await request.post(
+    `/api/trade-account-applications/${accountBody.application.id}/approve`,
+    {
+      headers: roleHeaders("admin"),
+    },
+  );
 
   const inventory = await request.get("/api/admin-export?type=catalogue", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
   });
   expect(inventory.ok()).toBeTruthy();
   expect(inventory.headers()["content-type"]).toContain("text/csv");
-  expect(inventory.headers()["content-disposition"]).toContain("drivemate-catalogue-export.csv");
+  expect(inventory.headers()["content-disposition"]).toContain(
+    "drivemate-catalogue-export.csv",
+  );
   const inventoryCsv = await inventory.text();
   expect(inventoryCsv).toContain("sku,barcode,oem_part_number");
   expect(inventoryCsv).toContain("trade_price_ex_gst_cents");
   expect(inventoryCsv).toContain("reorder_point,reorder_quantity");
   expect(inventoryCsv).toContain("DM-GWM-OF-001");
 
-  const reorderAlerts = await request.get("/api/admin-export?type=reorder_alerts", {
-    headers: { "x-drivemate-role": "admin" },
-  });
+  const reorderAlerts = await request.get(
+    "/api/admin-export?type=reorder_alerts",
+    {
+      headers: roleHeaders("admin"),
+    },
+  );
   expect(reorderAlerts.ok()).toBeTruthy();
-  expect(reorderAlerts.headers()["content-disposition"]).toContain("drivemate-reorder-alerts-export.csv");
+  expect(reorderAlerts.headers()["content-disposition"]).toContain(
+    "drivemate-reorder-alerts-export.csv",
+  );
   const reorderCsv = await reorderAlerts.text();
-  expect(reorderCsv).toContain("sku,brand,part_name,available,reorder_point,suggested_order_qty,status");
+  expect(reorderCsv).toContain(
+    "sku,brand,part_name,available,reorder_point,suggested_order_qty,status",
+  );
   expect(reorderCsv).toContain("DM-MG-CF-008");
 
   const orders = await request.get("/api/admin-export?type=orders", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
   });
   expect(orders.ok()).toBeTruthy();
   const ordersCsv = await orders.text();
   expect(ordersCsv).toContain("order_id,trade_account_id,status");
-  expect(ordersCsv).toContain("subtotal_ex_gst_cents,gst_cents,total_inc_gst_cents");
+  expect(ordersCsv).toContain(
+    "subtotal_ex_gst_cents,gst_cents,total_inc_gst_cents",
+  );
   expect(ordersCsv).toContain("JOB-EXPORT");
 
-  const accountDocuments = await request.get("/api/admin-export?type=account_documents", {
-    headers: { "x-drivemate-role": "admin" },
-  });
+  const accountDocuments = await request.get(
+    "/api/admin-export?type=account_documents",
+    {
+      headers: roleHeaders("admin"),
+    },
+  );
   expect(accountDocuments.ok()).toBeTruthy();
-  expect(accountDocuments.headers()["content-disposition"]).toContain("drivemate-account-documents-export.csv");
+  expect(accountDocuments.headers()["content-disposition"]).toContain(
+    "drivemate-account-documents-export.csv",
+  );
   const accountDocumentsCsv = await accountDocuments.text();
-  expect(accountDocumentsCsv).toContain("document_id,trade_account_id,type,reference,storage_path,created_at");
-  expect(accountDocumentsCsv).toContain("INV-");
+  expect(accountDocumentsCsv).toContain(
+    "document_id,trade_account_id,type,reference,storage_path,created_at",
+  );
+  expect(accountDocumentsCsv).toContain("OC-");
 
   await request.post("/api/vehicle-lookup", {
-    headers: { "x-drivemate-role": "trade" },
+    headers: roleHeaders("trade"),
     data: { query: "GWM Cannon Alpha filters", rego: "QLD 24ALPHA" },
   });
-  const lookupRequests = await request.get("/api/admin-export?type=lookup_requests", {
-    headers: { "x-drivemate-role": "admin" },
-  });
+  const lookupRequests = await request.get(
+    "/api/admin-export?type=lookup_requests",
+    {
+      headers: roleHeaders("admin"),
+    },
+  );
   expect(lookupRequests.ok()).toBeTruthy();
-  expect(lookupRequests.headers()["content-disposition"]).toContain("drivemate-lookup-requests-export.csv");
+  expect(lookupRequests.headers()["content-disposition"]).toContain(
+    "drivemate-lookup-requests-export.csv",
+  );
   const lookupCsv = await lookupRequests.text();
-  expect(lookupCsv).toContain("lookup_id,trade_account_id,rego,vin,query,vehicle,match_count");
+  expect(lookupCsv).toContain(
+    "lookup_id,trade_account_id,rego,vin,query,vehicle,match_count",
+  );
   expect(lookupCsv).toContain("GWM Cannon Alpha filters");
 
-  const tradeAccounts = await request.get("/api/admin-export?type=trade_accounts", {
-    headers: { "x-drivemate-role": "admin" },
-  });
+  const tradeAccounts = await request.get(
+    "/api/admin-export?type=trade_accounts",
+    {
+      headers: roleHeaders("admin"),
+    },
+  );
   expect(tradeAccounts.ok()).toBeTruthy();
-  expect(tradeAccounts.headers()["content-disposition"]).toContain("drivemate-trade-accounts-export.csv");
+  expect(tradeAccounts.headers()["content-disposition"]).toContain(
+    "drivemate-trade-accounts-export.csv",
+  );
   const tradeAccountsCsv = await tradeAccounts.text();
   expect(tradeAccountsCsv).toContain("trade_account_id,business,abn");
   expect(tradeAccountsCsv).toContain("Export Workshop");
 
-  const purchaseBatches = await request.get("/api/admin-export?type=purchase_batches", {
-    headers: { "x-drivemate-role": "admin" },
-  });
+  const purchaseBatches = await request.get(
+    "/api/admin-export?type=purchase_batches",
+    {
+      headers: roleHeaders("admin"),
+    },
+  );
   expect(purchaseBatches.ok()).toBeTruthy();
-  expect(purchaseBatches.headers()["content-disposition"]).toContain("drivemate-purchase-batches-export.csv");
+  expect(purchaseBatches.headers()["content-disposition"]).toContain(
+    "drivemate-purchase-batches-export.csv",
+  );
   const purchaseBatchesCsv = await purchaseBatches.text();
   expect(purchaseBatchesCsv).toContain("batch_no,sku,received_quantity");
   expect(purchaseBatchesCsv).toContain("BNE-2026-06-PILOT");
 
   const invalid = await request.get("/api/admin-export?type=unknown", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
   });
   expect(invalid.status()).toBe(400);
   const invalidBody = await invalid.json();
@@ -838,7 +1085,7 @@ test("admin export API returns operating CSV snapshots", async ({ request }) => 
 
 test("admin can update product master scanner fields", async ({ request }) => {
   const response = await request.patch("/api/products/DM-GWM-OF-001", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
     data: {
       barcode: "DMP-GWM-OF-001-API",
       oemPartNumber: "GWM-OEM-OF-API",
@@ -860,7 +1107,7 @@ test("admin can update product master scanner fields", async ({ request }) => {
   });
 
   const scan = await request.post("/api/inventory-movement", {
-    headers: { "x-drivemate-role": "warehouse" },
+    headers: roleHeaders("warehouse"),
     data: {
       type: "inbound",
       sku: "GWM-OEM-OF-API",
@@ -875,9 +1122,11 @@ test("admin can update product master scanner fields", async ({ request }) => {
   expect(scanBody.movement.sku).toBe("DM-GWM-OF-001");
 });
 
-test("admin can create product master records for warehouse scans", async ({ request }) => {
+test("admin can create product master records for warehouse scans", async ({
+  request,
+}) => {
   const response = await request.post("/api/products", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
     data: {
       sku: "DM-GWM-API-099",
       brand: "GWM",
@@ -903,7 +1152,7 @@ test("admin can create product master records for warehouse scans", async ({ req
   });
 
   const scan = await request.post("/api/inventory-movement", {
-    headers: { "x-drivemate-role": "warehouse" },
+    headers: roleHeaders("warehouse"),
     data: {
       type: "inbound",
       sku: "DMPGWMAPI099",
@@ -918,9 +1167,11 @@ test("admin can create product master records for warehouse scans", async ({ req
   expect(scanBody.movement.sku).toBe("DM-GWM-API-099");
 });
 
-test("admin can bulk import product masters for scanner setup", async ({ request }) => {
+test("admin can bulk import product masters for scanner setup", async ({
+  request,
+}) => {
   const response = await request.post("/api/products/import", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
     data: {
       rows: [
         {
@@ -970,7 +1221,7 @@ test("admin can bulk import product masters for scanner setup", async ({ request
   );
 
   const scan = await request.post("/api/inventory-movement", {
-    headers: { "x-drivemate-role": "warehouse" },
+    headers: roleHeaders("warehouse"),
     data: {
       type: "inbound",
       sku: "DMPBYDIMP201",
@@ -985,9 +1236,11 @@ test("admin can bulk import product masters for scanner setup", async ({ request
   expect(scanBody.movement.sku).toBe("DM-BYD-IMP-201");
 });
 
-test("admin can create fitment rules for trade vehicle lookup", async ({ request }) => {
+test("admin can create fitment rules for trade vehicle lookup", async ({
+  request,
+}) => {
   const product = await request.post("/api/products", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
     data: {
       sku: "DM-GWM-FIT-API",
       brand: "GWM",
@@ -1000,7 +1253,7 @@ test("admin can create fitment rules for trade vehicle lookup", async ({ request
   expect(product.status()).toBe(201);
 
   const fitment = await request.post("/api/fitment-rules", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
     data: {
       sku: "DM-GWM-FIT-API",
       make: "GWM",
@@ -1013,7 +1266,7 @@ test("admin can create fitment rules for trade vehicle lookup", async ({ request
   expect(fitment.status()).toBe(201);
 
   await request.post("/api/inventory-movement", {
-    headers: { "x-drivemate-role": "warehouse" },
+    headers: roleHeaders("warehouse"),
     data: {
       type: "inbound",
       sku: "DMPGWMFITAPI",
@@ -1024,7 +1277,7 @@ test("admin can create fitment rules for trade vehicle lookup", async ({ request
   });
 
   const lookup = await request.post("/api/vehicle-lookup", {
-    headers: { "x-drivemate-role": "trade" },
+    headers: roleHeaders("trade"),
     data: { query: "GWM Cannon Alpha filters" },
   });
   expect(lookup.ok()).toBeTruthy();
@@ -1039,9 +1292,11 @@ test("admin can create fitment rules for trade vehicle lookup", async ({ request
   );
 });
 
-test("admin can bulk import fitment rules for trade lookup", async ({ request }) => {
+test("admin can bulk import fitment rules for trade lookup", async ({
+  request,
+}) => {
   const product = await request.post("/api/products/import", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
     data: {
       rows: [
         {
@@ -1058,7 +1313,7 @@ test("admin can bulk import fitment rules for trade lookup", async ({ request })
   expect(product.ok()).toBeTruthy();
 
   const fitment = await request.post("/api/fitment-rules/import", {
-    headers: { "x-drivemate-role": "admin" },
+    headers: roleHeaders("admin"),
     data: {
       rows: [
         {
@@ -1086,7 +1341,7 @@ test("admin can bulk import fitment rules for trade lookup", async ({ request })
   );
 
   await request.post("/api/inventory-movement", {
-    headers: { "x-drivemate-role": "warehouse" },
+    headers: roleHeaders("warehouse"),
     data: {
       type: "inbound",
       sku: "DMPGWMFITBULK",
@@ -1097,7 +1352,7 @@ test("admin can bulk import fitment rules for trade lookup", async ({ request })
   });
 
   const lookup = await request.post("/api/vehicle-lookup", {
-    headers: { "x-drivemate-role": "trade" },
+    headers: roleHeaders("trade"),
     data: { query: "GWM Cannon Alpha filters" },
   });
   expect(lookup.ok()).toBeTruthy();
@@ -1171,10 +1426,14 @@ test("protected APIs reject public requests", async ({ request }) => {
   const cancel = await request.post("/api/orders/SO-404/cancel");
   expect(cancel.status()).toBe(403);
 
-  const approval = await request.post("/api/trade-account-applications/TA-404/approve");
+  const approval = await request.post(
+    "/api/trade-account-applications/TA-404/approve",
+  );
   expect(approval.status()).toBe(403);
 
-  const provision = await request.post("/api/trade-account-applications/TA-404/provision-login");
+  const provision = await request.post(
+    "/api/trade-account-applications/TA-404/provision-login",
+  );
   expect(provision.status()).toBe(403);
 
   const product = await request.patch("/api/products/DM-GWM-OF-001", {

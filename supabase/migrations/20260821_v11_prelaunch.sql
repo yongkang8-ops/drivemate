@@ -157,6 +157,7 @@ create table if not exists public.shipment_cartons (
   shipment_id uuid not null references public.shipments(id) on delete cascade,
   pallet_id uuid references public.shipment_pallets(id),
   carton_number text not null,
+  carton_count int not null default 1 check (carton_count > 0),
   length_mm int,
   width_mm int,
   height_mm int,
@@ -164,6 +165,7 @@ create table if not exists public.shipment_cartons (
   source_evidence jsonb not null default '[]'::jsonb,
   unique (shipment_id, carton_number)
 );
+alter table public.shipment_cartons add column if not exists carton_count int not null default 1 check (carton_count > 0);
 
 create table if not exists public.shipment_carton_lines (
   id uuid primary key default gen_random_uuid(),
@@ -195,9 +197,14 @@ create table if not exists public.goods_receipt_lines (
   received_quantity int not null check (received_quantity >= 0),
   damaged_quantity int not null default 0 check (damaged_quantity >= 0),
   quarantined_quantity int not null default 0 check (quarantined_quantity >= 0),
+  short_received_quantity int not null default 0 check (short_received_quantity >= 0),
+  over_received_quantity int not null default 0 check (over_received_quantity >= 0),
   evidence jsonb not null default '[]'::jsonb,
   unique (goods_receipt_id, purchase_order_line_id)
 );
+alter table public.goods_receipt_lines
+  add column if not exists short_received_quantity int not null default 0 check (short_received_quantity >= 0),
+  add column if not exists over_received_quantity int not null default 0 check (over_received_quantity >= 0);
 
 create table if not exists public.landed_costs (
   id uuid primary key default gen_random_uuid(),
@@ -226,9 +233,14 @@ create table if not exists public.landed_cost_allocations (
   landed_cost_id uuid not null references public.landed_costs(id) on delete cascade,
   purchase_order_line_id uuid not null references public.purchase_order_lines(id),
   allocated_minor bigint not null default 0,
+  allocated_cash_minor bigint not null default 0,
+  allocated_cogs_minor bigint not null default 0,
   basis_value numeric,
   unique (landed_cost_id, purchase_order_line_id)
 );
+alter table public.landed_cost_allocations
+  add column if not exists allocated_cash_minor bigint not null default 0,
+  add column if not exists allocated_cogs_minor bigint not null default 0;
 
 create table if not exists public.compliance_reviews (
   id uuid primary key default gen_random_uuid(),
@@ -299,6 +311,9 @@ alter table public.trade_accounts
   add column if not exists privacy_consent_at timestamptz,
   add column if not exists trade_terms_consent_at timestamptz,
   add column if not exists consent_version text;
+alter table public.trade_accounts drop constraint if exists trade_accounts_credit_status_check;
+alter table public.trade_accounts add constraint trade_accounts_credit_status_check
+  check (credit_status in ('active', 'hold', 'closed'));
 create unique index if not exists trade_accounts_contact_email_unique
   on public.trade_accounts (lower(contact_email)) where contact_email is not null and status <> 'closed';
 create unique index if not exists trade_accounts_abn_unique
@@ -309,7 +324,12 @@ alter table public.sales_orders
   add column if not exists delivery_charge_ex_gst_cents int not null default 0,
   add column if not exists carrier text,
   add column if not exists tracking_number text,
-  add column if not exists dispatched_at timestamptz;
+  add column if not exists dispatched_at timestamptz,
+  add column if not exists payment_due_at timestamptz,
+  add column if not exists invoice_status text not null default 'not_issued';
+alter table public.sales_orders drop constraint if exists sales_orders_invoice_status_check;
+alter table public.sales_orders add constraint sales_orders_invoice_status_check
+  check (invoice_status in ('not_issued', 'issued', 'part_paid', 'paid', 'credited', 'void'));
 create unique index if not exists sales_orders_idempotency_key_unique
   on public.sales_orders (idempotency_key) where idempotency_key is not null;
 
@@ -326,6 +346,51 @@ create table if not exists public.sales_order_allocations (
   dispatched_quantity int not null default 0 check (dispatched_quantity >= 0),
   created_at timestamptz not null default now(),
   unique (sales_order_line_id, inventory_balance_id)
+);
+
+create table if not exists public.account_ledger_entries (
+  id uuid primary key default gen_random_uuid(),
+  trade_account_id uuid not null references public.trade_accounts(id),
+  sales_order_id uuid references public.sales_orders(id),
+  entry_type text not null check (entry_type in ('invoice', 'payment', 'credit_adjustment', 'debit_adjustment', 'rebate')),
+  amount_cents int not null check (amount_cents <> 0),
+  reference text not null,
+  notes text,
+  effective_at timestamptz not null default now(),
+  due_at timestamptz,
+  created_by uuid references auth.users(id),
+  idempotency_key text not null unique,
+  created_at timestamptz not null default now()
+);
+create index if not exists account_ledger_account_idx on public.account_ledger_entries(trade_account_id, effective_at);
+
+create table if not exists public.rma_requests (
+  id uuid primary key default gen_random_uuid(),
+  rma_number text not null unique,
+  trade_account_id uuid not null references public.trade_accounts(id),
+  sales_order_id uuid not null references public.sales_orders(id),
+  reason_type text not null check (reason_type in ('quality', 'incorrect_fitment', 'damaged_delivery', 'other')),
+  responsibility text not null check (responsibility in ('drivemate', 'workshop', 'carrier', 'pending_review')),
+  status text not null default 'requested' check (status in ('requested', 'approved', 'rejected', 'in_transit', 'received_quarantine', 'inspected', 'credited', 'closed')),
+  requested_by uuid references auth.users(id),
+  approved_by uuid references auth.users(id),
+  notes text,
+  evidence jsonb not null default '[]'::jsonb,
+  idempotency_key text not null unique,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.rma_requests add column if not exists idempotency_key text;
+create unique index if not exists rma_requests_idempotency_unique on public.rma_requests(idempotency_key) where idempotency_key is not null;
+
+create table if not exists public.rma_lines (
+  id uuid primary key default gen_random_uuid(),
+  rma_request_id uuid not null references public.rma_requests(id) on delete cascade,
+  sales_order_line_id uuid not null references public.sales_order_lines(id),
+  quantity int not null check (quantity > 0),
+  received_quantity int not null default 0 check (received_quantity >= 0),
+  inspection_outcome text check (inspection_outcome in ('pending', 'quality_confirmed', 'no_fault_found', 'customer_fitment_error', 'carrier_damage')),
+  unique (rma_request_id, sales_order_line_id)
 );
 
 alter table public.account_documents drop constraint if exists account_documents_document_type_check;
@@ -513,10 +578,10 @@ begin
         where shipment_id = v_shipment_id and pallet_number in (v_carton->>'palletNumber', replace(v_carton->>'palletNumber','号托盘','#'))
         limit 1;
       insert into public.shipment_cartons (
-        shipment_id, pallet_id, carton_number, length_mm, width_mm, height_mm,
+        shipment_id, pallet_id, carton_number, carton_count, length_mm, width_mm, height_mm,
         gross_weight_grams, source_evidence
       ) values (
-        v_shipment_id, v_pallet_id, v_carton->>'cartonNumber', nullif(v_carton->>'lengthMm','')::int,
+        v_shipment_id, v_pallet_id, v_carton->>'cartonNumber', coalesce(nullif(v_carton->>'cartonCount','')::int, 1), nullif(v_carton->>'lengthMm','')::int,
         nullif(v_carton->>'widthMm','')::int, nullif(v_carton->>'heightMm','')::int,
         nullif(v_carton->>'grossWeightGrams','')::bigint,
         jsonb_build_array(jsonb_build_object('file','final_order_data_20260820.json','sha256',p_payload->>'supplementalSha256'))
@@ -566,6 +631,7 @@ declare
   v_balance_id uuid;
   v_received int;
   v_damaged int;
+  v_cumulative int;
 begin
   select id into v_existing from public.goods_receipts where idempotency_key = p_idempotency_key;
   if v_existing is not null then return v_existing; end if;
@@ -599,10 +665,12 @@ begin
       returning id into v_balance_id;
     insert into public.goods_receipt_lines(
       goods_receipt_id, purchase_order_line_id, inventory_batch_id, expected_quantity,
-      received_quantity, damaged_quantity, quarantined_quantity, evidence
+      received_quantity, damaged_quantity, quarantined_quantity,
+      short_received_quantity, over_received_quantity, evidence
     ) values (
       v_receipt_id, v_po_line.id, v_batch_id, v_po_line.quantity, v_received, v_damaged,
-      v_received, coalesce(v_line->'evidence','[]'::jsonb)
+      v_received, greatest(v_po_line.quantity - v_received, 0),
+      greatest(v_received - v_po_line.quantity, 0), coalesce(v_line->'evidence','[]'::jsonb)
     );
     insert into public.stock_movements(
       product_id, batch_id, movement_type, quantity, to_location_id, reference_type,
@@ -611,7 +679,12 @@ begin
       v_po_line.product_id, v_batch_id, 'inbound', v_received, p_location_id,
       'goods_receipt', v_receipt_id::text, p_actor_id
     );
-    update public.products set supply_status = 'part_received', updated_at = now() where id = v_po_line.product_id;
+    select coalesce(sum(received_quantity),0) into v_cumulative
+      from public.goods_receipt_lines where purchase_order_line_id = v_po_line.id;
+    update public.products
+      set supply_status = case when v_cumulative >= v_po_line.quantity then 'received' else 'part_received' end,
+          updated_at = now()
+      where id = v_po_line.product_id;
   end loop;
   update public.goods_receipts set status = 'completed' where id = v_receipt_id;
   update public.shipments set status = 'delivered' where id = p_shipment_id;
@@ -795,6 +868,7 @@ declare
   v_unit_price int;
   v_subtotal bigint := 0;
   v_gst bigint := 0;
+  v_open_exposure bigint := 0;
   v_account record;
 begin
   if coalesce(trim(p_idempotency_key), '') = '' then
@@ -806,6 +880,13 @@ begin
 
   select * into v_account from public.trade_accounts where id = p_trade_account_id for update;
   if v_account.id is null then raise exception 'Trade account was not found'; end if;
+  if v_account.current_balance_cents > 0 and exists (
+    select 1 from public.account_ledger_entries
+    where trade_account_id = p_trade_account_id and entry_type = 'invoice' and due_at < now()
+  ) then
+    update public.trade_accounts set overdue_balance_cents = current_balance_cents, credit_status = 'hold' where id = p_trade_account_id;
+    raise exception 'Trade account has an overdue balance';
+  end if;
   if v_account.status <> 'approved' or v_account.credit_status <> 'active' or v_account.overdue_balance_cents > 0 then
     raise exception 'Trade account is not permitted to place orders';
   end if;
@@ -865,7 +946,12 @@ begin
   end loop;
 
   v_gst := round(v_subtotal * 0.1);
-  if v_account.current_balance_cents + v_subtotal + v_gst > v_account.credit_limit_cents then
+  select coalesce(sum(total_inc_gst_cents),0) into v_open_exposure
+    from public.sales_orders
+    where trade_account_id = p_trade_account_id
+      and id <> v_order_id
+      and status in ('submitted', 'confirmed', 'picked');
+  if v_account.current_balance_cents + v_open_exposure + v_subtotal + v_gst > v_account.credit_limit_cents then
     raise exception 'Credit limit exceeded';
   end if;
 
@@ -938,7 +1024,13 @@ language plpgsql
 security definer
 set search_path = public
 as $$
-declare v_order record; v_allocation record; v_delivery_gst int;
+declare
+  v_order record;
+  v_allocation record;
+  v_delivery_gst int;
+  v_terms_days int;
+  v_due_at timestamptz;
+  v_invoice_total int;
 begin
   if exists (select 1 from public.audit_events where idempotency_key = p_idempotency_key and action = 'order_dispatched') then
     return p_order_id;
@@ -950,6 +1042,8 @@ begin
   if coalesce(trim(p_carrier),'') = '' or coalesce(trim(p_tracking_number),'') = '' then
     raise exception 'Carrier and tracking number are required';
   end if;
+  select terms_days into v_terms_days from public.trade_accounts where id = v_order.trade_account_id for update;
+  v_due_at := now() + make_interval(days => coalesce(v_terms_days, 30));
 
   for v_allocation in
     select a.* from public.sales_order_allocations a
@@ -977,12 +1071,257 @@ begin
     subtotal_ex_gst_cents = subtotal_ex_gst_cents + greatest(p_delivery_charge_ex_gst_cents, 0),
     gst_cents = gst_cents + v_delivery_gst,
     total_inc_gst_cents = total_inc_gst_cents + greatest(p_delivery_charge_ex_gst_cents, 0) + v_delivery_gst,
-    dispatched_at = now()
-  where id = p_order_id;
+    dispatched_at = now(),
+    payment_due_at = v_due_at,
+    invoice_status = 'issued'
+  where id = p_order_id
+  returning total_inc_gst_cents into v_invoice_total;
+  insert into public.account_ledger_entries(
+    trade_account_id, sales_order_id, entry_type, amount_cents, reference,
+    effective_at, due_at, created_by, idempotency_key
+  ) values (
+    v_order.trade_account_id, p_order_id, 'invoice', v_invoice_total,
+    'INV-' || p_order_id::text, now(), v_due_at, p_actor_id, 'invoice:' || p_order_id::text
+  ) on conflict (idempotency_key) do nothing;
+  update public.trade_accounts
+    set current_balance_cents = current_balance_cents + v_invoice_total,
+        credit_status = case when current_balance_cents + v_invoice_total > credit_limit_cents then 'hold' else credit_status end
+    where id = v_order.trade_account_id;
   update public.sales_order_lines set status = 'picked' where sales_order_id = p_order_id;
   insert into public.audit_events(entity_type, entity_id, action, actor_id, before_value, after_value, idempotency_key)
     values ('sales_order', p_order_id::text, 'order_dispatched', p_actor_id, to_jsonb(v_order), jsonb_build_object('status','dispatched','carrier',p_carrier,'tracking_number',p_tracking_number), p_idempotency_key);
   return p_order_id;
+end;
+$$;
+
+create or replace function public.dm_post_account_adjustment(
+  p_trade_account_id uuid,
+  p_entry_type text,
+  p_amount_cents int,
+  p_reference text,
+  p_notes text,
+  p_idempotency_key text,
+  p_actor_id uuid
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_entry_id uuid; v_signed_amount int; v_balance int; v_overdue int;
+begin
+  if p_entry_type not in ('payment','credit_adjustment','debit_adjustment','rebate') then raise exception 'Unsupported account adjustment type'; end if;
+  if p_amount_cents <= 0 then raise exception 'Adjustment amount must be positive'; end if;
+  select id into v_entry_id from public.account_ledger_entries where idempotency_key = p_idempotency_key;
+  if v_entry_id is not null then return v_entry_id; end if;
+  perform 1 from public.trade_accounts where id = p_trade_account_id for update;
+  if not found then raise exception 'Trade account was not found'; end if;
+  v_signed_amount := case when p_entry_type in ('payment','credit_adjustment','rebate') then -p_amount_cents else p_amount_cents end;
+  insert into public.account_ledger_entries(trade_account_id,entry_type,amount_cents,reference,notes,created_by,idempotency_key)
+    values (p_trade_account_id,p_entry_type,v_signed_amount,p_reference,p_notes,p_actor_id,p_idempotency_key)
+    returning id into v_entry_id;
+  select coalesce(sum(amount_cents),0) into v_balance from public.account_ledger_entries where trade_account_id = p_trade_account_id;
+  select case when exists (
+    select 1 from public.account_ledger_entries where trade_account_id = p_trade_account_id and entry_type = 'invoice' and due_at < now()
+  ) and v_balance > 0 then v_balance else 0 end into v_overdue;
+  update public.trade_accounts
+    set current_balance_cents = v_balance,
+        overdue_balance_cents = v_overdue,
+        credit_status = case when v_overdue > 0 or v_balance > credit_limit_cents then 'hold' else 'active' end
+    where id = p_trade_account_id and status = 'approved';
+  insert into public.audit_events(entity_type,entity_id,action,actor_id,after_value,idempotency_key)
+    values ('trade_account',p_trade_account_id::text,'account_adjustment_posted',p_actor_id,
+      jsonb_build_object('entry_type',p_entry_type,'amount_cents',v_signed_amount,'reference',p_reference),p_idempotency_key);
+  return v_entry_id;
+end;
+$$;
+
+create or replace function public.dm_refresh_credit_holds()
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_changed int;
+begin
+  with balances as (
+    select ta.id,
+      coalesce(sum(le.amount_cents),0)::int as balance,
+      case when bool_or(le.entry_type='invoice' and le.due_at < now()) and coalesce(sum(le.amount_cents),0) > 0
+        then coalesce(sum(le.amount_cents),0)::int else 0 end as overdue
+    from public.trade_accounts ta left join public.account_ledger_entries le on le.trade_account_id=ta.id
+    group by ta.id
+  )
+  update public.trade_accounts ta set
+    current_balance_cents=b.balance,
+    overdue_balance_cents=b.overdue,
+    credit_status=case when b.overdue>0 or b.balance>ta.credit_limit_cents then 'hold' when ta.status='approved' then 'active' else ta.credit_status end
+  from balances b where ta.id=b.id;
+  get diagnostics v_changed = row_count;
+  return v_changed;
+end;
+$$;
+
+create or replace function public.dm_create_rma(
+  p_trade_account_id uuid,
+  p_sales_order_id uuid,
+  p_reason_type text,
+  p_lines jsonb,
+  p_notes text,
+  p_evidence jsonb,
+  p_idempotency_key text,
+  p_actor_id uuid
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_existing uuid; v_rma_id uuid; v_line jsonb; v_order_line record; v_responsibility text;
+begin
+  select id into v_existing from public.rma_requests where idempotency_key=p_idempotency_key;
+  if v_existing is not null then return v_existing; end if;
+  if p_reason_type not in ('quality','incorrect_fitment','damaged_delivery','other') then raise exception 'Unsupported RMA reason'; end if;
+  if not exists (select 1 from public.sales_orders where id=p_sales_order_id and trade_account_id=p_trade_account_id and status='dispatched') then
+    raise exception 'Only dispatched orders owned by the trade account can be returned';
+  end if;
+  v_responsibility := case p_reason_type when 'quality' then 'drivemate' when 'incorrect_fitment' then 'workshop' when 'damaged_delivery' then 'carrier' else 'pending_review' end;
+  insert into public.rma_requests(rma_number,trade_account_id,sales_order_id,reason_type,responsibility,status,requested_by,notes,evidence,idempotency_key)
+    values ('RMA-'||to_char(now(),'YYYYMMDD')||'-'||upper(substr(replace(gen_random_uuid()::text,'-',''),1,8)),p_trade_account_id,p_sales_order_id,p_reason_type,v_responsibility,'requested',p_actor_id,p_notes,coalesce(p_evidence,'[]'::jsonb),p_idempotency_key)
+    returning id into v_rma_id;
+  for v_line in select * from jsonb_array_elements(p_lines)
+  loop
+    select sol.id,sol.quantity,p.sku into v_order_line from public.sales_order_lines sol join public.products p on p.id=sol.product_id
+      where sol.sales_order_id=p_sales_order_id and p.sku=upper(v_line->>'sku') for update of sol;
+    if v_order_line.id is null then raise exception 'SKU % is not on the order',v_line->>'sku'; end if;
+    if (v_line->>'quantity')::int<=0 or (v_line->>'quantity')::int>v_order_line.quantity then raise exception 'RMA quantity is invalid for SKU %',v_line->>'sku'; end if;
+    insert into public.rma_lines(rma_request_id,sales_order_line_id,quantity,inspection_outcome)
+      values (v_rma_id,v_order_line.id,(v_line->>'quantity')::int,'pending');
+  end loop;
+  insert into public.audit_events(entity_type,entity_id,action,actor_id,after_value,idempotency_key)
+    values ('rma',v_rma_id::text,'rma_requested',p_actor_id,jsonb_build_object('reason_type',p_reason_type,'responsibility',v_responsibility),p_idempotency_key);
+  return v_rma_id;
+end;
+$$;
+
+create or replace function public.dm_save_landed_cost(
+  p_shipment_id uuid,
+  p_status text,
+  p_allocation_basis text,
+  p_costs jsonb,
+  p_allocations jsonb,
+  p_source_evidence jsonb,
+  p_idempotency_key text,
+  p_actor_id uuid
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_existing uuid; v_id uuid; v_version int; v_allocation jsonb; v_cash_total bigint; v_cogs_total bigint; v_alloc_cash bigint; v_alloc_cogs bigint;
+begin
+  select (after_value->>'landed_cost_id')::uuid into v_existing from public.audit_events where idempotency_key=p_idempotency_key and action='landed_cost_saved';
+  if v_existing is not null then return v_existing; end if;
+  if p_status not in ('provisional','final') then raise exception 'Landed cost status must be provisional or final'; end if;
+  if p_allocation_basis not in ('value','quantity','weight','volume','manual') then raise exception 'Unsupported landed cost allocation basis'; end if;
+  perform 1 from public.shipments where id=p_shipment_id for update;
+  if not found then raise exception 'Shipment was not found'; end if;
+  v_cash_total := coalesce((p_costs->>'domesticLogisticsMinor')::bigint,0)+coalesce((p_costs->>'oceanFreightMinor')::bigint,0)+coalesce((p_costs->>'insuranceMinor')::bigint,0)+coalesce((p_costs->>'dutyMinor')::bigint,0)+coalesce((p_costs->>'importGstMinor')::bigint,0)+coalesce((p_costs->>'brokerageMinor')::bigint,0)+coalesce((p_costs->>'portChargesMinor')::bigint,0)+coalesce((p_costs->>'australiaDeliveryMinor')::bigint,0)+coalesce((p_costs->>'otherCostsMinor')::bigint,0);
+  v_cogs_total := v_cash_total-coalesce((p_costs->>'importGstMinor')::bigint,0);
+  select coalesce(sum((value->>'allocatedCashMinor')::bigint),0),coalesce(sum((value->>'allocatedCogsMinor')::bigint),0) into v_alloc_cash,v_alloc_cogs from jsonb_array_elements(p_allocations);
+  if v_alloc_cash<>v_cash_total or v_alloc_cogs<>v_cogs_total then raise exception 'Landed cost allocations do not reconcile'; end if;
+  if (select count(*) from jsonb_array_elements(p_allocations)) <> (
+    select count(*) from public.purchase_order_lines pol join public.shipments s on s.purchase_order_id=pol.purchase_order_id where s.id=p_shipment_id
+  ) or (select count(distinct value->>'purchaseOrderLineId') from jsonb_array_elements(p_allocations)) <> (select count(*) from jsonb_array_elements(p_allocations)) then
+    raise exception 'Every shipment purchase line must have exactly one landed cost allocation';
+  end if;
+  select coalesce(max(version),0)+1 into v_version from public.landed_costs where shipment_id=p_shipment_id;
+  if p_status='final' then update public.landed_costs set status='superseded' where shipment_id=p_shipment_id and status in ('provisional','final');
+  else update public.landed_costs set status='superseded' where shipment_id=p_shipment_id and status='provisional'; end if;
+  insert into public.landed_costs(shipment_id,version,status,currency,allocation_basis,domestic_logistics_minor,ocean_freight_minor,insurance_minor,duty_minor,import_gst_minor,brokerage_minor,port_charges_minor,australia_delivery_minor,other_costs_minor,source_evidence,created_by)
+    values(p_shipment_id,v_version,p_status,'AUD',p_allocation_basis,coalesce((p_costs->>'domesticLogisticsMinor')::bigint,0),coalesce((p_costs->>'oceanFreightMinor')::bigint,0),coalesce((p_costs->>'insuranceMinor')::bigint,0),coalesce((p_costs->>'dutyMinor')::bigint,0),coalesce((p_costs->>'importGstMinor')::bigint,0),coalesce((p_costs->>'brokerageMinor')::bigint,0),coalesce((p_costs->>'portChargesMinor')::bigint,0),coalesce((p_costs->>'australiaDeliveryMinor')::bigint,0),coalesce((p_costs->>'otherCostsMinor')::bigint,0),coalesce(p_source_evidence,'[]'::jsonb),p_actor_id) returning id into v_id;
+  for v_allocation in select * from jsonb_array_elements(p_allocations)
+  loop
+    if not exists(select 1 from public.purchase_order_lines pol join public.shipments s on s.purchase_order_id=pol.purchase_order_id where s.id=p_shipment_id and pol.id=(v_allocation->>'purchaseOrderLineId')::uuid) then raise exception 'Allocation line is not on the shipment purchase order'; end if;
+    insert into public.landed_cost_allocations(landed_cost_id,purchase_order_line_id,allocated_minor,allocated_cash_minor,allocated_cogs_minor,basis_value)
+      values(v_id,(v_allocation->>'purchaseOrderLineId')::uuid,(v_allocation->>'allocatedCogsMinor')::bigint,(v_allocation->>'allocatedCashMinor')::bigint,(v_allocation->>'allocatedCogsMinor')::bigint,nullif(v_allocation->>'basisValue','')::numeric);
+  end loop;
+  insert into public.audit_events(entity_type,entity_id,action,actor_id,after_value,idempotency_key)
+    values('landed_cost',v_id::text,'landed_cost_saved',p_actor_id,jsonb_build_object('landed_cost_id',v_id,'version',v_version,'status',p_status,'cash_total_minor',v_cash_total,'cogs_total_minor',v_cogs_total),p_idempotency_key);
+  return v_id;
+end;
+$$;
+
+create or replace function public.dm_receive_rma(
+  p_rma_id uuid,
+  p_lines jsonb,
+  p_location_id uuid,
+  p_idempotency_key text,
+  p_actor_id uuid
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_rma record; v_line jsonb; v_rma_line record; v_batch_id uuid; v_quantity int;
+begin
+  if exists(select 1 from public.audit_events where idempotency_key=p_idempotency_key and action='rma_received') then return p_rma_id; end if;
+  select * into v_rma from public.rma_requests where id=p_rma_id for update;
+  if v_rma.id is null or v_rma.status not in ('requested','approved','in_transit') then raise exception 'RMA is not receivable'; end if;
+  for v_line in select * from jsonb_array_elements(p_lines)
+  loop
+    select rl.*,sol.product_id,p.sku into v_rma_line
+      from public.rma_lines rl join public.sales_order_lines sol on sol.id=rl.sales_order_line_id join public.products p on p.id=sol.product_id
+      where rl.rma_request_id=p_rma_id and p.sku=upper(v_line->>'sku') for update of rl;
+    if v_rma_line.id is null then raise exception 'SKU % is not on the RMA',v_line->>'sku'; end if;
+    v_quantity := (v_line->>'quantity')::int;
+    if v_quantity<=0 or v_rma_line.received_quantity+v_quantity>v_rma_line.quantity then raise exception 'RMA received quantity is invalid'; end if;
+    insert into public.inventory_batches(product_id,batch_no,supplier_name,purchase_ref,received_date)
+      values (v_rma_line.product_id,v_rma.rma_number,'RMA return',v_rma.rma_number,current_date)
+      on conflict(product_id,batch_no) do update set received_date=excluded.received_date returning id into v_batch_id;
+    insert into public.inventory_balances(product_id,location_id,batch_id,on_hand,reserved,quarantine)
+      values(v_rma_line.product_id,p_location_id,v_batch_id,v_quantity,0,v_quantity)
+      on conflict(product_id,location_id,batch_id) do update set on_hand=public.inventory_balances.on_hand+excluded.on_hand,quarantine=public.inventory_balances.quarantine+excluded.quarantine;
+    update public.rma_lines set received_quantity=received_quantity+v_quantity where id=v_rma_line.id;
+    insert into public.stock_movements(product_id,batch_id,movement_type,quantity,to_location_id,reference_type,reference_id,created_by)
+      values(v_rma_line.product_id,v_batch_id,'return',v_quantity,p_location_id,'rma',p_rma_id::text,p_actor_id);
+  end loop;
+  update public.rma_requests set status='received_quarantine',updated_at=now() where id=p_rma_id;
+  insert into public.audit_events(entity_type,entity_id,action,actor_id,after_value,idempotency_key)
+    values('rma',p_rma_id::text,'rma_received',p_actor_id,jsonb_build_object('status','received_quarantine'),p_idempotency_key);
+  return p_rma_id;
+end;
+$$;
+
+create or replace function public.dm_inspect_rma(
+  p_rma_id uuid,
+  p_outcome text,
+  p_credit_amount_cents int,
+  p_notes text,
+  p_idempotency_key text,
+  p_actor_id uuid
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_rma record;
+begin
+  if exists(select 1 from public.audit_events where idempotency_key=p_idempotency_key and action='rma_inspected') then return p_rma_id; end if;
+  if p_outcome not in ('quality_confirmed','no_fault_found','customer_fitment_error','carrier_damage') then raise exception 'Unsupported inspection outcome'; end if;
+  select * into v_rma from public.rma_requests where id=p_rma_id for update;
+  if v_rma.id is null or v_rma.status<>'received_quarantine' then raise exception 'RMA must be received into quarantine before inspection'; end if;
+  update public.rma_lines set inspection_outcome=p_outcome where rma_request_id=p_rma_id;
+  update public.rma_requests set status=case when coalesce(p_credit_amount_cents,0)>0 then 'credited' else 'inspected' end,notes=concat_ws(E'\n',notes,p_notes),updated_at=now() where id=p_rma_id;
+  if coalesce(p_credit_amount_cents,0)>0 then
+    perform public.dm_post_account_adjustment(v_rma.trade_account_id,'credit_adjustment',p_credit_amount_cents,'RMA credit '||v_rma.rma_number,p_notes,'rma-credit:'||p_rma_id::text,p_actor_id);
+  end if;
+  insert into public.audit_events(entity_type,entity_id,action,actor_id,after_value,idempotency_key)
+    values('rma',p_rma_id::text,'rma_inspected',p_actor_id,jsonb_build_object('outcome',p_outcome,'credit_amount_cents',coalesce(p_credit_amount_cents,0)),p_idempotency_key);
+  return p_rma_id;
 end;
 $$;
 
@@ -1002,3 +1341,60 @@ having coalesce(sum(ib.on_hand - ib.reserved - ib.quarantine), 0) > 0;
 revoke all on function public.dm_reserve_sales_order(uuid, jsonb, text, text, text, text, uuid) from public;
 revoke all on function public.dm_cancel_sales_order(uuid, text, uuid) from public;
 revoke all on function public.dm_dispatch_sales_order(uuid, int, text, text, text, uuid) from public;
+revoke all on function public.dm_post_account_adjustment(uuid, text, int, text, text, text, uuid) from public;
+revoke all on function public.dm_create_rma(uuid, uuid, text, jsonb, text, jsonb, text, uuid) from public;
+revoke all on function public.dm_receive_rma(uuid, jsonb, uuid, text, uuid) from public;
+revoke all on function public.dm_inspect_rma(uuid, text, int, text, text, uuid) from public;
+revoke all on function public.dm_save_landed_cost(uuid, text, text, jsonb, jsonb, jsonb, text, uuid) from public;
+revoke all on function public.dm_product_is_sellable(uuid) from public;
+revoke all on function public.dm_commit_purchase_import(jsonb, uuid, text) from public;
+revoke all on function public.dm_receive_goods(uuid, text, jsonb, uuid, text, uuid) from public;
+revoke all on function public.dm_release_quarantine(uuid, int, text, uuid) from public;
+revoke all on function public.dm_review_product_gate(text, text, text, jsonb, text, uuid) from public;
+revoke all on function public.dm_approve_trade_price(text, int, uuid) from public;
+revoke all on function public.dm_commit_vin_import(text, jsonb, text, uuid) from public;
+revoke all on function public.dm_refresh_credit_holds() from public;
+
+alter table public.suppliers enable row level security;
+alter table public.data_import_runs enable row level security;
+alter table public.purchase_orders enable row level security;
+alter table public.purchase_order_lines enable row level security;
+alter table public.shipments enable row level security;
+alter table public.shipment_pallets enable row level security;
+alter table public.shipment_cartons enable row level security;
+alter table public.shipment_carton_lines enable row level security;
+alter table public.goods_receipts enable row level security;
+alter table public.goods_receipt_lines enable row level security;
+alter table public.landed_costs enable row level security;
+alter table public.landed_cost_allocations enable row level security;
+alter table public.compliance_reviews enable row level security;
+alter table public.vehicle_configurations enable row level security;
+alter table public.vehicles enable row level security;
+alter table public.audit_events enable row level security;
+alter table public.sales_order_allocations enable row level security;
+alter table public.account_ledger_entries enable row level security;
+alter table public.rma_requests enable row level security;
+alter table public.rma_lines enable row level security;
+
+do $$
+declare v_role text; v_table text;
+begin
+  foreach v_role in array array['anon','authenticated'] loop
+    if exists(select 1 from pg_roles where rolname=v_role) then
+      foreach v_table in array array[
+        'suppliers','data_import_runs','purchase_orders','purchase_order_lines','shipments','shipment_pallets',
+        'shipment_cartons','shipment_carton_lines','goods_receipts','goods_receipt_lines','landed_costs',
+        'landed_cost_allocations','compliance_reviews','vehicle_configurations','vehicles','audit_events',
+        'sales_order_allocations','account_ledger_entries','rma_requests','rma_lines','sellable_catalogue'
+      ] loop
+        execute format('revoke all on public.%I from %I',v_table,v_role);
+      end loop;
+      execute format('revoke execute on all functions in schema public from %I',v_role);
+    end if;
+  end loop;
+  if exists(select 1 from pg_roles where rolname='service_role') then
+    execute 'grant all on all tables in schema public to service_role';
+    execute 'grant execute on all functions in schema public to service_role';
+  end if;
+end;
+$$;

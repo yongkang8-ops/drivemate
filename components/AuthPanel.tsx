@@ -1,26 +1,36 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { type AuthenticatedRole } from "../lib/clientAuth";
+import { ShieldCheck } from "@phosphor-icons/react";
+import { buildApiHeaders, type AuthenticatedRole } from "../lib/clientAuth";
 
 type Profile = {
   role?: string;
   displayName?: string | null;
 };
+type MfaFactor = { id: string; friendlyName?: string; status: string };
+type MfaEnrollment = { factorId: string; qrCode: string; secret: string };
 
 type AuthPanelProps = {
   expectedRole: AuthenticatedRole;
   onAccessChange?: (hasAccess: boolean) => void;
 };
 
-function roleCanAccess(role: string | undefined, expectedRole: AuthenticatedRole): boolean {
+function roleCanAccess(
+  role: string | undefined,
+  expectedRole: AuthenticatedRole,
+): boolean {
   if (expectedRole === "admin") return role === "admin";
-  if (expectedRole === "warehouse") return role === "warehouse" || role === "admin";
+  if (expectedRole === "warehouse")
+    return role === "warehouse" || role === "admin";
   return role === "trade";
 }
 
 function localDemoWorkspaceEnabled(): boolean {
-  return process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_SHOW_INTERNAL_NAV === "true";
+  return (
+    process.env.NODE_ENV !== "production" &&
+    process.env.NEXT_PUBLIC_SHOW_INTERNAL_NAV === "true"
+  );
 }
 
 export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
@@ -29,6 +39,26 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [configured, setConfigured] = useState(true);
   const [message, setMessage] = useState("Checking session.");
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaFactors, setMfaFactors] = useState<MfaFactor[]>([]);
+  const [mfaEnrollment, setMfaEnrollment] = useState<MfaEnrollment | null>(
+    null,
+  );
+  const [mfaCode, setMfaCode] = useState("");
+
+  async function loadMfa() {
+    const response = await fetch("/api/auth/mfa", { cache: "no-store" });
+    const body = (await response.json()) as {
+      ok?: boolean;
+      factors?: MfaFactor[];
+      message?: string;
+    };
+    if (!response.ok || !body.ok) {
+      setMessage(body.message || "MFA status could not be loaded.");
+      return;
+    }
+    setMfaFactors(body.factors ?? []);
+  }
 
   async function refreshSession() {
     try {
@@ -58,7 +88,9 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
       const nextProfile = body.profile;
       const hasAccess = roleCanAccess(nextProfile.role, expectedRole);
       setProfile(nextProfile);
+      setMfaRequired(Boolean(body.mfaRequired));
       onAccessChange?.(hasAccess && !body.mfaRequired);
+      if (body.mfaRequired) await loadMfa();
       setMessage(
         body.mfaRequired
           ? "Multi-factor verification is required for this staff account."
@@ -86,9 +118,15 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      const body = (await response.json()) as { ok?: boolean; message?: string };
+      const body = (await response.json()) as {
+        ok?: boolean;
+        message?: string;
+      };
       if (!response.ok || !body.ok) {
-        setMessage(body.message || "Sign-in failed. Check the account details and try again.");
+        setMessage(
+          body.message ||
+            "Sign-in failed. Check the account details and try again.",
+        );
         return;
       }
 
@@ -104,9 +142,61 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {
       setProfile(null);
+      setMfaRequired(false);
+      setMfaEnrollment(null);
+      setMfaFactors([]);
       onAccessChange?.(false);
       setMessage("Signed out.");
     }
+  }
+
+  async function startMfaEnrollment() {
+    const response = await fetch("/api/auth/mfa", {
+      method: "POST",
+      headers: await buildApiHeaders(expectedRole, {
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({ friendlyName: "DriveMate staff authenticator" }),
+    });
+    const body = (await response.json()) as
+      | ({ ok: true } & MfaEnrollment)
+      | { ok: false; message?: string };
+    if (!response.ok || !body.ok) {
+      setMessage(
+        "message" in body
+          ? body.message || "MFA setup could not be started."
+          : "MFA setup could not be started.",
+      );
+      return;
+    }
+    setMfaEnrollment(body);
+    setMessage("Scan the QR code, then enter the six-digit code.");
+  }
+
+  async function verifyMfa() {
+    const factorId =
+      mfaEnrollment?.factorId ??
+      mfaFactors.find((factor) => factor.status === "verified")?.id;
+    if (!factorId) {
+      setMessage("Start authenticator setup first.");
+      return;
+    }
+    const response = await fetch("/api/auth/mfa/verify", {
+      method: "POST",
+      headers: await buildApiHeaders(expectedRole, {
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({ factorId, code: mfaCode }),
+    });
+    const body = (await response.json()) as { ok?: boolean; message?: string };
+    if (!response.ok || !body.ok) {
+      setMessage(body.message || "Authenticator code was not accepted.");
+      return;
+    }
+    setMfaCode("");
+    setMfaEnrollment(null);
+    setMfaRequired(false);
+    await refreshSession();
   }
 
   useEffect(() => {
@@ -160,6 +250,68 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
       <span className="badge" aria-live="polite">
         {message}
       </span>
+      {profile && mfaRequired ? (
+        <div className="mfa-panel">
+          <div>
+            <ShieldCheck size={24} weight="duotone" />
+            <strong>Staff verification</strong>
+            <p>
+              {mfaFactors.some((factor) => factor.status === "verified")
+                ? "Enter the code from your authenticator app."
+                : "Set up an authenticator before accessing staff operations."}
+            </p>
+          </div>
+          {!mfaFactors.some((factor) => factor.status === "verified") &&
+          !mfaEnrollment ? (
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => void startMfaEnrollment()}
+            >
+              Set up authenticator
+            </button>
+          ) : null}
+          {mfaEnrollment ? (
+            <div className="mfa-enrollment">
+              <img
+                src={
+                  mfaEnrollment.qrCode.startsWith("data:")
+                    ? mfaEnrollment.qrCode
+                    : `data:image/svg+xml;utf8,${encodeURIComponent(mfaEnrollment.qrCode)}`
+                }
+                alt="Authenticator setup QR code"
+              />
+              <p>
+                Manual key: <code>{mfaEnrollment.secret}</code>
+              </p>
+            </div>
+          ) : null}
+          {mfaEnrollment ||
+          mfaFactors.some((factor) => factor.status === "verified") ? (
+            <div className="mfa-code">
+              <label>
+                Six-digit code
+                <input
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={mfaCode}
+                  onChange={(event) =>
+                    setMfaCode(event.target.value.replace(/\D/g, ""))
+                  }
+                />
+              </label>
+              <button
+                className="button button-primary"
+                type="button"
+                onClick={() => void verifyMfa()}
+              >
+                Verify
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }

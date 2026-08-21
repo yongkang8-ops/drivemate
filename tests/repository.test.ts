@@ -417,7 +417,7 @@ describe("repository boundary", () => {
       expect.arrayContaining([
         expect.objectContaining({
           tradeAccountId: "acct-demo",
-          type: "invoice",
+          type: "order_confirmation",
         }),
         expect.objectContaining({
           tradeAccountId: "acct-demo",

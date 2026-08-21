@@ -2,6 +2,7 @@ import {
   accountDocumentDataUrl,
   createDeliveryRecordText,
   createInvoiceDocumentText,
+  createOrderConfirmationDocumentText,
   createStatementDocumentText,
 } from "./accountDocumentContent";
 import {
@@ -16,9 +17,19 @@ import {
   type CreateProductMasterInput,
   type UpdateProductMasterInput,
 } from "./catalogue";
-import { demoUserRoles, pilotPricingRules, pilotPurchaseBatches, pilotRfqReviews } from "./adminMasterData";
+import {
+  demoUserRoles,
+  pilotPricingRules,
+  pilotPurchaseBatches,
+  pilotRfqReviews,
+} from "./adminMasterData";
 import { matchPartsForVehicle, type VehicleLookupInput } from "./fitment";
-import { validateDispatchScans, type CreateOrderInput, type DispatchOrderInput, type DispatchScanInput } from "./orders";
+import {
+  validateDispatchScans,
+  type CreateOrderInput,
+  type DispatchOrderInput,
+  type DispatchScanInput,
+} from "./orders";
 import {
   applyInventoryMovement,
   approveTradeAccountApplication,
@@ -43,22 +54,37 @@ import type {
   RepositoryWriteContext,
   TradeAccountState,
 } from "./repository";
-import type { TradeAccountApplicationInput, TradeAccountStatus } from "./tradeAccounts";
+import type {
+  TradeAccountApplicationInput,
+  TradeAccountStatus,
+} from "./tradeAccounts";
 
 function priceForSku(sku: string): number | undefined {
-  return pilotPricingRules.find((rule) => rule.sku === sku && rule.status === "active")?.unitPriceExGstCents;
+  return pilotPricingRules.find(
+    (rule) => rule.sku === sku && rule.status === "active",
+  )?.unitPriceExGstCents;
 }
 
-function buildReorderAlerts(catalogue: AdminCatalogueRow[]): AdminReorderAlert[] {
+function buildReorderAlerts(
+  catalogue: AdminCatalogueRow[],
+): AdminReorderAlert[] {
   return catalogue
-    .filter((row) => row.status === "active" && row.reorderPoint > 0 && row.available <= row.reorderPoint)
+    .filter(
+      (row) =>
+        row.status === "active" &&
+        row.reorderPoint > 0 &&
+        row.available <= row.reorderPoint,
+    )
     .map((row) => ({
       sku: row.sku,
       brand: row.brand,
       name: row.name,
       available: row.available,
       reorderPoint: row.reorderPoint,
-      suggestedOrderQty: Math.max(row.reorderQuantity, row.reorderPoint - row.available),
+      suggestedOrderQty: Math.max(
+        row.reorderQuantity,
+        row.reorderPoint - row.available,
+      ),
       status: row.status,
     }))
     .sort((a, b) => a.available - b.available || a.sku.localeCompare(b.sku));
@@ -69,7 +95,9 @@ export class MemoryRepository implements DrivemateRepository {
 
   async getAdminState(): Promise<AdminState> {
     const state = getInventoryState();
-    const catalogue = getCatalogueWithAvailability(state.inventory, { includeInactive: true }).map((row) => ({
+    const catalogue = getCatalogueWithAvailability(state.inventory, {
+      includeInactive: true,
+    }).map((row) => ({
       ...row,
       tradePriceExGstCents: priceForSku(row.sku),
     }));
@@ -79,17 +107,30 @@ export class MemoryRepository implements DrivemateRepository {
     return {
       metrics: {
         activeSkus: activeCatalogue.length,
-        onHandUnits: activeCatalogue.reduce((sum, item) => sum + item.onHand, 0),
-        availableUnits: activeCatalogue.reduce((sum, item) => sum + item.available, 0),
+        onHandUnits: activeCatalogue.reduce(
+          (sum, item) => sum + item.onHand,
+          0,
+        ),
+        availableUnits: activeCatalogue.reduce(
+          (sum, item) => sum + item.available,
+          0,
+        ),
         reorderAlerts: reorderAlerts.length,
-        openTasks: 4 + state.orders.length + state.stockMovements.length + state.accountApplications.length + reorderAlerts.length,
+        openTasks:
+          4 +
+          state.orders.length +
+          state.stockMovements.length +
+          state.accountApplications.length +
+          reorderAlerts.length,
       },
       catalogue,
       reorderAlerts,
       stockMovements: state.stockMovements,
       orders: state.orders,
       accountDocuments: state.accountDocuments,
-      accountApplications: state.accountApplications.filter((application) => application.status === "pending"),
+      accountApplications: state.accountApplications.filter(
+        (application) => application.status === "pending",
+      ),
       tradeAccounts: state.accountApplications,
       fitmentRules: fitmentRules.map((rule) => ({
         sku: rule.sku,
@@ -105,7 +146,10 @@ export class MemoryRepository implements DrivemateRepository {
     };
   }
 
-  async lookupVehicle(input: VehicleLookupInput, context: RepositoryWriteContext = {}) {
+  async lookupVehicle(
+    input: VehicleLookupInput,
+    context: RepositoryWriteContext = {},
+  ) {
     const { inventory } = getInventoryState();
     const result = matchPartsForVehicle(input, inventory);
     const matches = result.matches.map((match) => ({
@@ -125,30 +169,44 @@ export class MemoryRepository implements DrivemateRepository {
     return { ...result, matches };
   }
 
-  async getTradeAccountState(tradeAccountId: string): Promise<TradeAccountState> {
+  async getTradeAccountState(
+    tradeAccountId: string,
+  ): Promise<TradeAccountState> {
     const state = getInventoryState();
 
     return {
       tradeAccountId,
-      orders: state.orders.filter((order) => order.tradeAccountId === tradeAccountId),
-      accountDocuments: state.accountDocuments.filter((document) => document.tradeAccountId === tradeAccountId),
+      orders: state.orders.filter(
+        (order) => order.tradeAccountId === tradeAccountId,
+      ),
+      accountDocuments: state.accountDocuments.filter(
+        (document) => document.tradeAccountId === tradeAccountId,
+      ),
     };
   }
 
-  async getAccountDocumentAccess(documentId: string, tradeAccountId?: string): Promise<AccountDocumentAccessResult> {
+  async getAccountDocumentAccess(
+    documentId: string,
+    tradeAccountId?: string,
+  ): Promise<AccountDocumentAccessResult> {
     const state = getInventoryState();
     const document = state.accountDocuments.find(
-      (candidate) => candidate.id === documentId && (!tradeAccountId || candidate.tradeAccountId === tradeAccountId),
+      (candidate) =>
+        candidate.id === documentId &&
+        (!tradeAccountId || candidate.tradeAccountId === tradeAccountId),
     );
 
-    if (!document) return { ok: false, message: "Account document was not found." };
+    if (!document)
+      return { ok: false, message: "Account document was not found." };
 
     const order = state.orders.find(
-      (candidate) => document.reference.endsWith(candidate.id) || document.storagePath?.includes(candidate.id),
+      (candidate) =>
+        document.reference.endsWith(candidate.id) ||
+        document.storagePath?.includes(candidate.id),
     );
     const content =
-      document.type === "invoice" && order
-        ? createInvoiceDocumentText({
+      document.type === "order_confirmation" && order
+        ? createOrderConfirmationDocumentText({
             reference: document.reference,
             tradeAccountId: document.tradeAccountId,
             orderId: order.id,
@@ -158,22 +216,35 @@ export class MemoryRepository implements DrivemateRepository {
             lines: order.lines,
             generatedAt: document.createdAt,
           })
-        : document.type === "delivery_record" && order
-          ? createDeliveryRecordText({
+        : document.type === "invoice" && order
+          ? createInvoiceDocumentText({
               reference: document.reference,
               tradeAccountId: document.tradeAccountId,
               orderId: order.id,
+              poNumber: order.poNumber,
               vehicleVin: order.vehicleVin,
               vehicleRego: order.vehicleRego,
               lines: order.lines,
               generatedAt: document.createdAt,
             })
-          : createStatementDocumentText({
-              reference: document.reference,
-              tradeAccountId: document.tradeAccountId,
-              statementMonth: document.reference.match(/^STMT-(\d{4}-\d{2})-/)?.[1] ?? "Current month",
-              generatedAt: document.createdAt,
-            });
+          : document.type === "delivery_record" && order
+            ? createDeliveryRecordText({
+                reference: document.reference,
+                tradeAccountId: document.tradeAccountId,
+                orderId: order.id,
+                vehicleVin: order.vehicleVin,
+                vehicleRego: order.vehicleRego,
+                lines: order.lines,
+                generatedAt: document.createdAt,
+              })
+            : createStatementDocumentText({
+                reference: document.reference,
+                tradeAccountId: document.tradeAccountId,
+                statementMonth:
+                  document.reference.match(/^STMT-(\d{4}-\d{2})-/)?.[1] ??
+                  "Current month",
+                generatedAt: document.createdAt,
+              });
 
     return {
       ok: true,
@@ -182,15 +253,28 @@ export class MemoryRepository implements DrivemateRepository {
     };
   }
 
-  async applyInventoryMovement(input: InventoryMovementInput, context: RepositoryWriteContext = {}) {
+  async applyInventoryMovement(
+    input: InventoryMovementInput,
+    context: RepositoryWriteContext = {},
+  ) {
     return applyInventoryMovement({ ...input, createdBy: context.actorId });
   }
 
-  async submitOrder(input: CreateOrderInput, context: RepositoryWriteContext = {}) {
-    return submitOrder(input, { createdBy: context.actorId, priceResolver: priceForSku });
+  async submitOrder(
+    input: CreateOrderInput,
+    context: RepositoryWriteContext = {},
+  ) {
+    return submitOrder(input, {
+      createdBy: context.actorId,
+      priceResolver: priceForSku,
+    });
   }
 
-  async dispatchOrder(orderId: string, input: DispatchOrderInput, context: RepositoryWriteContext = {}) {
+  async dispatchOrder(
+    orderId: string,
+    input: DispatchOrderInput,
+    context: RepositoryWriteContext = {},
+  ) {
     const state = getInventoryState();
     const order = state.orders.find((candidate) => candidate.id === orderId);
     if (!order) return { ok: false as const, message: "Order was not found." };
@@ -198,7 +282,11 @@ export class MemoryRepository implements DrivemateRepository {
     const scans: DispatchScanInput[] = [];
     for (const scan of input.scans ?? []) {
       const sku = resolveSkuIdentifier(scan.sku);
-      if (!sku) return { ok: false as const, message: `Scanned SKU ${scan.sku} was not found.` };
+      if (!sku)
+        return {
+          ok: false as const,
+          message: `Scanned SKU ${scan.sku} was not found.`,
+        };
       scans.push({ sku, quantity: scan.quantity });
     }
 
@@ -224,7 +312,10 @@ export class MemoryRepository implements DrivemateRepository {
     return provisionTradeAccountLogin(applicationId);
   }
 
-  async updateTradeAccountStatus(applicationId: string, status: TradeAccountStatus) {
+  async updateTradeAccountStatus(
+    applicationId: string,
+    status: TradeAccountStatus,
+  ) {
     return updateTradeAccountStatus(applicationId, status);
   }
 
@@ -234,8 +325,12 @@ export class MemoryRepository implements DrivemateRepository {
 
     ensureInventoryRow(result.product.sku);
     const state = await this.getAdminState();
-    const product = state.catalogue.find((row) => row.sku === result.product.sku);
-    return product ? { ok: true as const, product } : { ok: false as const, message: "SKU was not found." };
+    const product = state.catalogue.find(
+      (row) => row.sku === result.product.sku,
+    );
+    return product
+      ? { ok: true as const, product }
+      : { ok: false as const, message: "SKU was not found." };
   }
 
   async updateProductMaster(input: UpdateProductMasterInput) {
@@ -244,7 +339,9 @@ export class MemoryRepository implements DrivemateRepository {
 
     const state = await this.getAdminState();
     const product = state.catalogue.find((row) => row.sku === input.sku);
-    return product ? { ok: true as const, product } : { ok: false as const, message: "SKU was not found." };
+    return product
+      ? { ok: true as const, product }
+      : { ok: false as const, message: "SKU was not found." };
   }
 
   async createFitmentRule(input: CreateFitmentRuleInput) {

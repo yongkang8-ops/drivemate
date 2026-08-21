@@ -17,21 +17,68 @@ const sensitiveTerms = [
 ];
 
 const publicPages = [
-  { path: "/", label: "public home", expectedText: ["DriveMate Parts", "Trade parts supply"] },
-  { path: "/catalogue", label: "catalogue", expectedText: ["Catalogue", "Search AU-fitment parts"] },
-  { path: "/portal", label: "trade portal", expectedText: ["Trade portal", "Workshop lookup"], noindex: true },
-  { path: "/warehouse", label: "warehouse", expectedText: ["Warehouse", "Scan-based"], noindex: true },
-  { path: "/admin", label: "admin", expectedText: ["Admin backend", "operating queues"], noindex: true },
+  {
+    path: "/",
+    label: "public home",
+    expectedText: [
+      "DriveMate Parts",
+      "Parts support built around the workshop job",
+    ],
+  },
+  {
+    path: "/catalogue",
+    label: "catalogue",
+    expectedText: ["Released catalogue", "Find the part for the job"],
+  },
+  {
+    path: "/portal",
+    label: "trade portal",
+    expectedText: ["Trade portal", "Parts, vehicles and orders"],
+    noindex: true,
+  },
+  {
+    path: "/warehouse",
+    label: "warehouse",
+    expectedText: [
+      "Warehouse operations",
+      "Receive, locate, pick and dispatch",
+    ],
+    noindex: true,
+  },
+  {
+    path: "/admin",
+    label: "admin",
+    expectedText: ["Administration", "Control purchasing, release gates"],
+    noindex: true,
+  },
 ];
 
-const expectedHealthChecks = ["repository", "auth", "navigation", "supabase_env", "document_bucket", "business_profile"];
+const expectedHealthChecks = [
+  "repository",
+  "auth",
+  "navigation",
+  "supabase_env",
+  "document_bucket",
+  "business_profile",
+  "site_url",
+  "staff_mfa",
+  "turnstile",
+  "import_signing",
+  "data_isolation",
+];
 const expectedSecurityHeaders = [
   { name: "x-content-type-options", value: "nosniff" },
   { name: "x-frame-options", value: "DENY" },
   { name: "referrer-policy", value: "strict-origin-when-cross-origin" },
   { name: "cross-origin-opener-policy", value: "same-origin" },
-  { name: "permissions-policy", includes: ["camera=()", "microphone=()", "geolocation=()", "payment=()"] },
-  { name: "strict-transport-security", includes: ["max-age=63072000", "includeSubDomains"] },
+  {
+    name: "permissions-policy",
+    includes: ["camera=()", "microphone=()", "geolocation=()", "payment=()"],
+  },
+  {
+    name: "strict-transport-security",
+    includes: ["max-age=63072000", "includeSubDomains"],
+  },
 ];
 
 function loadEnvFile(fileName) {
@@ -75,7 +122,9 @@ function createResultTracker() {
     },
     finish() {
       console.log("");
-      console.log(`Summary: ${failures.length} failure(s), ${warnings.length} warning(s)`);
+      console.log(
+        `Summary: ${failures.length} failure(s), ${warnings.length} warning(s)`,
+      );
       if (failures.length) process.exitCode = 1;
     },
   };
@@ -112,7 +161,10 @@ async function checkPublicPage(baseUrl, page, tracker) {
   const text = await readResponseText(response);
 
   if (response.status !== 200) {
-    tracker.fail(`${page.label} should return 200`, `received ${response.status}`);
+    tracker.fail(
+      `${page.label} should return 200`,
+      `received ${response.status}`,
+    );
     return;
   }
 
@@ -120,7 +172,8 @@ async function checkPublicPage(baseUrl, page, tracker) {
   checkSecurityHeaders(response, page.label, tracker);
 
   for (const expected of page.expectedText) {
-    if (text.includes(expected)) tracker.pass(`${page.label} contains "${expected}"`);
+    if (text.includes(expected))
+      tracker.pass(`${page.label} contains "${expected}"`);
     else tracker.fail(`${page.label} missing expected text`, expected);
   }
 
@@ -132,7 +185,11 @@ async function checkPublicPage(baseUrl, page, tracker) {
   }
 
   if (page.noindex) {
-    if (lowerText.includes('name="robots"') && lowerText.includes("noindex") && lowerText.includes("nofollow")) {
+    if (
+      lowerText.includes('name="robots"') &&
+      lowerText.includes("noindex") &&
+      lowerText.includes("nofollow")
+    ) {
       tracker.pass(`${page.label} is marked noindex/nofollow`);
     } else {
       tracker.fail(`${page.label} missing noindex/nofollow robots metadata`);
@@ -143,10 +200,16 @@ async function checkPublicPage(baseUrl, page, tracker) {
 
 function checkNoIndexHeader(response, label, tracker) {
   const value = response.headers.get("x-robots-tag") ?? "";
-  if (value.toLowerCase().includes("noindex") && value.toLowerCase().includes("nofollow")) {
+  if (
+    value.toLowerCase().includes("noindex") &&
+    value.toLowerCase().includes("nofollow")
+  ) {
     tracker.pass(`${label} X-Robots-Tag is noindex/nofollow`);
   } else {
-    tracker.fail(`${label} missing X-Robots-Tag noindex/nofollow`, value || "not present");
+    tracker.fail(
+      `${label} missing X-Robots-Tag noindex/nofollow`,
+      value || "not present",
+    );
   }
 }
 
@@ -160,7 +223,8 @@ async function checkRobotsTxt(baseUrl, tracker) {
 
   tracker.pass("robots.txt returned 200");
   for (const path of ["/portal", "/warehouse", "/admin", "/api"]) {
-    if (text.includes(`Disallow: ${path}`)) tracker.pass(`robots.txt disallows ${path}`);
+    if (text.includes(`Disallow: ${path}`))
+      tracker.pass(`robots.txt disallows ${path}`);
     else tracker.fail("robots.txt missing disallow rule", path);
   }
 }
@@ -170,27 +234,47 @@ async function checkSitemap(baseUrl, tracker) {
   const text = await readResponseText(response);
   const siteUrl = expectedSiteUrl();
   if (response.status !== 200) {
-    tracker.fail("sitemap.xml should return 200", `received ${response.status}`);
+    tracker.fail(
+      "sitemap.xml should return 200",
+      `received ${response.status}`,
+    );
     return;
   }
 
   tracker.pass("sitemap.xml returned 200");
 
   const contentType = response.headers.get("content-type") ?? "";
-  if (contentType.includes("xml")) tracker.pass("sitemap.xml returned XML content type");
-  else tracker.fail("sitemap.xml should return XML content type", contentType || "not present");
+  if (contentType.includes("xml"))
+    tracker.pass("sitemap.xml returned XML content type");
+  else
+    tracker.fail(
+      "sitemap.xml should return XML content type",
+      contentType || "not present",
+    );
 
   if (siteUrl) {
-    if (text.includes(`<loc>${siteUrl}/</loc>`)) tracker.pass("sitemap.xml uses NEXT_PUBLIC_SITE_URL for home page");
-    else tracker.fail("sitemap.xml home page does not match NEXT_PUBLIC_SITE_URL", siteUrl);
+    if (text.includes(`<loc>${siteUrl}/</loc>`))
+      tracker.pass("sitemap.xml uses NEXT_PUBLIC_SITE_URL for home page");
+    else
+      tracker.fail(
+        "sitemap.xml home page does not match NEXT_PUBLIC_SITE_URL",
+        siteUrl,
+      );
 
-    if (text.includes(`<loc>${siteUrl}/catalogue</loc>`) || text.includes(`<loc>${siteUrl}/catalogue/</loc>`)) {
+    if (
+      text.includes(`<loc>${siteUrl}/catalogue</loc>`) ||
+      text.includes(`<loc>${siteUrl}/catalogue/</loc>`)
+    ) {
       tracker.pass("sitemap.xml uses NEXT_PUBLIC_SITE_URL for catalogue page");
     } else {
-      tracker.fail("sitemap.xml catalogue page does not match NEXT_PUBLIC_SITE_URL", siteUrl);
+      tracker.fail(
+        "sitemap.xml catalogue page does not match NEXT_PUBLIC_SITE_URL",
+        siteUrl,
+      );
     }
   } else {
-    if (/<loc>https?:\/\/[^<]+\/<\/loc>/.test(text)) tracker.pass("sitemap.xml includes public home page");
+    if (/<loc>https?:\/\/[^<]+\/<\/loc>/.test(text))
+      tracker.pass("sitemap.xml includes public home page");
     else tracker.fail("sitemap.xml missing public home page");
 
     if (/<loc>https?:\/\/[^<]+\/catalogue\/?<\/loc>/.test(text)) {
@@ -201,7 +285,8 @@ async function checkSitemap(baseUrl, tracker) {
   }
 
   for (const path of ["/portal", "/warehouse", "/admin", "/api"]) {
-    if (text.includes(path)) tracker.fail("sitemap.xml exposes internal path", path);
+    if (text.includes(path))
+      tracker.fail("sitemap.xml exposes internal path", path);
     else tracker.pass(`sitemap.xml excludes ${path}`);
   }
 }
@@ -215,14 +300,22 @@ function checkSecurityHeaders(response, label, tracker) {
     }
 
     if ("value" in expected && value !== expected.value) {
-      tracker.fail(`${label} security header has unexpected value`, `${expected.name}: ${value}`);
+      tracker.fail(
+        `${label} security header has unexpected value`,
+        `${expected.name}: ${value}`,
+      );
       continue;
     }
 
     if ("includes" in expected) {
-      const missingParts = expected.includes.filter((part) => !value.includes(part));
+      const missingParts = expected.includes.filter(
+        (part) => !value.includes(part),
+      );
       if (missingParts.length) {
-        tracker.fail(`${label} security header is incomplete`, `${expected.name}: missing ${missingParts.join(", ")}`);
+        tracker.fail(
+          `${label} security header is incomplete`,
+          `${expected.name}: missing ${missingParts.join(", ")}`,
+        );
         continue;
       }
     }
@@ -247,7 +340,10 @@ async function checkStatus(baseUrl, input, tracker) {
   if (response.status === input.status) {
     tracker.pass(`${input.label} returned ${input.status}`);
   } else {
-    tracker.fail(`${input.label} should return ${input.status}`, `received ${response.status}`);
+    tracker.fail(
+      `${input.label} should return ${input.status}`,
+      `received ${response.status}`,
+    );
   }
 
   return response;
@@ -267,15 +363,21 @@ async function checkHealth(baseUrl, tracker) {
 
   if (response.status === 200) tracker.pass("health endpoint returned 200");
   else {
-    tracker.fail("health endpoint should return 200", `received ${response.status}`);
+    tracker.fail(
+      "health endpoint should return 200",
+      `received ${response.status}`,
+    );
     return;
   }
 
-  if (body?.app === "DriveMate Parts") tracker.pass("health endpoint identifies the application");
+  if (body?.app === "DriveMate Parts")
+    tracker.pass("health endpoint identifies the application");
   else tracker.fail("health endpoint returned an unexpected app name");
   checkNoIndexHeader(response, "health API", tracker);
 
-  const checkNames = new Set(Array.isArray(body?.checks) ? body.checks.map((check) => check.name) : []);
+  const checkNames = new Set(
+    Array.isArray(body?.checks) ? body.checks.map((check) => check.name) : [],
+  );
   for (const name of expectedHealthChecks) {
     if (checkNames.has(name)) tracker.pass(`health check present: ${name}`);
     else tracker.fail(`health check missing: ${name}`);
@@ -297,16 +399,26 @@ async function runAdminExportReadCheck(baseUrl, adminHeaders, tracker) {
   );
 
   const contentType = catalogueResponse.headers.get("content-type") ?? "";
-  const disposition = catalogueResponse.headers.get("content-disposition") ?? "";
+  const disposition =
+    catalogueResponse.headers.get("content-disposition") ?? "";
   const text = await readResponseText(catalogueResponse);
 
-  if (contentType.includes("text/csv")) tracker.pass("admin export returned CSV content type");
+  if (contentType.includes("text/csv"))
+    tracker.pass("admin export returned CSV content type");
   else tracker.fail("admin export should return CSV content type", contentType);
 
-  if (disposition.includes("drivemate-catalogue-export.csv")) tracker.pass("admin export returned attachment filename");
-  else tracker.fail("admin export should return the catalogue attachment filename", disposition);
+  if (disposition.includes("drivemate-catalogue-export.csv"))
+    tracker.pass("admin export returned attachment filename");
+  else
+    tracker.fail(
+      "admin export should return the catalogue attachment filename",
+      disposition,
+    );
 
-  if (text.includes("sku,barcode,oem_part_number") && text.includes("DM-GWM-OF-001")) {
+  if (
+    text.includes("sku,barcode,oem_part_number") &&
+    text.includes("DM-GWM-OF-001")
+  ) {
     tracker.pass("admin export contains inventory CSV rows");
   } else {
     tracker.fail("admin export CSV body is missing expected inventory data");
@@ -322,19 +434,28 @@ async function runAdminExportReadCheck(baseUrl, adminHeaders, tracker) {
     },
     tracker,
   );
-  const batchDisposition = batchResponse.headers.get("content-disposition") ?? "";
+  const batchDisposition =
+    batchResponse.headers.get("content-disposition") ?? "";
   const batchText = await readResponseText(batchResponse);
 
   if (batchDisposition.includes("drivemate-purchase-batches-export.csv")) {
     tracker.pass("admin export returned purchase batch attachment filename");
   } else {
-    tracker.fail("admin export should return the purchase batch attachment filename", batchDisposition);
+    tracker.fail(
+      "admin export should return the purchase batch attachment filename",
+      batchDisposition,
+    );
   }
 
-  if (batchText.includes("batch_no,sku,received_quantity") && batchText.includes("BNE-2026-06-PILOT")) {
+  if (
+    batchText.includes("batch_no,sku,received_quantity") &&
+    batchText.includes("BNE-2026-06-PILOT")
+  ) {
     tracker.pass("admin export contains purchase batch CSV rows");
   } else {
-    tracker.fail("admin export purchase batch CSV body is missing expected data");
+    tracker.fail(
+      "admin export purchase batch CSV body is missing expected data",
+    );
   }
 }
 
@@ -348,20 +469,45 @@ function roleHeaders(role, token, useDemoHeaders) {
   return null;
 }
 
+let smokeRequestSequence = 0;
+function smokeIdempotencyKey(label) {
+  smokeRequestSequence += 1;
+  return `smoke-${label}-${Date.now()}-${smokeRequestSequence}`;
+}
+
 function requireRoleHeaders(label, headers, tracker) {
   if (headers) return true;
-  tracker.fail(`${label} requires auth headers`, "set real smoke token env vars or use DRIVEMATE_SMOKE_USE_DEMO_HEADERS=true locally");
+  tracker.fail(
+    `${label} requires auth headers`,
+    "set real smoke token env vars or use DRIVEMATE_SMOKE_USE_DEMO_HEADERS=true locally",
+  );
   return false;
 }
 
 async function runE2eWriteCheck(baseUrl, input, tracker) {
-  const tradeHeaders = roleHeaders("trade", input.tradeToken, input.useDemoHeaders);
-  const warehouseHeaders = roleHeaders("warehouse", input.warehouseToken, input.useDemoHeaders);
-  const adminHeaders = roleHeaders("admin", input.adminToken, input.useDemoHeaders);
+  const tradeHeaders = roleHeaders(
+    "trade",
+    input.tradeToken,
+    input.useDemoHeaders,
+  );
+  const warehouseHeaders = roleHeaders(
+    "warehouse",
+    input.warehouseToken,
+    input.useDemoHeaders,
+  );
+  const adminHeaders = roleHeaders(
+    "admin",
+    input.adminToken,
+    input.useDemoHeaders,
+  );
 
   const hasRequiredHeaders =
     requireRoleHeaders("e2e trade order check", tradeHeaders, tracker) &&
-    requireRoleHeaders("e2e warehouse dispatch check", warehouseHeaders, tracker) &&
+    requireRoleHeaders(
+      "e2e warehouse dispatch check",
+      warehouseHeaders,
+      tracker,
+    ) &&
     requireRoleHeaders("e2e admin review check", adminHeaders, tracker);
 
   if (!hasRequiredHeaders) return;
@@ -385,7 +531,8 @@ async function runE2eWriteCheck(baseUrl, input, tracker) {
     tracker,
   );
   const lookupBody = await readJson(lookupResponse);
-  if (Array.isArray(lookupBody?.matches)) tracker.pass("e2e trade vehicle lookup returned matched parts");
+  if (Array.isArray(lookupBody?.matches))
+    tracker.pass("e2e trade vehicle lookup returned matched parts");
   else tracker.fail("e2e trade vehicle lookup returned an invalid body");
 
   const orderResponse = await checkStatus(
@@ -396,6 +543,7 @@ async function runE2eWriteCheck(baseUrl, input, tracker) {
       method: "POST",
       headers: { "Content-Type": "application/json", ...tradeHeaders },
       body: {
+        idempotencyKey: smokeIdempotencyKey("order"),
         poNumber,
         vehicleVin: "LGWDCF196RM608238",
         vehicleRego: "SMK001",
@@ -421,6 +569,7 @@ async function runE2eWriteCheck(baseUrl, input, tracker) {
       method: "POST",
       headers: { "Content-Type": "application/json", ...tradeHeaders },
       body: {
+        idempotencyKey: smokeIdempotencyKey("cancel-order"),
         poNumber: `SMOKE-CANCEL-${Date.now()}`,
         vehicleVin: "LGWDCF196RM608238",
         vehicleRego: "SMK002",
@@ -433,7 +582,9 @@ async function runE2eWriteCheck(baseUrl, input, tracker) {
   const cancelOrderBody = await readJson(cancelOrderResponse);
   const cancelOrderId = cancelOrderBody?.order?.id;
   if (!cancelOrderBody?.ok || !cancelOrderId) {
-    tracker.fail("e2e trade cancellation order submit returned an invalid body");
+    tracker.fail(
+      "e2e trade cancellation order submit returned an invalid body",
+    );
     return;
   }
 
@@ -443,13 +594,17 @@ async function runE2eWriteCheck(baseUrl, input, tracker) {
       label: "e2e trade order cancellation",
       path: `/api/orders/${cancelOrderId}/cancel`,
       method: "POST",
-      headers: tradeHeaders,
+      headers: {
+        ...tradeHeaders,
+        "Idempotency-Key": smokeIdempotencyKey("cancel"),
+      },
       status: 200,
     },
     tracker,
   );
   const cancelBody = await readJson(cancelResponse);
-  if (cancelBody?.order?.status === "cancelled") tracker.pass(`e2e order cancelled: ${cancelOrderId}`);
+  if (cancelBody?.order?.status === "cancelled")
+    tracker.pass(`e2e order cancelled: ${cancelOrderId}`);
   else tracker.fail("e2e trade order cancellation returned an invalid status");
 
   const dispatchResponse = await checkStatus(
@@ -459,7 +614,13 @@ async function runE2eWriteCheck(baseUrl, input, tracker) {
       path: `/api/orders/${orderId}/dispatch`,
       method: "POST",
       headers: { "Content-Type": "application/json", ...warehouseHeaders },
-      body: { scans: [{ sku: input.sku, quantity: input.quantity }] },
+      body: {
+        idempotencyKey: smokeIdempotencyKey("dispatch"),
+        scans: [{ sku: input.sku, quantity: input.quantity }],
+        deliveryChargeExGstCents: 0,
+        carrier: "Smoke Test Courier",
+        trackingNumber: `SMOKE-${Date.now()}`,
+      },
       status: 200,
     },
     tracker,
@@ -483,16 +644,26 @@ async function runE2eWriteCheck(baseUrl, input, tracker) {
     tracker,
   );
   const tradeState = await readJson(tradeStateResponse);
-  const documents = Array.isArray(tradeState?.accountDocuments) ? tradeState.accountDocuments : [];
-  const invoice = documents.find((document) => document.type === "invoice" && document.reference === `INV-${orderId}`);
-  const delivery = documents.find((document) => document.type === "delivery_record" && document.reference === `DEL-${orderId}`);
+  const documents = Array.isArray(tradeState?.accountDocuments)
+    ? tradeState.accountDocuments
+    : [];
+  const invoice = documents.find(
+    (document) =>
+      document.type === "invoice" && document.reference === `INV-${orderId}`,
+  );
+  const delivery = documents.find(
+    (document) =>
+      document.type === "delivery_record" &&
+      document.reference === `DEL-${orderId}`,
+  );
   const statement = documents.find((document) => document.type === "statement");
 
   if (invoice) tracker.pass("e2e invoice document is visible to trade account");
   else tracker.fail("e2e invoice document missing from trade account state");
   if (delivery) tracker.pass("e2e delivery record is visible to trade account");
   else tracker.fail("e2e delivery record missing from trade account state");
-  if (statement) tracker.pass("e2e monthly statement is visible to trade account");
+  if (statement)
+    tracker.pass("e2e monthly statement is visible to trade account");
   else tracker.fail("e2e monthly statement missing from trade account state");
 
   if (invoice?.id) {
@@ -507,7 +678,8 @@ async function runE2eWriteCheck(baseUrl, input, tracker) {
       tracker,
     );
     const accessBody = await readJson(accessResponse);
-    if (accessBody?.ok && accessBody.downloadUrl) tracker.pass("e2e invoice download URL issued");
+    if (accessBody?.ok && accessBody.downloadUrl)
+      tracker.pass("e2e invoice download URL issued");
     else tracker.fail("e2e invoice download URL missing");
   }
 
@@ -526,28 +698,57 @@ async function runE2eWriteCheck(baseUrl, input, tracker) {
     ? adminState.orders.find((order) => order.id === orderId)
     : null;
 
-  if (adminOrder?.status === "dispatched") tracker.pass("e2e dispatched order is visible in admin state");
+  if (adminOrder?.status === "dispatched")
+    tracker.pass("e2e dispatched order is visible in admin state");
   else tracker.fail("e2e dispatched order missing from admin state");
 
-  const adminDocuments = Array.isArray(adminState?.accountDocuments) ? adminState.accountDocuments : [];
-  const adminInvoice = adminDocuments.find((document) => document.reference === `INV-${orderId}`);
-  const adminDelivery = adminDocuments.find((document) => document.reference === `DEL-${orderId}`);
-  if (adminInvoice && adminDelivery) tracker.pass("e2e account documents are visible in admin state");
+  const adminDocuments = Array.isArray(adminState?.accountDocuments)
+    ? adminState.accountDocuments
+    : [];
+  const adminInvoice = adminDocuments.find(
+    (document) => document.reference === `INV-${orderId}`,
+  );
+  const adminDelivery = adminDocuments.find(
+    (document) => document.reference === `DEL-${orderId}`,
+  );
+  if (adminInvoice && adminDelivery)
+    tracker.pass("e2e account documents are visible in admin state");
   else tracker.fail("e2e account documents missing from admin state");
 
-  const lookupRequests = Array.isArray(adminState?.lookupRequests) ? adminState.lookupRequests : [];
-  const adminLookup = lookupRequests.find((lookup) => lookup.query === lookupQuery && lookup.rego === "SMK001");
-  if (adminLookup) tracker.pass("e2e trade lookup demand is visible in admin state");
+  const lookupRequests = Array.isArray(adminState?.lookupRequests)
+    ? adminState.lookupRequests
+    : [];
+  const adminLookup = lookupRequests.find(
+    (lookup) => lookup.query === lookupQuery && lookup.rego === "SMK001",
+  );
+  if (adminLookup)
+    tracker.pass("e2e trade lookup demand is visible in admin state");
   else tracker.fail("e2e trade lookup demand missing from admin state");
 }
 
 async function runWarehouseQaWriteCheck(baseUrl, input, tracker) {
-  const warehouseHeaders = roleHeaders("warehouse", input.warehouseToken, input.useDemoHeaders);
-  const adminHeaders = roleHeaders("admin", input.adminToken, input.useDemoHeaders);
+  const warehouseHeaders = roleHeaders(
+    "warehouse",
+    input.warehouseToken,
+    input.useDemoHeaders,
+  );
+  const adminHeaders = roleHeaders(
+    "admin",
+    input.adminToken,
+    input.useDemoHeaders,
+  );
 
   const hasRequiredHeaders =
-    requireRoleHeaders("warehouse QA movement check", warehouseHeaders, tracker) &&
-    requireRoleHeaders("warehouse QA admin review check", adminHeaders, tracker);
+    requireRoleHeaders(
+      "warehouse QA movement check",
+      warehouseHeaders,
+      tracker,
+    ) &&
+    requireRoleHeaders(
+      "warehouse QA admin review check",
+      adminHeaders,
+      tracker,
+    );
 
   if (!hasRequiredHeaders) return;
 
@@ -641,23 +842,50 @@ async function runWarehouseQaWriteCheck(baseUrl, input, tracker) {
     tracker,
   );
   const adminState = await readJson(adminStateResponse);
-  const movements = Array.isArray(adminState?.stockMovements) ? adminState.stockMovements : [];
-  const hasRelease = movements.some((movement) => movement.reference === `${reference}-REL` && movement.movement === "Quarantine Release");
-  const hasWriteoff = movements.some((movement) => movement.reference === `${reference}-WO` && movement.movement === "Quarantine Write-off");
+  const movements = Array.isArray(adminState?.stockMovements)
+    ? adminState.stockMovements
+    : [];
+  const hasRelease = movements.some(
+    (movement) =>
+      movement.reference === `${reference}-REL` &&
+      movement.movement === "Quarantine Release",
+  );
+  const hasWriteoff = movements.some(
+    (movement) =>
+      movement.reference === `${reference}-WO` &&
+      movement.movement === "Quarantine Write-off",
+  );
 
-  if (hasRelease && hasWriteoff) tracker.pass("warehouse QA movements are visible in admin audit state");
+  if (hasRelease && hasWriteoff)
+    tracker.pass("warehouse QA movements are visible in admin audit state");
   else tracker.fail("warehouse QA movements missing from admin audit state");
 }
 
 async function runMasterDataWriteCheck(baseUrl, input, tracker) {
-  const tradeHeaders = roleHeaders("trade", input.tradeToken, input.useDemoHeaders);
-  const adminHeaders = roleHeaders("admin", input.adminToken, input.useDemoHeaders);
-  const warehouseHeaders = roleHeaders("warehouse", input.warehouseToken, input.useDemoHeaders);
+  const tradeHeaders = roleHeaders(
+    "trade",
+    input.tradeToken,
+    input.useDemoHeaders,
+  );
+  const adminHeaders = roleHeaders(
+    "admin",
+    input.adminToken,
+    input.useDemoHeaders,
+  );
+  const warehouseHeaders = roleHeaders(
+    "warehouse",
+    input.warehouseToken,
+    input.useDemoHeaders,
+  );
 
   const hasRequiredHeaders =
     requireRoleHeaders("master data lookup check", tradeHeaders, tracker) &&
     requireRoleHeaders("master data create check", adminHeaders, tracker) &&
-    requireRoleHeaders("master data receiving check", warehouseHeaders, tracker);
+    requireRoleHeaders(
+      "master data receiving check",
+      warehouseHeaders,
+      tracker,
+    );
 
   if (!hasRequiredHeaders) return;
 
@@ -725,8 +953,11 @@ async function runMasterDataWriteCheck(baseUrl, input, tracker) {
     tracker,
   );
   const fitmentBody = await readJson(fitmentResponse);
-  const importedRule = Array.isArray(fitmentBody?.rules) ? fitmentBody.rules.find((rule) => rule.sku === sku) : null;
-  if (fitmentBody?.summary?.created === 1 && importedRule) tracker.pass("master data fitment import is visible to admin");
+  const importedRule = Array.isArray(fitmentBody?.rules)
+    ? fitmentBody.rules.find((rule) => rule.sku === sku)
+    : null;
+  if (fitmentBody?.summary?.created === 1 && importedRule)
+    tracker.pass("master data fitment import is visible to admin");
   else {
     tracker.fail("master data fitment import returned an invalid body");
     return;
@@ -758,7 +989,8 @@ async function runMasterDataWriteCheck(baseUrl, input, tracker) {
   const inboundMovement = Array.isArray(inboundBody?.movements)
     ? inboundBody.movements.find((movement) => movement.sku === sku)
     : null;
-  if (inboundBody?.summary?.created === 1 && inboundMovement) tracker.pass("master data barcode resolved through bulk receiving");
+  if (inboundBody?.summary?.created === 1 && inboundMovement)
+    tracker.pass("master data barcode resolved through bulk receiving");
   else {
     tracker.fail("master data bulk receiving returned an invalid movement");
     return;
@@ -779,7 +1011,8 @@ async function runMasterDataWriteCheck(baseUrl, input, tracker) {
     ? adminState.catalogue.find((product) => product.sku === sku)
     : null;
 
-  if (row?.onHand >= 2 && row?.available >= 2) tracker.pass("master data created SKU is stocked in admin state");
+  if (row?.onHand >= 2 && row?.available >= 2)
+    tracker.pass("master data created SKU is stocked in admin state");
   else tracker.fail("master data created SKU stock missing from admin state");
 
   const lookupResponse = await checkStatus(
@@ -798,13 +1031,19 @@ async function runMasterDataWriteCheck(baseUrl, input, tracker) {
   const match = Array.isArray(lookupBody?.matches)
     ? lookupBody.matches.find((product) => product.sku === sku)
     : null;
-  if (match?.available >= 2) tracker.pass("master data created SKU is returned by trade lookup");
+  if (match?.available >= 2)
+    tracker.pass("master data created SKU is returned by trade lookup");
   else tracker.fail("master data created SKU missing from trade lookup");
 }
 
 async function runAccountProvisioningCheck(baseUrl, input, tracker) {
-  const adminHeaders = roleHeaders("admin", input.adminToken, input.useDemoHeaders);
-  if (!requireRoleHeaders("account provisioning check", adminHeaders, tracker)) return;
+  const adminHeaders = roleHeaders(
+    "admin",
+    input.adminToken,
+    input.useDemoHeaders,
+  );
+  if (!requireRoleHeaders("account provisioning check", adminHeaders, tracker))
+    return;
 
   const suffix = Date.now();
   const email = `smoke-provision-${suffix}@example.com`;
@@ -814,7 +1053,7 @@ async function runAccountProvisioningCheck(baseUrl, input, tracker) {
       label: "account provisioning application create",
       path: "/api/trade-account-applications",
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...adminHeaders },
       body: {
         accountName: `Smoke Provision Workshop ${suffix}`,
         contactName: "Smoke Provisioner",
@@ -822,6 +1061,9 @@ async function runAccountProvisioningCheck(baseUrl, input, tracker) {
         contactPhone: "0400000000",
         postcode: "4000",
         notes: "Automated login provisioning check.",
+        privacyConsent: true,
+        tradeTermsConsent: true,
+        consentVersion: "2026-08-21",
       },
       status: 200,
     },
@@ -851,7 +1093,9 @@ async function runAccountProvisioningCheck(baseUrl, input, tracker) {
     provisionBody.application?.status === "approved" &&
     provisionBody.login?.email === email
   ) {
-    tracker.pass("account provisioning created an approved trade login profile");
+    tracker.pass(
+      "account provisioning created an approved trade login profile",
+    );
   } else {
     tracker.fail("account provisioning returned an invalid body");
   }
@@ -861,15 +1105,24 @@ loadEnvFile(".env.local");
 loadEnvFile(".env");
 
 const tracker = createResultTracker();
-const baseUrl = normalizeBaseUrl(process.env.DRIVEMATE_BASE_URL ?? "http://127.0.0.1:3100");
-const isLocalUrl = baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1");
+const baseUrl = normalizeBaseUrl(
+  process.env.DRIVEMATE_BASE_URL ?? "http://127.0.0.1:3100",
+);
+const isLocalUrl =
+  baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1");
 const useDemoHeaders = process.env.DRIVEMATE_SMOKE_USE_DEMO_HEADERS === "true";
 const writeCheck = process.env.DRIVEMATE_SMOKE_WRITE_CHECK === "true";
 const e2eCheck = process.env.DRIVEMATE_SMOKE_E2E_CHECK === "true";
-const masterDataCheck = process.env.DRIVEMATE_SMOKE_MASTERDATA_CHECK === "true" || useDemoHeaders;
-const accountProvisioningCheck = process.env.DRIVEMATE_SMOKE_ACCOUNT_PROVISION_CHECK === "true" || useDemoHeaders;
+const masterDataCheck =
+  process.env.DRIVEMATE_SMOKE_MASTERDATA_CHECK === "true" || useDemoHeaders;
+const accountProvisioningCheck =
+  process.env.DRIVEMATE_SMOKE_ACCOUNT_PROVISION_CHECK === "true" ||
+  useDemoHeaders;
 const e2eSku = process.env.DRIVEMATE_SMOKE_E2E_SKU ?? "DM-GWM-OF-001";
-const e2eQuantity = Number.parseInt(process.env.DRIVEMATE_SMOKE_E2E_QTY ?? "1", 10);
+const e2eQuantity = Number.parseInt(
+  process.env.DRIVEMATE_SMOKE_E2E_QTY ?? "1",
+  10,
+);
 const tradeToken = process.env.DRIVEMATE_SMOKE_TRADE_TOKEN;
 const warehouseToken = process.env.DRIVEMATE_SMOKE_WAREHOUSE_TOKEN;
 const adminToken = process.env.DRIVEMATE_SMOKE_ADMIN_TOKEN;
@@ -879,7 +1132,9 @@ console.log(`Base URL: ${baseUrl}`);
 console.log("");
 
 if (isLocalUrl) {
-  tracker.warn("verifying a local URL; run again with DRIVEMATE_BASE_URL set to the Vercel staging URL before launch");
+  tracker.warn(
+    "verifying a local URL; run again with DRIVEMATE_BASE_URL set to the Vercel staging URL before launch",
+  );
 }
 
 await checkHealth(baseUrl, tracker);
@@ -976,7 +1231,10 @@ if (useDemoHeaders) {
       label: "demo trade vehicle lookup",
       path: "/api/vehicle-lookup",
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-drivemate-role": "trade" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-drivemate-role": "trade",
+      },
       body: { vin: "LGWDCF196RM608238" },
       status: 200,
     },
@@ -1002,9 +1260,15 @@ if (useDemoHeaders) {
     },
     tracker,
   );
-  await runAdminExportReadCheck(baseUrl, { "x-drivemate-role": "admin" }, tracker);
+  await runAdminExportReadCheck(
+    baseUrl,
+    { "x-drivemate-role": "admin" },
+    tracker,
+  );
 } else {
-  tracker.warn("demo role checks skipped; set DRIVEMATE_SMOKE_USE_DEMO_HEADERS=true for local prototype checks only");
+  tracker.warn(
+    "demo role checks skipped; set DRIVEMATE_SMOKE_USE_DEMO_HEADERS=true for local prototype checks only",
+  );
 }
 
 if (tradeToken) {
@@ -1014,7 +1278,10 @@ if (tradeToken) {
       label: "trade token vehicle lookup",
       path: "/api/vehicle-lookup",
       method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders(tradeToken) },
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(tradeToken),
+      },
       body: { vin: "LGWDCF196RM608238" },
       status: 200,
     },
@@ -1031,7 +1298,9 @@ if (tradeToken) {
     tracker,
   );
 } else {
-  tracker.warn("trade token check skipped; set DRIVEMATE_SMOKE_TRADE_TOKEN for staging auth verification");
+  tracker.warn(
+    "trade token check skipped; set DRIVEMATE_SMOKE_TRADE_TOKEN for staging auth verification",
+  );
 }
 
 if (warehouseToken) {
@@ -1051,14 +1320,19 @@ if (warehouseToken) {
       label: "warehouse token cannot submit trade order",
       path: "/api/orders",
       method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders(warehouseToken) },
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(warehouseToken),
+      },
       body: { lines: [{ sku: e2eSku, quantity: 1 }] },
       status: 403,
     },
     tracker,
   );
 } else {
-  tracker.warn("warehouse token check skipped; set DRIVEMATE_SMOKE_WAREHOUSE_TOKEN for staging auth verification");
+  tracker.warn(
+    "warehouse token check skipped; set DRIVEMATE_SMOKE_WAREHOUSE_TOKEN for staging auth verification",
+  );
 }
 
 if (adminToken) {
@@ -1074,17 +1348,23 @@ if (adminToken) {
   );
   await runAdminExportReadCheck(baseUrl, authHeaders(adminToken), tracker);
 } else {
-  tracker.warn("admin token check skipped; set DRIVEMATE_SMOKE_ADMIN_TOKEN for staging auth verification");
+  tracker.warn(
+    "admin token check skipped; set DRIVEMATE_SMOKE_ADMIN_TOKEN for staging auth verification",
+  );
 }
 
 if (writeCheck) {
+  const writeAdminHeaders = roleHeaders("admin", adminToken, useDemoHeaders);
   await checkStatus(
     baseUrl,
     {
       label: "public trade account application write check",
       path: "/api/trade-account-applications",
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(writeAdminHeaders ?? {}),
+      },
       body: {
         accountName: `Smoke Test Workshop ${Date.now()}`,
         contactName: "Smoke Tester",
@@ -1092,13 +1372,18 @@ if (writeCheck) {
         contactPhone: "0400000000",
         postcode: "4000",
         notes: "Automated staging write check.",
+        privacyConsent: true,
+        tradeTermsConsent: true,
+        consentVersion: "2026-08-21",
       },
       status: 200,
     },
     tracker,
   );
 } else {
-  tracker.warn("write check skipped; set DRIVEMATE_SMOKE_WRITE_CHECK=true only when staging can accept test records");
+  tracker.warn(
+    "write check skipped; set DRIVEMATE_SMOKE_WRITE_CHECK=true only when staging can accept test records",
+  );
 }
 
 if (e2eCheck) {
@@ -1129,7 +1414,9 @@ if (e2eCheck) {
     );
   }
 } else {
-  tracker.warn("e2e write check skipped; set DRIVEMATE_SMOKE_E2E_CHECK=true only when staging can accept a test order and dispatch");
+  tracker.warn(
+    "e2e write check skipped; set DRIVEMATE_SMOKE_E2E_CHECK=true only when staging can accept a test order and dispatch",
+  );
 }
 
 if (masterDataCheck) {
@@ -1144,7 +1431,9 @@ if (masterDataCheck) {
     tracker,
   );
 } else {
-  tracker.warn("master data write check skipped; set DRIVEMATE_SMOKE_MASTERDATA_CHECK=true only when staging can accept a test SKU and inbound movement");
+  tracker.warn(
+    "master data write check skipped; set DRIVEMATE_SMOKE_MASTERDATA_CHECK=true only when staging can accept a test SKU and inbound movement",
+  );
 }
 
 if (accountProvisioningCheck) {
@@ -1157,7 +1446,9 @@ if (accountProvisioningCheck) {
     tracker,
   );
 } else {
-  tracker.warn("account provisioning check skipped; set DRIVEMATE_SMOKE_ACCOUNT_PROVISION_CHECK=true only when staging can accept a test workshop login");
+  tracker.warn(
+    "account provisioning check skipped; set DRIVEMATE_SMOKE_ACCOUNT_PROVISION_CHECK=true only when staging can accept a test workshop login",
+  );
 }
 
 tracker.finish();
