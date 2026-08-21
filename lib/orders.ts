@@ -1,7 +1,13 @@
 import { availableStock, type InventoryRow } from "./inventory";
-import { calculateOrderPricing, type OrderTotals, type PriceResolver, type PricedOrderLine } from "./pricing";
+import {
+  calculateOrderPricing,
+  type OrderTotals,
+  type PriceResolver,
+  type PricedOrderLine,
+} from "./pricing";
 
-export type SalesOrderStatus = "draft" | "submitted" | "confirmed" | "picked" | "dispatched" | "cancelled";
+export type SalesOrderStatus =
+  "draft" | "submitted" | "confirmed" | "picked" | "dispatched" | "cancelled";
 
 export type OrderLineInput = {
   sku: string;
@@ -47,6 +53,12 @@ export type SalesOrder = {
   subtotalExGstCents?: number;
   gstCents?: number;
   totalIncGstCents?: number;
+  deliveryChargeExGstCents?: number;
+  carrier?: string;
+  trackingNumber?: string;
+  dispatchedAt?: string;
+  paymentDueAt?: string;
+  invoiceStatus?: string;
   lines: PricedOrderLine[];
 };
 
@@ -54,9 +66,15 @@ export type CreateOrderResult =
   | { ok: true; order: SalesOrder; inventory: InventoryRow[] }
   | { ok: false; message: string };
 
-export function validateDispatchScans(orderLines: OrderLineInput[], scans: DispatchScanInput[] | undefined) {
+export function validateDispatchScans(
+  orderLines: OrderLineInput[],
+  scans: DispatchScanInput[] | undefined,
+) {
   if (!scans?.length) {
-    return { ok: false as const, message: "Dispatch scan confirmation is required." };
+    return {
+      ok: false as const,
+      message: "Dispatch scan confirmation is required.",
+    };
   }
 
   const expected = new Map<string, number>();
@@ -66,23 +84,37 @@ export function validateDispatchScans(orderLines: OrderLineInput[], scans: Dispa
 
   const actual = new Map<string, number>();
   for (const scan of scans) {
-    if (!scan.sku.trim()) return { ok: false as const, message: "Scanned SKU is required." };
+    if (!scan.sku.trim())
+      return { ok: false as const, message: "Scanned SKU is required." };
     if (!Number.isInteger(scan.quantity) || scan.quantity <= 0) {
-      return { ok: false as const, message: "Scanned quantities must be positive." };
+      return {
+        ok: false as const,
+        message: "Scanned quantities must be positive.",
+      };
     }
     actual.set(scan.sku, (actual.get(scan.sku) ?? 0) + scan.quantity);
   }
 
   for (const [sku, quantity] of actual.entries()) {
-    if (!expected.has(sku)) return { ok: false as const, message: `Scanned SKU ${sku} is not on this order.` };
+    if (!expected.has(sku))
+      return {
+        ok: false as const,
+        message: `Scanned SKU ${sku} is not on this order.`,
+      };
     if (expected.get(sku) !== quantity) {
-      return { ok: false as const, message: `Scanned quantity for ${sku} does not match the order.` };
+      return {
+        ok: false as const,
+        message: `Scanned quantity for ${sku} does not match the order.`,
+      };
     }
   }
 
   for (const [sku, quantity] of expected.entries()) {
     if (actual.get(sku) !== quantity) {
-      return { ok: false as const, message: `Order line ${sku} has not been fully scanned.` };
+      return {
+        ok: false as const,
+        message: `Order line ${sku} has not been fully scanned.`,
+      };
     }
   }
 
@@ -110,7 +142,10 @@ export function createDraftOrder(
     const row = inventory.find((item) => item.sku === line.sku);
     if (!row) return { ok: false, message: `SKU ${line.sku} was not found.` };
     if (availableStock(row) < line.quantity) {
-      return { ok: false, message: `SKU ${line.sku} does not have enough available stock.` };
+      return {
+        ok: false,
+        message: `SKU ${line.sku} does not have enough available stock.`,
+      };
     }
   }
 
@@ -144,8 +179,14 @@ export function createDraftOrder(
 
 export function orderTotals(order: Pick<SalesOrder, "lines">): OrderTotals {
   return {
-    subtotalExGstCents: order.lines.reduce((sum, line) => sum + (line.lineTotalExGstCents ?? 0), 0),
+    subtotalExGstCents: order.lines.reduce(
+      (sum, line) => sum + (line.lineTotalExGstCents ?? 0),
+      0,
+    ),
     gstCents: order.lines.reduce((sum, line) => sum + (line.gstCents ?? 0), 0),
-    totalIncGstCents: order.lines.reduce((sum, line) => sum + (line.lineTotalIncGstCents ?? 0), 0),
+    totalIncGstCents: order.lines.reduce(
+      (sum, line) => sum + (line.lineTotalIncGstCents ?? 0),
+      0,
+    ),
   };
 }

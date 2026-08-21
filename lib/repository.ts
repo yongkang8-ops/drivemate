@@ -1,7 +1,17 @@
 import type { VehicleLookupInput } from "./fitment";
 import type { InventoryRow, MovementResult } from "./inventory";
-import type { CancelOrderInput, CreateOrderInput, DispatchOrderInput, SalesOrder } from "./orders";
-import type { CreateFitmentRuleInput, CreateProductMasterInput, Product, UpdateProductMasterInput } from "./catalogue";
+import type {
+  CancelOrderInput,
+  CreateOrderInput,
+  DispatchOrderInput,
+  SalesOrder,
+} from "./orders";
+import type {
+  CreateFitmentRuleInput,
+  CreateProductMasterInput,
+  Product,
+  UpdateProductMasterInput,
+} from "./catalogue";
 import type {
   ApproveTradeAccountApplicationResult,
   ProvisionTradeAccountLoginResult,
@@ -15,7 +25,9 @@ import { MemoryRepository } from "./memoryRepository";
 import { SupabaseRepository } from "./supabaseRepository";
 
 export type InventoryMovementInput = {
-  type: "inbound" | "putaway" | "dispatch" | "return" | "quarantine" | "adjustment";
+  idempotencyKey?: string;
+  type:
+    "inbound" | "putaway" | "dispatch" | "return" | "quarantine" | "adjustment";
   sku: string;
   quantity: number;
   reference: string;
@@ -157,7 +169,12 @@ export type AdminState = {
 export type AccountDocument = {
   id: string;
   tradeAccountId: string;
-  type: "order_confirmation" | "invoice" | "credit_note" | "statement" | "delivery_record";
+  type:
+    | "order_confirmation"
+    | "invoice"
+    | "credit_note"
+    | "statement"
+    | "delivery_record";
   reference: string;
   storagePath?: string;
   createdAt: string;
@@ -182,7 +199,13 @@ export type VehicleLookupResult = {
     market: "AU-spec";
     confidence: "exact" | "manual_review";
   };
-  matches: Array<AdminCatalogueRow & { vehicle: string; fitment: string; fitmentConfidence: string }>;
+  matches: Array<
+    AdminCatalogueRow & {
+      vehicle: string;
+      fitment: string;
+      fitmentConfidence: string;
+    }
+  >;
 };
 
 export type InventoryMovementResult =
@@ -194,7 +217,12 @@ export type SubmitOrderResult =
   | { ok: false; message: string };
 
 export type DispatchOrderResult =
-  | { ok: true; order: SalesOrder; inventory: InventoryRow[]; movements: StockMovement[] }
+  | {
+      ok: true;
+      order: SalesOrder;
+      inventory: InventoryRow[];
+      movements: StockMovement[];
+    }
   | { ok: false; message: string };
 
 export type CancelOrderResult =
@@ -202,34 +230,72 @@ export type CancelOrderResult =
   | { ok: false; message: string };
 
 export type UpdateProductMasterResult =
-  | { ok: true; product: AdminCatalogueRow }
-  | { ok: false; message: string };
+  { ok: true; product: AdminCatalogueRow } | { ok: false; message: string };
 
 export type CreateProductMasterResult =
-  | { ok: true; product: AdminCatalogueRow }
-  | { ok: false; message: string };
+  { ok: true; product: AdminCatalogueRow } | { ok: false; message: string };
 
 export type CreateFitmentRuleResult =
-  | { ok: true; rule: AdminFitmentRule }
-  | { ok: false; message: string };
+  { ok: true; rule: AdminFitmentRule } | { ok: false; message: string };
 
 export interface DrivemateRepository {
   mode: "memory" | "supabase";
   getAdminState(): Promise<AdminState>;
   getTradeAccountState(tradeAccountId: string): Promise<TradeAccountState>;
-  getAccountDocumentAccess(documentId: string, tradeAccountId?: string): Promise<AccountDocumentAccessResult>;
-  lookupVehicle(input: VehicleLookupInput, context?: RepositoryWriteContext): Promise<VehicleLookupResult>;
-  applyInventoryMovement(input: InventoryMovementInput, context?: RepositoryWriteContext): Promise<InventoryMovementResult>;
-  submitOrder(input: CreateOrderInput, context?: RepositoryWriteContext): Promise<SubmitOrderResult>;
-  dispatchOrder(orderId: string, input: DispatchOrderInput, context?: RepositoryWriteContext): Promise<DispatchOrderResult>;
-  cancelOrder(orderId: string, input?: CancelOrderInput, context?: RepositoryWriteContext): Promise<CancelOrderResult>;
-  submitTradeAccountApplication(input: TradeAccountApplicationInput): Promise<TradeAccountApplicationResult>;
-  approveTradeAccountApplication(applicationId: string, context?: RepositoryWriteContext): Promise<ApproveTradeAccountApplicationResult>;
-  provisionTradeAccountLogin(applicationId: string, context?: RepositoryWriteContext): Promise<ProvisionTradeAccountLoginResult>;
-  updateTradeAccountStatus(applicationId: string, status: TradeAccountStatus, context?: RepositoryWriteContext): Promise<UpdateTradeAccountStatusResult>;
-  createProductMaster(input: CreateProductMasterInput, context?: RepositoryWriteContext): Promise<CreateProductMasterResult>;
-  updateProductMaster(input: UpdateProductMasterInput, context?: RepositoryWriteContext): Promise<UpdateProductMasterResult>;
-  createFitmentRule(input: CreateFitmentRuleInput, context?: RepositoryWriteContext): Promise<CreateFitmentRuleResult>;
+  getAccountDocumentAccess(
+    documentId: string,
+    tradeAccountId?: string,
+  ): Promise<AccountDocumentAccessResult>;
+  lookupVehicle(
+    input: VehicleLookupInput,
+    context?: RepositoryWriteContext,
+  ): Promise<VehicleLookupResult>;
+  applyInventoryMovement(
+    input: InventoryMovementInput,
+    context?: RepositoryWriteContext,
+  ): Promise<InventoryMovementResult>;
+  submitOrder(
+    input: CreateOrderInput,
+    context?: RepositoryWriteContext,
+  ): Promise<SubmitOrderResult>;
+  dispatchOrder(
+    orderId: string,
+    input: DispatchOrderInput,
+    context?: RepositoryWriteContext,
+  ): Promise<DispatchOrderResult>;
+  cancelOrder(
+    orderId: string,
+    input?: CancelOrderInput,
+    context?: RepositoryWriteContext,
+  ): Promise<CancelOrderResult>;
+  submitTradeAccountApplication(
+    input: TradeAccountApplicationInput,
+  ): Promise<TradeAccountApplicationResult>;
+  approveTradeAccountApplication(
+    applicationId: string,
+    context?: RepositoryWriteContext,
+  ): Promise<ApproveTradeAccountApplicationResult>;
+  provisionTradeAccountLogin(
+    applicationId: string,
+    context?: RepositoryWriteContext,
+  ): Promise<ProvisionTradeAccountLoginResult>;
+  updateTradeAccountStatus(
+    applicationId: string,
+    status: TradeAccountStatus,
+    context?: RepositoryWriteContext,
+  ): Promise<UpdateTradeAccountStatusResult>;
+  createProductMaster(
+    input: CreateProductMasterInput,
+    context?: RepositoryWriteContext,
+  ): Promise<CreateProductMasterResult>;
+  updateProductMaster(
+    input: UpdateProductMasterInput,
+    context?: RepositoryWriteContext,
+  ): Promise<UpdateProductMasterResult>;
+  createFitmentRule(
+    input: CreateFitmentRuleInput,
+    context?: RepositoryWriteContext,
+  ): Promise<CreateFitmentRuleResult>;
   resetForTests(): Promise<void>;
 }
 
@@ -242,6 +308,7 @@ export function getRepository(): DrivemateRepository {
   if (globalThis.__drivemateRepository) return globalThis.__drivemateRepository;
 
   const mode = process.env.DRIVEMATE_REPOSITORY;
-  globalThis.__drivemateRepository = mode === "supabase" ? new SupabaseRepository() : new MemoryRepository();
+  globalThis.__drivemateRepository =
+    mode === "supabase" ? new SupabaseRepository() : new MemoryRepository();
   return globalThis.__drivemateRepository;
 }

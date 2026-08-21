@@ -7,7 +7,15 @@ export const vehicleLookupSchema = z.object({
 });
 
 export const inventoryMovementSchema = z.object({
-  type: z.enum(["inbound", "putaway", "dispatch", "return", "quarantine", "adjustment"]),
+  idempotencyKey: z.string().trim().min(8).max(120).optional(),
+  type: z.enum([
+    "inbound",
+    "putaway",
+    "dispatch",
+    "return",
+    "quarantine",
+    "adjustment",
+  ]),
   sku: z.string().trim().min(1),
   quantity: z.number().int().positive(),
   reference: z.string().trim().min(1),
@@ -110,10 +118,13 @@ export const fitmentRuleCreateSchema = z
     engine: z.string().trim().optional(),
     confidence: z.enum(["exact", "likely", "confirm_vin"]),
   })
-  .refine((value) => value.yearTo === undefined || value.yearTo >= value.yearFrom, {
-    message: "yearTo must be greater than or equal to yearFrom",
-    path: ["yearTo"],
-  });
+  .refine(
+    (value) => value.yearTo === undefined || value.yearTo >= value.yearFrom,
+    {
+      message: "yearTo must be greater than or equal to yearFrom",
+      path: ["yearTo"],
+    },
+  );
 
 export const fitmentRuleImportSchema = z.object({
   rows: z.array(fitmentRuleCreateSchema).min(1).max(200),

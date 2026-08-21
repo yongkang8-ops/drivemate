@@ -2,47 +2,23 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
-const requiredSeedSkus = [
-  "DM-GWM-OF-001",
-  "DM-GWM-AF-002",
-  "DM-GWM-CF-003",
-  "DM-GWM-FF-004",
-  "DM-BYD-CF-007",
-  "DM-MG-CF-008",
-];
-const requiredRoles = ["trade", "warehouse", "admin"];
-const requiredFitments = [
-  { sku: "DM-GWM-FF-004", make: "GWM", model: "Cannon Alpha" },
-  { sku: "DM-BYD-CF-007", make: "BYD", model: "Atto 3" },
-  { sku: "DM-MG-CF-008", make: "MG", model: "MG4" },
-];
-
 function loadEnvFile(fileName) {
   const filePath = resolve(process.cwd(), fileName);
   if (!existsSync(filePath)) return;
-
-  const lines = readFileSync(filePath, "utf8").split(/\r?\n/);
-  for (const line of lines) {
+  for (const line of readFileSync(filePath, "utf8").split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
-
     const separator = trimmed.indexOf("=");
-    if (separator === -1) continue;
-
+    if (separator < 0) continue;
     const key = trimmed.slice(0, separator).trim();
-    const value = trimmed
-      .slice(separator + 1)
-      .trim()
-      .replace(/^['"]|['"]$/g, "");
-
+    const value = trimmed.slice(separator + 1).trim().replace(/^['"]|['"]$/g, "");
     if (key && process.env[key] === undefined) process.env[key] = value;
   }
 }
 
-function createResultTracker() {
+function createTracker() {
   const failures = [];
   const warnings = [];
-
   return {
     pass(message) {
       console.log(`PASS ${message}`);
@@ -51,232 +27,129 @@ function createResultTracker() {
       warnings.push(message);
       console.warn(`WARN ${message}`);
     },
-    fail(message, details) {
-      const line = details ? `${message}: ${details}` : message;
-      failures.push(line);
-      console.error(`FAIL ${line}`);
+    fail(message, detail) {
+      const value = detail ? `${message}: ${detail}` : message;
+      failures.push(value);
+      console.error(`FAIL ${value}`);
     },
     finish() {
-      console.log("");
-      console.log(`Summary: ${failures.length} failure(s), ${warnings.length} warning(s)`);
+      console.log(`\nSummary: ${failures.length} failure(s), ${warnings.length} warning(s)`);
       if (failures.length) process.exitCode = 1;
     },
   };
 }
 
-async function requireRows(label, query, tracker) {
-  const { data, error } = await query;
-  if (error) {
-    tracker.fail(`${label} query failed`, error.message);
-    return [];
-  }
-
-  if (!data?.length) {
-    tracker.fail(`${label} has no rows`);
-    return [];
-  }
-
-  tracker.pass(`${label} returned ${data.length} row(s)`);
-  return data;
+async function requireQueryable(label, promise, result) {
+  const { data, error } = await promise;
+  if (error) result.fail(`${label} query failed`, error.message);
+  else result.pass(`${label} is queryable${Array.isArray(data) ? ` (${data.length} row(s))` : ""}`);
+  return data ?? [];
 }
 
-async function requireQueryable(label, query, tracker) {
-  const { data, error } = await query;
-  if (error) {
-    tracker.fail(`${label} query failed`, error.message);
-    return [];
-  }
-
-  tracker.pass(`${label} query succeeded${Array.isArray(data) ? ` (${data.length} row(s))` : ""}`);
-  return data ?? [];
+function expectEqual(result, label, actual, expected) {
+  if (actual === expected) result.pass(label);
+  else result.fail(label, `expected ${expected}, received ${actual}`);
 }
 
 loadEnvFile(".env.local");
 loadEnvFile(".env");
 
-const tracker = createResultTracker();
+const result = createTracker();
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const requirePiImport = process.env.REQUIRE_PI_IMPORT === "true";
 const requireUsers = process.env.REQUIRE_SUPABASE_USERS === "true";
 const requireStorage = process.env.REQUIRE_SUPABASE_STORAGE === "true";
-const accountDocumentsBucket = process.env.SUPABASE_ACCOUNT_DOCUMENTS_BUCKET ?? "account-documents";
+const bucketName = process.env.SUPABASE_ACCOUNT_DOCUMENTS_BUCKET ?? "account-documents";
 
-if (!url) tracker.fail("NEXT_PUBLIC_SUPABASE_URL is missing");
-if (!serviceRoleKey) tracker.fail("SUPABASE_SERVICE_ROLE_KEY is missing");
-
+if (!url) result.fail("NEXT_PUBLIC_SUPABASE_URL is missing");
+if (!serviceRoleKey) result.fail("SUPABASE_SERVICE_ROLE_KEY is missing");
 if (!url || !serviceRoleKey) {
-  tracker.finish();
+  result.finish();
   process.exit();
 }
 
 const supabase = createClient(url, serviceRoleKey, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-  },
+  auth: { persistSession: false, autoRefreshToken: false },
 });
 
-console.log("DriveMate Supabase staging verification");
-console.log(`Project URL: ${url}`);
-console.log("");
+console.log("DriveMate V1.1 Supabase verification");
+console.log(`Project URL: ${url}\n`);
 
-const products = await requireRows(
-  "products",
-  supabase.from("products").select("sku, brand, part_name, status, reorder_point, reorder_quantity").order("sku", { ascending: true }),
-  tracker,
-);
-
-const foundSkus = new Set(products.map((product) => product.sku));
-for (const sku of requiredSeedSkus) {
-  if (foundSkus.has(sku)) tracker.pass(`seed SKU exists: ${sku}`);
-  else tracker.fail(`seed SKU missing: ${sku}`);
-}
-
-await requireRows(
-  "fitment_rules",
-  supabase.from("fitment_rules").select("id, make, model, confidence, products(sku)").limit(20),
-  tracker,
-);
-
-const { data: fitments, error: fitmentCoverageError } = await supabase
-  .from("fitment_rules")
-  .select("make, model, products(sku)");
-if (fitmentCoverageError) {
-  tracker.fail("fitment coverage query failed", fitmentCoverageError.message);
+const { data: snapshot, error: snapshotError } = await supabase.rpc("dm_v11_readiness_snapshot");
+if (snapshotError || !snapshot) {
+  result.fail("V1.1 readiness snapshot is unavailable", snapshotError?.message);
 } else {
-  for (const expected of requiredFitments) {
-    const exists = (fitments ?? []).some((rule) => {
-      const product = Array.isArray(rule.products) ? rule.products[0] : rule.products;
-      return product?.sku === expected.sku && rule.make === expected.make && rule.model === expected.model;
-    });
-    if (exists) tracker.pass(`fitment exists: ${expected.sku} ${expected.make} ${expected.model}`);
-    else tracker.fail(`fitment missing: ${expected.sku} ${expected.make} ${expected.model}`);
+  expectEqual(result, "all V1.1 business tables have RLS", snapshot.schema?.missing_rls_count, 0);
+  expectEqual(result, "all required V1.1 transaction functions exist", snapshot.schema?.missing_function_count, 0);
+  expectEqual(
+    result,
+    "anon/authenticated have no direct business-table write grants",
+    snapshot.schema?.direct_client_write_grant_count,
+    0,
+  );
+
+  const purchase = snapshot.purchase_import ?? {};
+  if (!purchase.purchase_order_count) {
+    const message = "authoritative PI has not been committed to this environment";
+    if (requirePiImport) result.fail(message);
+    else result.warn(`${message}; set REQUIRE_PI_IMPORT=true after commit`);
+  } else {
+    expectEqual(result, "authoritative PI created one purchase order", purchase.purchase_order_count, 1);
+    expectEqual(result, "authoritative PI line count is 119", purchase.line_count, 119);
+    expectEqual(result, "authoritative PI has 119 unique Part Numbers", purchase.unique_part_number_count, 119);
+    expectEqual(result, "authoritative PI quantity is 706", purchase.quantity, 706);
+    expectEqual(result, "authoritative PI subtotal is exact", purchase.subtotal_minor, 6313780);
+    expectEqual(result, "authoritative PI discount allocation is exact", purchase.discount_minor, 13780);
+    expectEqual(result, "authoritative PI cash cost is exact", purchase.cash_cost_minor, 6300000);
+    expectEqual(result, "authoritative PI final total is exact", purchase.final_total_minor, 6300000);
+    expectEqual(result, "all imported products remain at initial release gates", purchase.gate_mismatch_count, 0);
+    expectEqual(result, "no imported product is publicly visible", purchase.public_product_count, 0);
+    expectEqual(result, "imported purchase stock remains unavailable before receipt", purchase.available_stock, 0);
   }
 }
 
-const { data: indexes, error: indexError } = await supabase
-  .from("pg_indexes")
-  .select("indexname")
-  .eq("schemaname", "public")
-  .eq("tablename", "fitment_rules")
-  .eq("indexname", "fitment_rules_unique_vehicle");
-if (indexError) {
-  tracker.warn("fitment unique index check could not query pg_indexes; verify manually in Supabase SQL editor");
-} else if (indexes?.length) {
-  tracker.pass("fitment duplicate-prevention index exists");
-} else {
-  tracker.fail("fitment duplicate-prevention index missing: fitment_rules_unique_vehicle");
-}
-
-await requireRows(
-  "inventory_locations",
-  supabase.from("inventory_locations").select("id, warehouse, zone, bin_code").limit(5),
-  tracker,
-);
-
-await requireRows(
-  "inventory_batches",
-  supabase.from("inventory_batches").select("id, batch_no, supplier_name").limit(5),
-  tracker,
-);
-
-await requireRows(
-  "inventory_balances",
-  supabase.from("inventory_balances").select("id, on_hand, reserved, quarantine").limit(5),
-  tracker,
-);
-
 await requireQueryable(
-  "stock_movements operational columns",
-  supabase
-    .from("stock_movements")
-    .select(
-      "id, product_id, batch_id, movement_type, quantity, from_location_id, to_location_id, reference_type, reference_id, created_by, created_at",
-    )
-    .limit(1),
-  tracker,
+  "purchase and shipment model",
+  supabase.from("purchase_orders").select("id, contract_number, status, source_import_run_id").limit(1),
+  result,
 );
-
 await requireQueryable(
-  "sales_orders operational columns",
-  supabase
-    .from("sales_orders")
-    .select("id, trade_account_id, status, po_number, vehicle_rego, vehicle_vin, subtotal_ex_gst_cents, gst_cents, total_inc_gst_cents, created_by, created_at")
-    .limit(1),
-  tracker,
+  "receipt and landed-cost model",
+  supabase.from("goods_receipts").select("id, receipt_number, status").limit(1),
+  result,
 );
-
 await requireQueryable(
-  "sales_order_lines operational columns",
-  supabase
-    .from("sales_order_lines")
-    .select("id, sales_order_id, product_id, quantity, unit_price_ex_gst_cents, line_total_ex_gst_cents, gst_cents, line_total_inc_gst_cents, status")
-    .limit(1),
-  tracker,
+  "compliance and VIN model",
+  supabase.from("compliance_reviews").select("id, risk_tier, final_decision").limit(1),
+  result,
 );
-
 await requireQueryable(
-  "account_documents operational columns",
-  supabase
-    .from("account_documents")
-    .select("id, trade_account_id, document_type, document_ref, storage_path, created_at")
-    .limit(1),
-  tracker,
-);
-
-await requireRows(
-  "pricing_rules",
-  supabase.from("pricing_rules").select("id, sku, channel, price_mode, unit_price_ex_gst_cents, status").limit(5),
-  tracker,
-);
-
-await requireRows(
-  "rfq_reviews",
-  supabase.from("rfq_reviews").select("id, brand, vehicle, requested_part, priority, status").limit(5),
-  tracker,
-);
-
-await requireQueryable(
-  "vehicle_lookup_requests operational columns",
-  supabase
-    .from("vehicle_lookup_requests")
-    .select("id, trade_account_id, rego, vin, query, vehicle, match_count, confidence, created_by, created_at")
-    .limit(1),
-  tracker,
-);
-
-await requireQueryable(
-  "trade_accounts application columns",
-  supabase
-    .from("trade_accounts")
-    .select("id, account_name, abn, contact_name, contact_email, contact_phone, postcode, notes, status, created_at")
-    .limit(1),
-  tracker,
+  "credit ledger and RMA model",
+  supabase.from("account_ledger_entries").select("id, entry_type, amount_cents").limit(1),
+  result,
 );
 
 const { data: profiles, error: profilesError } = await supabase.from("user_profiles").select("id, role");
-if (profilesError) {
-  tracker.fail("user_profiles query failed", profilesError.message);
-} else {
+if (profilesError) result.fail("user_profiles query failed", profilesError.message);
+else {
   const roles = new Set((profiles ?? []).map((profile) => profile.role));
-  for (const role of requiredRoles) {
-    if (roles.has(role)) {
-      tracker.pass(`user role exists: ${role}`);
-    } else if (requireUsers) {
-      tracker.fail(`user role missing: ${role}`);
-    } else {
-      tracker.warn(`user role missing: ${role}; create before live testing`);
-    }
+  for (const role of ["trade", "warehouse", "admin"]) {
+    if (roles.has(role)) result.pass(`${role} test profile exists`);
+    else if (requireUsers) result.fail(`${role} test profile is missing`);
+    else result.warn(`${role} test profile is missing; create it before AAL2 staging smoke tests`);
   }
 }
 
-const { data: bucket, error: bucketError } = await supabase.storage.getBucket(accountDocumentsBucket);
+const { data: bucket, error: bucketError } = await supabase.storage.getBucket(bucketName);
 if (bucketError || !bucket) {
-  const message = `storage bucket missing: ${accountDocumentsBucket}`;
-  if (requireStorage) tracker.fail(message, bucketError?.message);
-  else tracker.warn(`${message}; create before document download testing`);
+  const message = `private storage bucket is missing: ${bucketName}`;
+  if (requireStorage) result.fail(message, bucketError?.message);
+  else result.warn(`${message}; create it before document testing`);
+} else if (bucket.public) {
+  result.fail(`${bucketName} must remain private`);
 } else {
-  tracker.pass(`storage bucket exists: ${accountDocumentsBucket}`);
+  result.pass(`${bucketName} exists and is private`);
 }
 
-tracker.finish();
+result.finish();

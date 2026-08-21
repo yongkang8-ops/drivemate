@@ -9,6 +9,7 @@ test-results/
 playwright-report/
 coverage/
 tsconfig.tsbuildinfo
+supabase/.temp/
 
 # Private commercial import artifacts. Never commit supplier pricing or shipment source files.
 data/private/

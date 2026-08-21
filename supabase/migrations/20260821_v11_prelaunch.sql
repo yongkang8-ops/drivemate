@@ -302,6 +302,11 @@ create table if not exists public.audit_events (
 );
 create index if not exists audit_events_entity_idx on public.audit_events (entity_type, entity_id, created_at desc);
 
+alter table public.stock_movements
+  add column if not exists idempotency_key text;
+create unique index if not exists stock_movements_idempotency_key_unique
+  on public.stock_movements (idempotency_key) where idempotency_key is not null;
+
 alter table public.trade_accounts
   add column if not exists credit_limit_cents int not null default 100000,
   add column if not exists current_balance_cents int not null default 0,
@@ -363,6 +368,16 @@ create table if not exists public.account_ledger_entries (
   created_at timestamptz not null default now()
 );
 create index if not exists account_ledger_account_idx on public.account_ledger_entries(trade_account_id, effective_at);
+
+create table if not exists public.account_application_rate_limits (
+  id uuid primary key default gen_random_uuid(),
+  dimension text not null check (dimension in ('ip', 'email', 'abn')),
+  key_hash text not null,
+  window_started_at timestamptz not null default now(),
+  attempt_count int not null default 0 check (attempt_count >= 0),
+  updated_at timestamptz not null default now(),
+  unique (dimension, key_hash)
+);
 
 create table if not exists public.rma_requests (
   id uuid primary key default gen_random_uuid(),
@@ -1325,6 +1340,355 @@ begin
 end;
 $$;
 
+create or replace function public.dm_apply_inventory_movement(
+  p_product_id uuid,
+  p_movement_type text,
+  p_quantity int,
+  p_reference text,
+  p_source_warehouse text,
+  p_source_zone text,
+  p_source_bin text,
+  p_target_warehouse text,
+  p_target_zone text,
+  p_target_bin text,
+  p_adjustment_direction text,
+  p_quarantine_action text,
+  p_idempotency_key text,
+  p_actor_id uuid
+) returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_existing_id uuid;
+  v_source_location_id uuid;
+  v_target_location_id uuid;
+  v_balance public.inventory_balances%rowtype;
+  v_target_balance public.inventory_balances%rowtype;
+  v_batch_id uuid;
+  v_movement_id uuid;
+  v_reference_type text;
+begin
+  if coalesce(trim(p_idempotency_key), '') = '' then raise exception 'Idempotency key is required'; end if;
+  if p_quantity <= 0 then raise exception 'Quantity must be positive'; end if;
+  if p_movement_type not in ('putaway', 'quarantine', 'adjustment') then
+    raise exception 'Use the dedicated receipt, dispatch, or RMA workflow for this movement type';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended(p_idempotency_key, 0));
+  select id into v_existing_id from public.stock_movements where idempotency_key = p_idempotency_key;
+  if v_existing_id is not null then return v_existing_id; end if;
+
+  if p_source_warehouse is not null then
+    insert into public.inventory_locations(warehouse, zone, bin_code)
+      values (p_source_warehouse, p_source_zone, p_source_bin)
+      on conflict (warehouse, zone, bin_code) do update set warehouse = excluded.warehouse
+      returning id into v_source_location_id;
+  end if;
+  if p_target_warehouse is not null then
+    insert into public.inventory_locations(warehouse, zone, bin_code)
+      values (p_target_warehouse, p_target_zone, p_target_bin)
+      on conflict (warehouse, zone, bin_code) do update set warehouse = excluded.warehouse
+      returning id into v_target_location_id;
+  end if;
+
+  if p_movement_type = 'putaway' then
+    if v_source_location_id is null or v_target_location_id is null then raise exception 'Source and target locations are required'; end if;
+    if v_source_location_id = v_target_location_id then raise exception 'Source and target locations must differ'; end if;
+    select b.* into v_balance
+      from public.inventory_balances b
+      join public.inventory_batches batch on batch.id = b.batch_id
+      where b.product_id = p_product_id
+        and b.location_id = v_source_location_id
+        and b.on_hand - b.reserved - b.quarantine >= p_quantity
+      order by batch.received_date nulls last, batch.id
+      for update of b
+      limit 1;
+    if v_balance.id is null then raise exception 'Not enough available stock in source location'; end if;
+
+    insert into public.inventory_balances(product_id, location_id, batch_id, on_hand, reserved, quarantine)
+      values (p_product_id, v_target_location_id, v_balance.batch_id, 0, 0, 0)
+      on conflict (product_id, location_id, batch_id) do nothing;
+    select * into v_target_balance from public.inventory_balances
+      where product_id = p_product_id and location_id = v_target_location_id and batch_id = v_balance.batch_id
+      for update;
+
+    update public.inventory_balances set on_hand = on_hand - p_quantity where id = v_balance.id;
+    update public.inventory_balances set on_hand = on_hand + p_quantity where id = v_target_balance.id;
+    v_batch_id := v_balance.batch_id;
+    v_reference_type := 'putaway';
+  elsif p_movement_type = 'quarantine' then
+    select b.* into v_balance
+      from public.inventory_balances b
+      join public.inventory_batches batch on batch.id = b.batch_id
+      where b.product_id = p_product_id
+        and (v_source_location_id is null or b.location_id = v_source_location_id)
+        and b.on_hand - b.reserved - b.quarantine >= p_quantity
+      order by batch.received_date nulls last, batch.id
+      for update of b
+      limit 1;
+    if v_balance.id is null and v_source_location_id is not null then
+      select b.* into v_balance
+        from public.inventory_balances b
+        join public.inventory_batches batch on batch.id = b.batch_id
+        where b.product_id = p_product_id and b.on_hand - b.reserved - b.quarantine >= p_quantity
+        order by batch.received_date nulls last, batch.id
+        for update of b
+        limit 1;
+    end if;
+    if v_balance.id is null then raise exception 'Not enough available stock to quarantine'; end if;
+    update public.inventory_balances set quarantine = quarantine + p_quantity where id = v_balance.id;
+    v_batch_id := v_balance.batch_id;
+    v_source_location_id := v_balance.location_id;
+    v_target_location_id := v_balance.location_id;
+    v_reference_type := 'quarantine';
+  else
+    if p_quarantine_action is not null then
+      if p_quarantine_action not in ('release', 'writeoff') then raise exception 'Unsupported quarantine action'; end if;
+      select b.* into v_balance
+        from public.inventory_balances b
+        join public.inventory_batches batch on batch.id = b.batch_id
+        where b.product_id = p_product_id
+          and (v_source_location_id is null or b.location_id = v_source_location_id)
+          and b.quarantine >= p_quantity
+        order by batch.received_date nulls last, batch.id
+        for update of b
+        limit 1;
+      if v_balance.id is null and v_source_location_id is not null then
+        select b.* into v_balance
+          from public.inventory_balances b
+          join public.inventory_batches batch on batch.id = b.batch_id
+          where b.product_id = p_product_id and b.quarantine >= p_quantity
+          order by batch.received_date nulls last, batch.id
+          for update of b
+          limit 1;
+      end if;
+      if v_balance.id is null then raise exception 'Not enough quarantined stock'; end if;
+      if p_quarantine_action = 'writeoff' and v_balance.on_hand < p_quantity then raise exception 'Not enough on-hand stock to write off'; end if;
+      update public.inventory_balances
+        set quarantine = quarantine - p_quantity,
+            on_hand = case when p_quarantine_action = 'writeoff' then on_hand - p_quantity else on_hand end
+        where id = v_balance.id;
+      v_batch_id := v_balance.batch_id;
+      v_source_location_id := v_balance.location_id;
+      v_target_location_id := case when p_quarantine_action = 'release' then v_balance.location_id else null end;
+      v_reference_type := 'quarantine_' || p_quarantine_action;
+    elsif coalesce(p_adjustment_direction, 'increase') = 'decrease' then
+      select b.* into v_balance
+        from public.inventory_balances b
+        join public.inventory_batches batch on batch.id = b.batch_id
+        where b.product_id = p_product_id
+          and (v_source_location_id is null or b.location_id = v_source_location_id)
+          and b.on_hand - b.reserved - b.quarantine >= p_quantity
+        order by batch.received_date nulls last, batch.id
+        for update of b
+        limit 1;
+      if v_balance.id is null then raise exception 'Not enough available stock in adjustment location'; end if;
+      update public.inventory_balances set on_hand = on_hand - p_quantity where id = v_balance.id;
+      v_batch_id := v_balance.batch_id;
+      v_source_location_id := v_balance.location_id;
+      v_target_location_id := null;
+      v_reference_type := 'adjustment_decrease';
+    else
+      if v_target_location_id is null then raise exception 'Adjustment location is required'; end if;
+      insert into public.inventory_batches(product_id, batch_no, supplier_name, purchase_ref, received_date)
+        values (p_product_id, 'ADJ-' || p_reference, 'Controlled stock adjustment', p_reference, current_date)
+        on conflict (product_id, batch_no) do update set purchase_ref = excluded.purchase_ref
+        returning id into v_batch_id;
+      insert into public.inventory_balances(product_id, location_id, batch_id, on_hand, reserved, quarantine)
+        values (p_product_id, v_target_location_id, v_batch_id, 0, 0, 0)
+        on conflict (product_id, location_id, batch_id) do nothing;
+      select * into v_target_balance from public.inventory_balances
+        where product_id = p_product_id and location_id = v_target_location_id and batch_id = v_batch_id
+        for update;
+      update public.inventory_balances set on_hand = on_hand + p_quantity where id = v_target_balance.id;
+      v_source_location_id := null;
+      v_reference_type := 'adjustment_increase';
+    end if;
+  end if;
+
+  insert into public.stock_movements(
+    product_id, batch_id, movement_type, quantity, from_location_id, to_location_id,
+    reference_type, reference_id, created_by, idempotency_key
+  ) values (
+    p_product_id, v_batch_id, p_movement_type, p_quantity, v_source_location_id, v_target_location_id,
+    v_reference_type, p_reference, p_actor_id, p_idempotency_key
+  ) returning id into v_movement_id;
+
+  insert into public.audit_events(entity_type, entity_id, action, actor_id, after_value, idempotency_key)
+    values ('stock_movement', v_movement_id::text, v_reference_type, p_actor_id,
+      jsonb_build_object('product_id', p_product_id, 'quantity', p_quantity, 'reference', p_reference),
+      p_idempotency_key);
+  return v_movement_id;
+end;
+$$;
+
+create or replace function public.dm_check_account_application_rate_limit(
+  p_dimension text,
+  p_key_hash text,
+  p_limit int,
+  p_window_seconds int
+) returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_row public.account_application_rate_limits%rowtype;
+begin
+  if p_dimension not in ('ip', 'email', 'abn') then raise exception 'Unsupported rate-limit dimension'; end if;
+  if coalesce(trim(p_key_hash), '') = '' or p_limit <= 0 or p_window_seconds <= 0 then
+    raise exception 'Invalid rate-limit input';
+  end if;
+  perform pg_advisory_xact_lock(hashtextextended(p_dimension || ':' || p_key_hash, 0));
+  insert into public.account_application_rate_limits(dimension, key_hash, window_started_at, attempt_count, updated_at)
+    values (p_dimension, p_key_hash, now(), 1, now())
+    on conflict (dimension, key_hash) do update
+      set window_started_at = case
+            when public.account_application_rate_limits.window_started_at <= now() - make_interval(secs => p_window_seconds)
+              then now()
+            else public.account_application_rate_limits.window_started_at
+          end,
+          attempt_count = case
+            when public.account_application_rate_limits.window_started_at <= now() - make_interval(secs => p_window_seconds)
+              then 1
+            else public.account_application_rate_limits.attempt_count + 1
+          end,
+          updated_at = now()
+    returning * into v_row;
+  return v_row.attempt_count <= p_limit;
+end;
+$$;
+
+create or replace function public.dm_v11_readiness_snapshot()
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_source_hash constant text := 'F7C6F6BB4576CCCA62221E50D27E2FCCF3CAB3C46F9889404F87C0B59E9ABB4C';
+  v_business_tables text[] := array[
+    'trade_accounts','user_profiles','products','fitment_rules','inventory_locations','inventory_batches',
+    'inventory_balances','stock_movements','sales_orders','sales_order_lines','account_documents','pricing_rules',
+    'rfq_reviews','vehicle_lookup_requests','suppliers','data_import_runs','purchase_orders','purchase_order_lines',
+    'shipments','shipment_pallets','shipment_cartons','shipment_carton_lines','goods_receipts','goods_receipt_lines',
+    'landed_costs','landed_cost_allocations','compliance_reviews','vehicle_configurations','vehicles','audit_events',
+    'sales_order_allocations','account_ledger_entries','account_application_rate_limits','rma_requests','rma_lines'
+  ];
+  v_required_functions text[] := array[
+    'dm_commit_purchase_import','dm_receive_goods','dm_review_product_gate','dm_approve_trade_price',
+    'dm_commit_vin_import','dm_reserve_sales_order','dm_cancel_sales_order','dm_dispatch_sales_order',
+    'dm_apply_inventory_movement','dm_post_account_adjustment','dm_refresh_credit_holds','dm_create_rma',
+    'dm_receive_rma','dm_inspect_rma','dm_save_landed_cost','dm_check_account_application_rate_limit'
+  ];
+  v_missing_rls int;
+  v_missing_functions int;
+  v_direct_client_grants int;
+  v_po_count int;
+  v_line_count int;
+  v_unique_pn_count int;
+  v_quantity int;
+  v_subtotal bigint;
+  v_discount bigint;
+  v_cash_cost bigint;
+  v_final_total bigint;
+  v_gate_mismatches int;
+  v_public_products int;
+  v_available_stock bigint;
+begin
+  select count(*) into v_missing_rls
+  from unnest(v_business_tables) as tables(table_name)
+  where not exists (
+    select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relname = table_name and c.relrowsecurity
+  );
+
+  select count(*) into v_missing_functions
+  from unnest(v_required_functions) as functions(function_name)
+  where not exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public' and p.proname = function_name
+  );
+
+  select count(*) into v_direct_client_grants
+  from information_schema.role_table_grants grants
+  where grants.table_schema = 'public'
+    and grants.grantee in ('anon', 'authenticated')
+    and grants.privilege_type in ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER')
+    and grants.table_name = any(v_business_tables);
+
+  select count(*), coalesce(max(final_total_minor), 0)
+    into v_po_count, v_final_total
+  from public.purchase_orders po
+  join public.data_import_runs run on run.id = po.source_import_run_id
+  where run.source_sha256 = v_source_hash;
+
+  select count(*), count(distinct pol.supplier_part_number), coalesce(sum(pol.quantity), 0),
+         coalesce(sum(pol.original_amount_minor), 0), coalesce(sum(pol.allocated_discount_minor), 0),
+         coalesce(sum(pol.cash_purchase_cost_minor), 0)
+    into v_line_count, v_unique_pn_count, v_quantity, v_subtotal, v_discount, v_cash_cost
+  from public.purchase_order_lines pol
+  join public.purchase_orders po on po.id = pol.purchase_order_id
+  join public.data_import_runs run on run.id = po.source_import_run_id
+  where run.source_sha256 = v_source_hash;
+
+  select count(*) into v_gate_mismatches
+  from public.products p
+  where p.id in (
+    select pol.product_id from public.purchase_order_lines pol
+    join public.purchase_orders po on po.id = pol.purchase_order_id
+    join public.data_import_runs run on run.id = po.source_import_run_id
+    where run.source_sha256 = v_source_hash
+  ) and (
+    p.supply_status <> 'on_order' or p.compliance_status <> 'pending' or p.fitment_status <> 'vin_pending'
+    or p.pricing_status <> 'price_pending' or p.commercial_status <> 'inactive' or p.public_visibility
+  );
+
+  select count(*) into v_public_products
+  from public.products p
+  where p.public_visibility and p.id in (
+    select pol.product_id from public.purchase_order_lines pol
+    join public.purchase_orders po on po.id = pol.purchase_order_id
+    join public.data_import_runs run on run.id = po.source_import_run_id
+    where run.source_sha256 = v_source_hash
+  );
+
+  select coalesce(sum(ib.on_hand - ib.reserved - ib.quarantine), 0) into v_available_stock
+  from public.inventory_balances ib
+  where ib.product_id in (
+    select pol.product_id from public.purchase_order_lines pol
+    join public.purchase_orders po on po.id = pol.purchase_order_id
+    join public.data_import_runs run on run.id = po.source_import_run_id
+    where run.source_sha256 = v_source_hash
+  );
+
+  return jsonb_build_object(
+    'schema', jsonb_build_object(
+      'business_table_count', cardinality(v_business_tables),
+      'missing_rls_count', v_missing_rls,
+      'missing_function_count', v_missing_functions,
+      'direct_client_write_grant_count', v_direct_client_grants
+    ),
+    'purchase_import', jsonb_build_object(
+      'source_hash', v_source_hash,
+      'purchase_order_count', v_po_count,
+      'line_count', v_line_count,
+      'unique_part_number_count', v_unique_pn_count,
+      'quantity', v_quantity,
+      'subtotal_minor', v_subtotal,
+      'discount_minor', v_discount,
+      'cash_cost_minor', v_cash_cost,
+      'final_total_minor', v_final_total,
+      'gate_mismatch_count', v_gate_mismatches,
+      'public_product_count', v_public_products,
+      'available_stock', v_available_stock
+    )
+  );
+end;
+$$;
+
 create or replace view public.sellable_catalogue as
 select p.*,
        coalesce(sum(ib.on_hand - ib.reserved - ib.quarantine), 0)::int as available_stock
@@ -1346,6 +1710,9 @@ revoke all on function public.dm_create_rma(uuid, uuid, text, jsonb, text, jsonb
 revoke all on function public.dm_receive_rma(uuid, jsonb, uuid, text, uuid) from public;
 revoke all on function public.dm_inspect_rma(uuid, text, int, text, text, uuid) from public;
 revoke all on function public.dm_save_landed_cost(uuid, text, text, jsonb, jsonb, jsonb, text, uuid) from public;
+revoke all on function public.dm_apply_inventory_movement(uuid, text, int, text, text, text, text, text, text, text, text, text, text, uuid) from public;
+revoke all on function public.dm_check_account_application_rate_limit(text, text, int, int) from public;
+revoke all on function public.dm_v11_readiness_snapshot() from public;
 revoke all on function public.dm_product_is_sellable(uuid) from public;
 revoke all on function public.dm_commit_purchase_import(jsonb, uuid, text) from public;
 revoke all on function public.dm_receive_goods(uuid, text, jsonb, uuid, text, uuid) from public;
@@ -1373,6 +1740,7 @@ alter table public.vehicles enable row level security;
 alter table public.audit_events enable row level security;
 alter table public.sales_order_allocations enable row level security;
 alter table public.account_ledger_entries enable row level security;
+alter table public.account_application_rate_limits enable row level security;
 alter table public.rma_requests enable row level security;
 alter table public.rma_lines enable row level security;
 
@@ -1382,10 +1750,13 @@ begin
   foreach v_role in array array['anon','authenticated'] loop
     if exists(select 1 from pg_roles where rolname=v_role) then
       foreach v_table in array array[
+        'trade_accounts','user_profiles','products','fitment_rules','inventory_locations','inventory_batches',
+        'inventory_balances','stock_movements','sales_orders','sales_order_lines','account_documents','pricing_rules',
+        'rfq_reviews','vehicle_lookup_requests',
         'suppliers','data_import_runs','purchase_orders','purchase_order_lines','shipments','shipment_pallets',
         'shipment_cartons','shipment_carton_lines','goods_receipts','goods_receipt_lines','landed_costs',
         'landed_cost_allocations','compliance_reviews','vehicle_configurations','vehicles','audit_events',
-        'sales_order_allocations','account_ledger_entries','rma_requests','rma_lines','sellable_catalogue'
+        'sales_order_allocations','account_ledger_entries','account_application_rate_limits','rma_requests','rma_lines','sellable_catalogue'
       ] loop
         execute format('revoke all on public.%I from %I',v_table,v_role);
       end loop;

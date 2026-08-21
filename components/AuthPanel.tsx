@@ -139,7 +139,10 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
 
   async function signOut() {
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: await buildApiHeaders(expectedRole),
+      });
     } finally {
       setProfile(null);
       setMfaRequired(false);
@@ -159,8 +162,7 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
       body: JSON.stringify({ friendlyName: "DriveMate staff authenticator" }),
     });
     const body = (await response.json()) as
-      | ({ ok: true } & MfaEnrollment)
-      | { ok: false; message?: string };
+      ({ ok: true } & MfaEnrollment) | { ok: false; message?: string };
     if (!response.ok || !body.ok) {
       setMessage(
         "message" in body

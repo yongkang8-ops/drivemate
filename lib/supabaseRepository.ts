@@ -1,9 +1,26 @@
 import { createAccountDocumentText } from "./accountDocumentContent";
-import type { CreateFitmentRuleInput, CreateProductMasterInput, FitmentRule, UpdateProductMasterInput } from "./catalogue";
-import { demoUserRoles, pilotPricingRules, pilotRfqReviews } from "./adminMasterData";
-import { matchCatalogueForVehicleProfile, type VehicleLookupInput, type VehicleProfile } from "./fitment";
+import type {
+  CreateFitmentRuleInput,
+  CreateProductMasterInput,
+  FitmentRule,
+  UpdateProductMasterInput,
+} from "./catalogue";
+import {
+  demoUserRoles,
+  pilotPricingRules,
+  pilotRfqReviews,
+} from "./adminMasterData";
+import {
+  matchCatalogueForVehicleProfile,
+  type VehicleLookupInput,
+  type VehicleProfile,
+} from "./fitment";
 import { availableStock, type InventoryRow } from "./inventory";
-import { calculateOrderPricing, defaultPriceResolver } from "./pricing";
+import {
+  calculateOrderPricing,
+  defaultPriceResolver,
+  formatAudCents,
+} from "./pricing";
 import {
   validateDispatchScans,
   type CancelOrderInput,
@@ -12,7 +29,11 @@ import {
   type DispatchScanInput,
   type SalesOrder,
 } from "./orders";
-import { formatWarehouseLocation, parseWarehouseLocation, type WarehouseLocationParts } from "./warehouseLocation";
+import {
+  formatWarehouseLocation,
+  parseWarehouseLocation,
+  type WarehouseLocationParts,
+} from "./warehouseLocation";
 import type {
   ApproveTradeAccountApplicationResult,
   ProvisionTradeAccountLoginResult,
@@ -113,10 +134,17 @@ type SalesOrderRecord = {
   po_number?: string | null;
   vehicle_vin?: string | null;
   vehicle_rego?: string | null;
-  status: "draft" | "submitted" | "confirmed" | "picked" | "dispatched" | "cancelled";
+  status:
+    "draft" | "submitted" | "confirmed" | "picked" | "dispatched" | "cancelled";
   subtotal_ex_gst_cents?: number | null;
   gst_cents?: number | null;
   total_inc_gst_cents?: number | null;
+  delivery_charge_ex_gst_cents?: number | null;
+  carrier?: string | null;
+  tracking_number?: string | null;
+  dispatched_at?: string | null;
+  payment_due_at?: string | null;
+  invoice_status?: string | null;
   created_by?: string | null;
   created_at?: string | null;
   sales_order_lines?: Array<{
@@ -133,7 +161,12 @@ type SalesOrderRecord = {
 type AccountDocumentRecord = {
   id: string;
   trade_account_id: string;
-  document_type: "order_confirmation" | "invoice" | "credit_note" | "statement" | "delivery_record";
+  document_type:
+    | "order_confirmation"
+    | "invoice"
+    | "credit_note"
+    | "statement"
+    | "delivery_record";
   document_ref: string;
   storage_path: string;
   created_at: string;
@@ -190,22 +223,32 @@ type UserProfileRecord = {
   trade_account_id?: string | null;
 };
 
-function productSku(record: MovementRecord | { products?: { sku?: string } | { sku?: string }[] }) {
-  return Array.isArray(record.products) ? record.products[0]?.sku : record.products?.sku;
+function productSku(
+  record: MovementRecord | { products?: { sku?: string } | { sku?: string }[] },
+) {
+  return Array.isArray(record.products)
+    ? record.products[0]?.sku
+    : record.products?.sku;
 }
 
-function batchNo(record?: { inventory_batches?: { batch_no?: string } | { batch_no?: string }[] | null }) {
+function batchNo(record?: {
+  inventory_batches?: { batch_no?: string } | { batch_no?: string }[] | null;
+}) {
   const batch = record?.inventory_batches;
   if (!batch) return undefined;
   return Array.isArray(batch) ? batch[0]?.batch_no : batch.batch_no;
 }
 
-function locationRecord(record?: LocationRecord | LocationRecord[] | null): LocationRecord | undefined {
+function locationRecord(
+  record?: LocationRecord | LocationRecord[] | null,
+): LocationRecord | undefined {
   if (!record) return undefined;
   return Array.isArray(record) ? record[0] : record;
 }
 
-function locationLabel(record?: LocationRecord | LocationRecord[] | null): string | undefined {
+function locationLabel(
+  record?: LocationRecord | LocationRecord[] | null,
+): string | undefined {
   const location = locationRecord(record);
   return location
     ? formatWarehouseLocation({
@@ -216,26 +259,54 @@ function locationLabel(record?: LocationRecord | LocationRecord[] | null): strin
     : undefined;
 }
 
-function toInventoryRows(products: ProductRecord[], balances: BalanceRecord[]): InventoryRow[] {
+function toInventoryRows(
+  products: ProductRecord[],
+  balances: BalanceRecord[],
+): InventoryRow[] {
   return products.map((product) => {
-    const productBalances = balances.filter((balance) => balance.product_id === product.id);
+    const productBalances = balances.filter(
+      (balance) => balance.product_id === product.id,
+    );
     return {
       sku: product.sku,
-      onHand: productBalances.reduce((sum, balance) => sum + balance.on_hand, 0),
-      reserved: productBalances.reduce((sum, balance) => sum + balance.reserved, 0),
-      quarantine: productBalances.reduce((sum, balance) => sum + balance.quarantine, 0),
+      onHand: productBalances.reduce(
+        (sum, balance) => sum + balance.on_hand,
+        0,
+      ),
+      reserved: productBalances.reduce(
+        (sum, balance) => sum + balance.reserved,
+        0,
+      ),
+      quarantine: productBalances.reduce(
+        (sum, balance) => sum + balance.quarantine,
+        0,
+      ),
     };
   });
 }
 
-function toCatalogueRows(products: ProductRecord[], balances: BalanceRecord[]): AdminState["catalogue"] {
+function toCatalogueRows(
+  products: ProductRecord[],
+  balances: BalanceRecord[],
+): AdminState["catalogue"] {
   return products.map((product) => {
-    const productBalances = balances.filter((balance) => balance.product_id === product.id);
+    const productBalances = balances.filter(
+      (balance) => balance.product_id === product.id,
+    );
     const row = {
       sku: product.sku,
-      onHand: productBalances.reduce((sum, balance) => sum + balance.on_hand, 0),
-      reserved: productBalances.reduce((sum, balance) => sum + balance.reserved, 0),
-      quarantine: productBalances.reduce((sum, balance) => sum + balance.quarantine, 0),
+      onHand: productBalances.reduce(
+        (sum, balance) => sum + balance.on_hand,
+        0,
+      ),
+      reserved: productBalances.reduce(
+        (sum, balance) => sum + balance.reserved,
+        0,
+      ),
+      quarantine: productBalances.reduce(
+        (sum, balance) => sum + balance.quarantine,
+        0,
+      ),
     };
 
     return {
@@ -273,14 +344,19 @@ function toStockMovement(record: MovementRecord): StockMovement {
   const movementType = record.movement_type as keyof typeof movementLabels;
 
   const actualLocation =
-    movementType === "inbound" || movementType === "return" || movementType === "putaway" || (movementType === "adjustment" && !!record.to_location)
+    movementType === "inbound" ||
+    movementType === "return" ||
+    movementType === "putaway" ||
+    (movementType === "adjustment" && !!record.to_location)
       ? locationLabel(record.to_location)
       : locationLabel(record.from_location);
 
   const movement =
-    movementType === "adjustment" && record.reference_type === "quarantine_release"
+    movementType === "adjustment" &&
+    record.reference_type === "quarantine_release"
       ? "Quarantine Release"
-      : movementType === "adjustment" && record.reference_type === "quarantine_writeoff"
+      : movementType === "adjustment" &&
+          record.reference_type === "quarantine_writeoff"
         ? "Quarantine Write-off"
         : (movementLabels[movementType] ?? "Dispatch");
 
@@ -322,6 +398,12 @@ function toSalesOrder(record: SalesOrderRecord): SalesOrder {
     subtotalExGstCents: record.subtotal_ex_gst_cents ?? undefined,
     gstCents: record.gst_cents ?? undefined,
     totalIncGstCents: record.total_inc_gst_cents ?? undefined,
+    deliveryChargeExGstCents: record.delivery_charge_ex_gst_cents ?? undefined,
+    carrier: record.carrier ?? undefined,
+    trackingNumber: record.tracking_number ?? undefined,
+    dispatchedAt: record.dispatched_at ?? undefined,
+    paymentDueAt: record.payment_due_at ?? undefined,
+    invoiceStatus: record.invoice_status ?? undefined,
     createdBy: record.created_by ?? undefined,
     createdAt: record.created_at ?? undefined,
     lines:
@@ -385,7 +467,10 @@ function statementReference(tradeAccountId: string, date = new Date()): string {
   return `STMT-${statementMonth(date)}-${tradeAccountId}`;
 }
 
-function statementStoragePath(tradeAccountId: string, date = new Date()): string {
+function statementStoragePath(
+  tradeAccountId: string,
+  date = new Date(),
+): string {
   return `generated/statements/${statementMonth(date)}/${tradeAccountId}.txt`;
 }
 
@@ -412,24 +497,32 @@ export class SupabaseRepository implements DrivemateRepository {
     input: CreateOrderInput,
     context: RepositoryWriteContext,
   ): Promise<SubmitOrderResult> {
-    if (!input.idempotencyKey) return { ok: false, message: "Idempotency key is required." };
+    if (!input.idempotencyKey)
+      return { ok: false, message: "Idempotency key is required." };
     const supabase = this.client();
-    const { data: orderId, error } = await supabase.rpc("dm_reserve_sales_order", {
-      p_trade_account_id: input.tradeAccountId,
-      p_lines: input.lines,
-      p_idempotency_key: input.idempotencyKey,
-      p_po_number: input.poNumber ?? null,
-      p_vehicle_vin: input.vehicleVin ?? null,
-      p_vehicle_rego: input.vehicleRego ?? null,
-      p_created_by: context.actorId ?? null,
-    });
+    const { data: orderId, error } = await supabase.rpc(
+      "dm_reserve_sales_order",
+      {
+        p_trade_account_id: input.tradeAccountId,
+        p_lines: input.lines,
+        p_idempotency_key: input.idempotencyKey,
+        p_po_number: input.poNumber ?? null,
+        p_vehicle_vin: input.vehicleVin ?? null,
+        p_vehicle_rego: input.vehicleRego ?? null,
+        p_created_by: context.actorId ?? null,
+      },
+    );
     if (error) return { ok: false, message: error.message };
 
     const confirmationReference = `OC-${orderId}`;
     const confirmationPath = `generated/order-confirmations/${orderId}.txt`;
     const state = await this.getAdminState();
     const order = state.orders.find((candidate) => candidate.id === orderId);
-    if (!order) return { ok: false, message: "Order was reserved but could not be reloaded." };
+    if (!order)
+      return {
+        ok: false,
+        message: "Order was reserved but could not be reloaded.",
+      };
     await this.uploadGeneratedAccountDocument({
       storagePath: confirmationPath,
       type: "order_confirmation",
@@ -438,23 +531,36 @@ export class SupabaseRepository implements DrivemateRepository {
       contentLines: [
         `Order: ${order.id}`,
         `PO number: ${order.poNumber ?? "Not supplied"}`,
-        `Subtotal ex GST: ${order.subtotalExGstCents ?? 0} cents`,
-        `GST: ${order.gstCents ?? 0} cents`,
-        `Total inc GST: ${order.totalIncGstCents ?? 0} cents`,
-        ...order.lines.map((line) => `- ${line.sku} x ${line.quantity}`),
+        `Vehicle VIN: ${order.vehicleVin ?? "Not supplied"}`,
+        `Vehicle rego: ${order.vehicleRego ?? "Not supplied"}`,
+        ...order.lines.map(
+          (line) =>
+            `- ${line.sku} x ${line.quantity} @ ${formatAudCents(line.unitPriceExGstCents)} ex GST = ${formatAudCents(line.lineTotalIncGstCents)} inc GST`,
+        ),
+        `Subtotal ex GST: ${formatAudCents(order.subtotalExGstCents ?? 0)}`,
+        `GST: ${formatAudCents(order.gstCents ?? 0)}`,
+        `Total inc GST: ${formatAudCents(order.totalIncGstCents ?? 0)}`,
       ],
     });
-    await supabase.from("account_documents").upsert({
-      trade_account_id: order.tradeAccountId,
-      document_type: "order_confirmation",
-      document_ref: confirmationReference,
-      storage_path: confirmationPath,
-    }, { onConflict: "trade_account_id,document_type,document_ref" });
+    await supabase.from("account_documents").upsert(
+      {
+        trade_account_id: order.tradeAccountId,
+        document_type: "order_confirmation",
+        document_ref: confirmationReference,
+        storage_path: confirmationPath,
+      },
+      { onConflict: "trade_account_id,document_type,document_ref" },
+    );
 
     return {
       ok: true,
       order,
-      inventory: state.catalogue.map((row) => ({ sku: row.sku, onHand: row.onHand, reserved: row.reserved, quarantine: row.quarantine })),
+      inventory: state.catalogue.map((row) => ({
+        sku: row.sku,
+        onHand: row.onHand,
+        reserved: row.reserved,
+        quarantine: row.quarantine,
+      })),
     };
   }
 
@@ -463,8 +569,17 @@ export class SupabaseRepository implements DrivemateRepository {
     input: DispatchOrderInput,
     context: RepositoryWriteContext,
   ): Promise<DispatchOrderResult> {
-    if (!input.idempotencyKey || input.deliveryChargeExGstCents === undefined || !input.carrier || !input.trackingNumber) {
-      return { ok: false, message: "Idempotency key, delivery charge, carrier and tracking number are required." };
+    if (
+      !input.idempotencyKey ||
+      input.deliveryChargeExGstCents === undefined ||
+      !input.carrier ||
+      !input.trackingNumber
+    ) {
+      return {
+        ok: false,
+        message:
+          "Idempotency key, delivery charge, carrier and tracking number are required.",
+      };
     }
     const before = await this.getAdminState();
     const order = before.orders.find((candidate) => candidate.id === orderId);
@@ -483,8 +598,11 @@ export class SupabaseRepository implements DrivemateRepository {
     });
     if (error) return { ok: false, message: error.message };
     const state = await this.getAdminState();
-    const dispatched = state.orders.find((candidate) => candidate.id === orderId);
-    if (!dispatched) return { ok: false, message: "Dispatched order could not be reloaded." };
+    const dispatched = state.orders.find(
+      (candidate) => candidate.id === orderId,
+    );
+    if (!dispatched)
+      return { ok: false, message: "Dispatched order could not be reloaded." };
 
     const invoiceReference = `INV-${orderId}`;
     const invoicePath = invoiceStoragePath(orderId);
@@ -497,12 +615,22 @@ export class SupabaseRepository implements DrivemateRepository {
       tradeAccountId: dispatched.tradeAccountId,
       contentLines: [
         `Order: ${orderId}`,
+        `PO / job: ${dispatched.poNumber ?? "Not supplied"}`,
+        `Vehicle VIN: ${dispatched.vehicleVin ?? "Not supplied"}`,
+        `Vehicle rego: ${dispatched.vehicleRego ?? "Not supplied"}`,
         `Carrier: ${input.carrier}`,
         `Tracking: ${input.trackingNumber}`,
-        `Delivery ex GST: ${input.deliveryChargeExGstCents} cents`,
-        `Subtotal ex GST: ${dispatched.subtotalExGstCents ?? 0} cents`,
-        `GST: ${dispatched.gstCents ?? 0} cents`,
-        `Total inc GST: ${dispatched.totalIncGstCents ?? 0} cents`,
+        `Payment due: ${dispatched.paymentDueAt ?? "See approved account terms"}`,
+        "Parts:",
+        ...dispatched.lines.map(
+          (line) =>
+            `- ${line.sku} x ${line.quantity} @ ${formatAudCents(line.unitPriceExGstCents)} ex GST = ${formatAudCents(line.lineTotalIncGstCents)} inc GST`,
+        ),
+        `Delivery ex GST: ${formatAudCents(input.deliveryChargeExGstCents)}`,
+        `Delivery GST: ${formatAudCents(Math.round(input.deliveryChargeExGstCents * 0.1))}`,
+        `Subtotal ex GST: ${formatAudCents(dispatched.subtotalExGstCents ?? 0)}`,
+        `GST: ${formatAudCents(dispatched.gstCents ?? 0)}`,
+        `Total inc GST: ${formatAudCents(dispatched.totalIncGstCents ?? 0)}`,
       ],
     });
     await this.uploadGeneratedAccountDocument({
@@ -512,22 +640,46 @@ export class SupabaseRepository implements DrivemateRepository {
       tradeAccountId: dispatched.tradeAccountId,
       contentLines: [
         `Order: ${orderId}`,
+        `Vehicle VIN: ${dispatched.vehicleVin ?? "Not supplied"}`,
+        `Vehicle rego: ${dispatched.vehicleRego ?? "Not supplied"}`,
         `Carrier: ${input.carrier}`,
         `Tracking: ${input.trackingNumber}`,
         ...dispatched.lines.map((line) => `- ${line.sku} x ${line.quantity}`),
       ],
     });
-    const { error: documentError } = await supabase.from("account_documents").upsert([
-      { trade_account_id: dispatched.tradeAccountId, document_type: "invoice", document_ref: invoiceReference, storage_path: invoicePath },
-      { trade_account_id: dispatched.tradeAccountId, document_type: "delivery_record", document_ref: deliveryReference, storage_path: deliveryPath },
-    ], { onConflict: "trade_account_id,document_type,document_ref" });
+    const { error: documentError } = await supabase
+      .from("account_documents")
+      .upsert(
+        [
+          {
+            trade_account_id: dispatched.tradeAccountId,
+            document_type: "invoice",
+            document_ref: invoiceReference,
+            storage_path: invoicePath,
+          },
+          {
+            trade_account_id: dispatched.tradeAccountId,
+            document_type: "delivery_record",
+            document_ref: deliveryReference,
+            storage_path: deliveryPath,
+          },
+        ],
+        { onConflict: "trade_account_id,document_type,document_ref" },
+      );
     if (documentError) return { ok: false, message: documentError.message };
 
     return {
       ok: true,
       order: dispatched,
-      inventory: state.catalogue.map((row) => ({ sku: row.sku, onHand: row.onHand, reserved: row.reserved, quarantine: row.quarantine })),
-      movements: state.stockMovements.filter((movement) => movement.reference === orderId),
+      inventory: state.catalogue.map((row) => ({
+        sku: row.sku,
+        onHand: row.onHand,
+        reserved: row.reserved,
+        quarantine: row.quarantine,
+      })),
+      movements: state.stockMovements.filter(
+        (movement) => movement.reference === orderId,
+      ),
     };
   }
 
@@ -536,10 +688,16 @@ export class SupabaseRepository implements DrivemateRepository {
     input: CancelOrderInput,
     context: RepositoryWriteContext,
   ): Promise<CancelOrderResult> {
-    if (!input.idempotencyKey) return { ok: false, message: "Idempotency key is required." };
+    if (!input.idempotencyKey)
+      return { ok: false, message: "Idempotency key is required." };
     const supabase = this.client();
     if (input.tradeAccountId) {
-      const { data: owned } = await supabase.from("sales_orders").select("id").eq("id", orderId).eq("trade_account_id", input.tradeAccountId).maybeSingle();
+      const { data: owned } = await supabase
+        .from("sales_orders")
+        .select("id")
+        .eq("id", orderId)
+        .eq("trade_account_id", input.tradeAccountId)
+        .maybeSingle();
       if (!owned) return { ok: false, message: "Order was not found." };
     }
     const { error } = await supabase.rpc("dm_cancel_sales_order", {
@@ -551,7 +709,16 @@ export class SupabaseRepository implements DrivemateRepository {
     const state = await this.getAdminState();
     const order = state.orders.find((candidate) => candidate.id === orderId);
     return order
-      ? { ok: true, order, inventory: state.catalogue.map((row) => ({ sku: row.sku, onHand: row.onHand, reserved: row.reserved, quarantine: row.quarantine })) }
+      ? {
+          ok: true,
+          order,
+          inventory: state.catalogue.map((row) => ({
+            sku: row.sku,
+            onHand: row.onHand,
+            reserved: row.reserved,
+            quarantine: row.quarantine,
+          })),
+        }
       : { ok: false, message: "Cancelled order could not be reloaded." };
   }
 
@@ -563,10 +730,26 @@ export class SupabaseRepository implements DrivemateRepository {
     contentLines?: string[];
   }) {
     const supabase = this.client();
+    const { data: account, error: accountError } = await supabase
+      .from("trade_accounts")
+      .select("account_name, abn, contact_email")
+      .eq("id", input.tradeAccountId)
+      .single();
+    if (accountError || !account) {
+      throw (
+        accountError ??
+        new Error(
+          "Trade account identity was not found for the account document.",
+        )
+      );
+    }
     const content = createAccountDocumentText({
       type: input.type,
       reference: input.reference,
       tradeAccountId: input.tradeAccountId,
+      customerName: account.account_name,
+      customerAbn: account.abn ?? undefined,
+      customerEmail: account.contact_email ?? undefined,
       contentLines: input.contentLines,
     });
 
@@ -583,7 +766,9 @@ export class SupabaseRepository implements DrivemateRepository {
   private async findProductByIdentifier(identifier: string) {
     const supabase = this.client();
     const raw = identifier.trim();
-    const candidates = Array.from(new Set([raw, raw.toUpperCase()])).filter(Boolean);
+    const candidates = Array.from(new Set([raw, raw.toUpperCase()])).filter(
+      Boolean,
+    );
 
     for (const value of candidates) {
       const { data: skuMatch, error: skuError } = await supabase
@@ -617,10 +802,15 @@ export class SupabaseRepository implements DrivemateRepository {
   private async findAuthUserByEmail(email: string) {
     const target = email.trim().toLowerCase();
     for (let page = 1; page <= 20; page += 1) {
-      const { data, error } = await this.client().auth.admin.listUsers({ page, perPage: 1000 });
+      const { data, error } = await this.client().auth.admin.listUsers({
+        page,
+        perPage: 1000,
+      });
       if (error) throw error;
 
-      const user = data.users.find((candidate) => candidate.email?.toLowerCase() === target);
+      const user = data.users.find(
+        (candidate) => candidate.email?.toLowerCase() === target,
+      );
       if (user) return user;
       if (data.users.length < 1000) break;
     }
@@ -642,7 +832,11 @@ export class SupabaseRepository implements DrivemateRepository {
       .maybeSingle();
 
     if (existingError) throw existingError;
-    if (existing) return { ...(existing as LocationRecord & { id: string }), parsed: location };
+    if (existing)
+      return {
+        ...(existing as LocationRecord & { id: string }),
+        parsed: location,
+      };
 
     const { data, error } = await supabase
       .from("inventory_locations")
@@ -654,11 +848,16 @@ export class SupabaseRepository implements DrivemateRepository {
       .select("id, warehouse, zone, bin_code")
       .single();
 
-    if (error || !data) throw error ?? new Error("Inventory location insert failed.");
+    if (error || !data)
+      throw error ?? new Error("Inventory location insert failed.");
     return { ...(data as LocationRecord & { id: string }), parsed: location };
   }
 
-  private async ensureInventoryBatch(productId: string, batchNo: string, type: InventoryMovementInput["type"]) {
+  private async ensureInventoryBatch(
+    productId: string,
+    batchNo: string,
+    type: InventoryMovementInput["type"],
+  ) {
     const supabase = this.client();
     const normalizedBatchNo = batchNo.trim() || "UNBATCHED";
     const { data: existing, error: existingError } = await supabase
@@ -676,22 +875,34 @@ export class SupabaseRepository implements DrivemateRepository {
       .insert({
         product_id: productId,
         batch_no: normalizedBatchNo,
-        supplier_name: type === "return" ? "Return intake" : type === "adjustment" ? "Stock adjustment" : "Inbound receiving",
+        supplier_name:
+          type === "return"
+            ? "Return intake"
+            : type === "adjustment"
+              ? "Stock adjustment"
+              : "Inbound receiving",
         purchase_ref: normalizedBatchNo,
         received_date: new Date().toISOString().slice(0, 10),
       })
       .select("id, batch_no")
       .single();
 
-    if (error || !data) throw error ?? new Error("Inventory batch insert failed.");
+    if (error || !data)
+      throw error ?? new Error("Inventory batch insert failed.");
     return data as { id: string; batch_no: string };
   }
 
-  private async getOrCreateBalance(productId: string, locationId: string, batchId: string) {
+  private async getOrCreateBalance(
+    productId: string,
+    locationId: string,
+    batchId: string,
+  ) {
     const supabase = this.client();
     const { data: existing, error: existingError } = await supabase
       .from("inventory_balances")
-      .select("id, product_id, location_id, batch_id, on_hand, reserved, quarantine")
+      .select(
+        "id, product_id, location_id, batch_id, on_hand, reserved, quarantine",
+      )
       .eq("product_id", productId)
       .eq("location_id", locationId)
       .eq("batch_id", batchId)
@@ -710,10 +921,13 @@ export class SupabaseRepository implements DrivemateRepository {
         reserved: 0,
         quarantine: 0,
       })
-      .select("id, product_id, location_id, batch_id, on_hand, reserved, quarantine")
+      .select(
+        "id, product_id, location_id, batch_id, on_hand, reserved, quarantine",
+      )
       .single();
 
-    if (error || !data) throw error ?? new Error("Inventory balance insert failed.");
+    if (error || !data)
+      throw error ?? new Error("Inventory balance insert failed.");
     return data as BalanceRecord;
   }
 
@@ -721,46 +935,66 @@ export class SupabaseRepository implements DrivemateRepository {
     const supabase = this.client();
     const { data, error } = await supabase
       .from("inventory_balances")
-      .select("id, product_id, location_id, batch_id, on_hand, reserved, quarantine")
+      .select(
+        "id, product_id, location_id, batch_id, on_hand, reserved, quarantine",
+      )
       .eq("product_id", productId)
       .order("on_hand", { ascending: false });
 
     if (error) throw error;
     const balances = (data ?? []) as BalanceRecord[];
-    return balances.find((balance) => availableStock({
-      sku: productId,
-      onHand: balance.on_hand,
-      reserved: balance.reserved,
-      quarantine: balance.quarantine,
-    }) >= quantity) ?? balances[0];
+    return (
+      balances.find(
+        (balance) =>
+          availableStock({
+            sku: productId,
+            onHand: balance.on_hand,
+            reserved: balance.reserved,
+            quarantine: balance.quarantine,
+          }) >= quantity,
+      ) ?? balances[0]
+    );
   }
 
-  private async selectBalanceForLocationDecrease(productId: string, locationId: string, quantity: number) {
+  private async selectBalanceForLocationDecrease(
+    productId: string,
+    locationId: string,
+    quantity: number,
+  ) {
     const supabase = this.client();
     const { data, error } = await supabase
       .from("inventory_balances")
-      .select("id, product_id, location_id, batch_id, on_hand, reserved, quarantine")
+      .select(
+        "id, product_id, location_id, batch_id, on_hand, reserved, quarantine",
+      )
       .eq("product_id", productId)
       .eq("location_id", locationId)
       .order("on_hand", { ascending: false });
 
     if (error) throw error;
     const balances = (data ?? []) as BalanceRecord[];
-    return balances.find((balance) =>
-      availableStock({
-        sku: productId,
-        onHand: balance.on_hand,
-        reserved: balance.reserved,
-        quarantine: balance.quarantine,
-      }) >= quantity,
+    return balances.find(
+      (balance) =>
+        availableStock({
+          sku: productId,
+          onHand: balance.on_hand,
+          reserved: balance.reserved,
+          quarantine: balance.quarantine,
+        }) >= quantity,
     );
   }
 
-  private async selectBalanceForLocationQuarantine(productId: string, locationId: string, quantity: number) {
+  private async selectBalanceForLocationQuarantine(
+    productId: string,
+    locationId: string,
+    quantity: number,
+  ) {
     const supabase = this.client();
     const { data, error } = await supabase
       .from("inventory_balances")
-      .select("id, product_id, location_id, batch_id, on_hand, reserved, quarantine")
+      .select(
+        "id, product_id, location_id, batch_id, on_hand, reserved, quarantine",
+      )
       .eq("product_id", productId)
       .eq("location_id", locationId)
       .order("quarantine", { ascending: false });
@@ -770,11 +1004,16 @@ export class SupabaseRepository implements DrivemateRepository {
     return balances.find((balance) => balance.quarantine >= quantity);
   }
 
-  private async selectBalanceForQuarantine(productId: string, quantity: number) {
+  private async selectBalanceForQuarantine(
+    productId: string,
+    quantity: number,
+  ) {
     const supabase = this.client();
     const { data, error } = await supabase
       .from("inventory_balances")
-      .select("id, product_id, location_id, batch_id, on_hand, reserved, quarantine")
+      .select(
+        "id, product_id, location_id, batch_id, on_hand, reserved, quarantine",
+      )
       .eq("product_id", productId)
       .order("quarantine", { ascending: false });
 
@@ -802,7 +1041,10 @@ export class SupabaseRepository implements DrivemateRepository {
       type: "statement",
       reference,
       tradeAccountId,
-      contentLines: [`Statement month: ${statementMonth()}`, "Document status: Generated for account portal access."],
+      contentLines: [
+        `Statement month: ${statementMonth()}`,
+        "Document status: Generated for account portal access.",
+      ],
     });
     if (existing) return;
 
@@ -818,9 +1060,18 @@ export class SupabaseRepository implements DrivemateRepository {
 
   async getAdminState(): Promise<AdminState> {
     const supabase = this.client();
-    const [{ data: products, error: productsError }, { data: balances, error: balancesError }] = await Promise.all([
-      supabase.from("products").select("id, sku, brand, part_name, category, barcode, oem_part_number, reorder_point, reorder_quantity, status"),
-      supabase.from("inventory_balances").select("id, product_id, on_hand, reserved, quarantine"),
+    const [
+      { data: products, error: productsError },
+      { data: balances, error: balancesError },
+    ] = await Promise.all([
+      supabase
+        .from("products")
+        .select(
+          "id, sku, brand, part_name, category, barcode, oem_part_number, reorder_point, reorder_quantity, status",
+        ),
+      supabase
+        .from("inventory_balances")
+        .select("id, product_id, on_hand, reserved, quarantine"),
     ]);
 
     if (productsError) throw productsError;
@@ -832,14 +1083,22 @@ export class SupabaseRepository implements DrivemateRepository {
     const catalogue = toCatalogueRows(productRecords, balanceRecords);
     const activeCatalogue = catalogue.filter((row) => row.status === "active");
     const reorderAlerts = catalogue
-      .filter((row) => row.status === "active" && row.reorderPoint > 0 && row.available <= row.reorderPoint)
+      .filter(
+        (row) =>
+          row.status === "active" &&
+          row.reorderPoint > 0 &&
+          row.available <= row.reorderPoint,
+      )
       .map((row) => ({
         sku: row.sku,
         brand: row.brand,
         name: row.name,
         available: row.available,
         reorderPoint: row.reorderPoint,
-        suggestedOrderQty: Math.max(row.reorderQuantity, row.reorderPoint - row.available),
+        suggestedOrderQty: Math.max(
+          row.reorderQuantity,
+          row.reorderPoint - row.available,
+        ),
         status: row.status,
       }))
       .sort((a, b) => a.available - b.available || a.sku.localeCompare(b.sku));
@@ -866,23 +1125,29 @@ export class SupabaseRepository implements DrivemateRepository {
       supabase
         .from("sales_orders")
         .select(
-          "id, trade_account_id, po_number, vehicle_vin, vehicle_rego, status, subtotal_ex_gst_cents, gst_cents, total_inc_gst_cents, created_by, sales_order_lines(quantity, unit_price_ex_gst_cents, line_total_ex_gst_cents, gst_cents, line_total_inc_gst_cents, products(sku))",
+          "id, trade_account_id, po_number, vehicle_vin, vehicle_rego, status, subtotal_ex_gst_cents, gst_cents, total_inc_gst_cents, delivery_charge_ex_gst_cents, carrier, tracking_number, dispatched_at, payment_due_at, invoice_status, created_by, created_at, sales_order_lines(quantity, unit_price_ex_gst_cents, line_total_ex_gst_cents, gst_cents, line_total_inc_gst_cents, products(sku))",
         )
         .order("created_at", { ascending: false })
         .limit(20),
       supabase
         .from("account_documents")
-        .select("id, trade_account_id, document_type, document_ref, storage_path, created_at")
+        .select(
+          "id, trade_account_id, document_type, document_ref, storage_path, created_at",
+        )
         .order("created_at", { ascending: false })
         .limit(50),
       supabase
         .from("fitment_rules")
-        .select("make, model, year_from, year_to, engine, confidence, products(sku)")
+        .select(
+          "make, model, year_from, year_to, engine, confidence, products(sku)",
+        )
         .order("created_at", { ascending: false })
         .limit(30),
       supabase
         .from("inventory_batches")
-        .select("batch_no, supplier_name, purchase_ref, received_date, products(sku)")
+        .select(
+          "batch_no, supplier_name, purchase_ref, received_date, products(sku)",
+        )
         .order("received_date", { ascending: false })
         .limit(30),
       supabase
@@ -890,55 +1155,92 @@ export class SupabaseRepository implements DrivemateRepository {
         .select("quantity, products(sku), inventory_batches(batch_no)")
         .eq("movement_type", "inbound")
         .limit(500),
-      supabase.from("pricing_rules").select("id, sku, channel, price_mode, unit_price_ex_gst_cents, status").order("sku", { ascending: true }).limit(30),
-      supabase.from("rfq_reviews").select("id, brand, vehicle, requested_part, priority, status").order("created_at", { ascending: false }).limit(30),
+      supabase
+        .from("pricing_rules")
+        .select("id, sku, channel, price_mode, unit_price_ex_gst_cents, status")
+        .order("sku", { ascending: true })
+        .limit(30),
+      supabase
+        .from("rfq_reviews")
+        .select("id, brand, vehicle, requested_part, priority, status")
+        .order("created_at", { ascending: false })
+        .limit(30),
       supabase
         .from("vehicle_lookup_requests")
-        .select("id, trade_account_id, rego, vin, query, vehicle, match_count, confidence, created_by, created_at")
+        .select(
+          "id, trade_account_id, rego, vin, query, vehicle, match_count, confidence, created_by, created_at",
+        )
         .order("created_at", { ascending: false })
         .limit(50),
-      supabase.from("user_profiles").select("id, role, display_name, trade_account_id").order("role", { ascending: true }).limit(30),
+      supabase
+        .from("user_profiles")
+        .select("id, role, display_name, trade_account_id")
+        .order("role", { ascending: true })
+        .limit(30),
     ]);
-    const { data: applicationRecords, error: applicationsError } = await supabase
-      .from("trade_accounts")
-      .select("id, account_name, abn, contact_name, contact_email, contact_phone, postcode, notes, status, created_at")
-      .eq("status", "pending")
-      .order("created_at", { ascending: false })
-      .limit(20);
+    const { data: applicationRecords, error: applicationsError } =
+      await supabase
+        .from("trade_accounts")
+        .select(
+          "id, account_name, abn, contact_name, contact_email, contact_phone, postcode, notes, status, created_at",
+        )
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(20);
 
     if (applicationsError) throw applicationsError;
 
-    const { data: tradeAccountRecords, error: tradeAccountsError } = await supabase
-      .from("trade_accounts")
-      .select("id, account_name, abn, contact_name, contact_email, contact_phone, postcode, notes, status, created_at")
-      .order("created_at", { ascending: false })
-      .limit(50);
+    const { data: tradeAccountRecords, error: tradeAccountsError } =
+      await supabase
+        .from("trade_accounts")
+        .select(
+          "id, account_name, abn, contact_name, contact_email, contact_phone, postcode, notes, status, created_at",
+        )
+        .order("created_at", { ascending: false })
+        .limit(50);
 
     if (tradeAccountsError) throw tradeAccountsError;
 
-    const stockMovements = ((movementRecords ?? []) as MovementRecord[]).map(toStockMovement);
-    const orders = ((orderRecords ?? []) as SalesOrderRecord[]).map(toSalesOrder);
-    const accountDocuments = ((accountDocumentRecords ?? []) as AccountDocumentRecord[]).map(toAccountDocument);
-    const accountApplications = ((applicationRecords ?? []) as TradeAccountRecord[]).map(toTradeAccountApplication);
-    const tradeAccounts = ((tradeAccountRecords ?? []) as TradeAccountRecord[]).map(toTradeAccountApplication);
-    const fitmentRules = ((fitmentRecords ?? []) as FitmentRuleRecord[]).map((rule) => ({
-      sku: productSku(rule) ?? "UNKNOWN",
-      vehicle: `${rule.make} ${rule.model} ${rule.year_from ?? ""}${rule.year_to ? `-${rule.year_to}` : "-on"}`.trim(),
-      engine: rule.engine ?? undefined,
-      confidence: rule.confidence,
-    }));
-    const receivedQuantityByBatch = ((inboundBatchMovementRecords ?? []) as InboundBatchMovementRecord[]).reduce(
-      (map, movement) => {
-        const key = `${batchNo(movement) ?? ""}::${productSku(movement) ?? ""}`;
-        map.set(key, (map.get(key) ?? 0) + movement.quantity);
-        return map;
-      },
-      new Map<string, number>(),
+    const stockMovements = ((movementRecords ?? []) as MovementRecord[]).map(
+      toStockMovement,
     );
-    const purchaseBatches = ((batchRecords ?? []) as InventoryBatchRecord[]).map((batch) => ({
+    const orders = ((orderRecords ?? []) as SalesOrderRecord[]).map(
+      toSalesOrder,
+    );
+    const accountDocuments = (
+      (accountDocumentRecords ?? []) as AccountDocumentRecord[]
+    ).map(toAccountDocument);
+    const accountApplications = (
+      (applicationRecords ?? []) as TradeAccountRecord[]
+    ).map(toTradeAccountApplication);
+    const tradeAccounts = (
+      (tradeAccountRecords ?? []) as TradeAccountRecord[]
+    ).map(toTradeAccountApplication);
+    const fitmentRules = ((fitmentRecords ?? []) as FitmentRuleRecord[]).map(
+      (rule) => ({
+        sku: productSku(rule) ?? "UNKNOWN",
+        vehicle:
+          `${rule.make} ${rule.model} ${rule.year_from ?? ""}${rule.year_to ? `-${rule.year_to}` : "-on"}`.trim(),
+        engine: rule.engine ?? undefined,
+        confidence: rule.confidence,
+      }),
+    );
+    const receivedQuantityByBatch = (
+      (inboundBatchMovementRecords ?? []) as InboundBatchMovementRecord[]
+    ).reduce((map, movement) => {
+      const key = `${batchNo(movement) ?? ""}::${productSku(movement) ?? ""}`;
+      map.set(key, (map.get(key) ?? 0) + movement.quantity);
+      return map;
+    }, new Map<string, number>());
+    const purchaseBatches = (
+      (batchRecords ?? []) as InventoryBatchRecord[]
+    ).map((batch) => ({
       batchNo: batch.batch_no,
       sku: productSku(batch) ?? "UNKNOWN",
-      receivedQuantity: receivedQuantityByBatch.get(`${batch.batch_no}::${productSku(batch) ?? "UNKNOWN"}`) ?? undefined,
+      receivedQuantity:
+        receivedQuantityByBatch.get(
+          `${batch.batch_no}::${productSku(batch) ?? "UNKNOWN"}`,
+        ) ?? undefined,
       supplierName: batch.supplier_name ?? undefined,
       purchaseRef: batch.purchase_ref ?? undefined,
       receivedDate: batch.received_date ?? undefined,
@@ -956,11 +1258,15 @@ export class SupabaseRepository implements DrivemateRepository {
     const tradePriceBySku = new Map(
       pricingRules
         .filter((rule) => rule.status === "active")
-        .map((rule) => [rule.sku, rule.unitPriceExGstCents ?? defaultPriceResolver(rule.sku)]),
+        .map((rule) => [
+          rule.sku,
+          rule.unitPriceExGstCents ?? defaultPriceResolver(rule.sku),
+        ]),
     );
     const pricedCatalogue = catalogue.map((row) => ({
       ...row,
-      tradePriceExGstCents: tradePriceBySku.get(row.sku) ?? defaultPriceResolver(row.sku),
+      tradePriceExGstCents:
+        tradePriceBySku.get(row.sku) ?? defaultPriceResolver(row.sku),
     }));
     const rfqReviews = rfqError
       ? pilotRfqReviews
@@ -972,7 +1278,9 @@ export class SupabaseRepository implements DrivemateRepository {
           priority: review.priority,
           status: review.status,
         }));
-    const lookupRequests = ((lookupRequestRecords ?? []) as LookupRequestRecord[]).map(toLookupRequest);
+    const lookupRequests = (
+      (lookupRequestRecords ?? []) as LookupRequestRecord[]
+    ).map(toLookupRequest);
     const userRoles =
       ((userRecords ?? []) as UserProfileRecord[]).map((user) => ({
         userId: user.id,
@@ -984,10 +1292,21 @@ export class SupabaseRepository implements DrivemateRepository {
     return {
       metrics: {
         activeSkus: activeCatalogue.length,
-        onHandUnits: activeCatalogue.reduce((sum, item) => sum + item.onHand, 0),
-        availableUnits: activeCatalogue.reduce((sum, item) => sum + item.available, 0),
+        onHandUnits: activeCatalogue.reduce(
+          (sum, item) => sum + item.onHand,
+          0,
+        ),
+        availableUnits: activeCatalogue.reduce(
+          (sum, item) => sum + item.available,
+          0,
+        ),
         reorderAlerts: reorderAlerts.length,
-        openTasks: 4 + orders.length + stockMovements.length + accountApplications.length + reorderAlerts.length,
+        openTasks:
+          4 +
+          orders.length +
+          stockMovements.length +
+          accountApplications.length +
+          reorderAlerts.length,
       },
       catalogue: pricedCatalogue,
       reorderAlerts,
@@ -1005,7 +1324,10 @@ export class SupabaseRepository implements DrivemateRepository {
     };
   }
 
-  async lookupVehicle(input: VehicleLookupInput, context: RepositoryWriteContext = {}) {
+  async lookupVehicle(
+    input: VehicleLookupInput,
+    context: RepositoryWriteContext = {},
+  ) {
     const supabase = this.client();
     const state = await this.getAdminState();
     const vin = input.vin?.trim().toUpperCase();
@@ -1019,7 +1341,9 @@ export class SupabaseRepository implements DrivemateRepository {
     if (vin && /^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) {
       const { data: vehicleRecord, error: vehicleError } = await supabase
         .from("vehicles")
-        .select("vin, vehicle_configurations!inner(make, model, year, engine, market, status)")
+        .select(
+          "vin, vehicle_configurations!inner(make, model, year, engine, market, status)",
+        )
         .eq("vin", vin)
         .maybeSingle();
       if (vehicleError) throw vehicleError;
@@ -1039,43 +1363,67 @@ export class SupabaseRepository implements DrivemateRepository {
     }
     const { data, error } = await supabase
       .from("fitment_rules")
-      .select("make, model, year_from, year_to, engine, confidence, products(sku)")
+      .select(
+        "make, model, year_from, year_to, engine, confidence, products(sku)",
+      )
       .limit(500);
 
     if (error) throw error;
-    const rules = ((data ?? []) as FitmentRuleRecord[]).map(toFitmentRule).filter((rule) => rule !== null);
-    const result = vehicle.confidence === "exact"
-      ? matchCatalogueForVehicleProfile(vehicle, state.catalogue.filter((product) => product.status === "active"), rules)
-      : { vehicle, matches: [] };
-    const { error: lookupError } = await supabase.from("vehicle_lookup_requests").insert({
-      trade_account_id: context.tradeAccountId,
-      rego: input.rego,
-      vin: input.vin,
-      query: input.query,
-      vehicle: [result.vehicle.make, result.vehicle.model, result.vehicle.year].filter(Boolean).join(" "),
-      match_count: result.matches.length,
-      confidence: result.vehicle.confidence,
-      created_by: context.actorId,
-    });
+    const rules = ((data ?? []) as FitmentRuleRecord[])
+      .map(toFitmentRule)
+      .filter((rule) => rule !== null);
+    const result =
+      vehicle.confidence === "exact"
+        ? matchCatalogueForVehicleProfile(
+            vehicle,
+            state.catalogue.filter((product) => product.status === "active"),
+            rules,
+          )
+        : { vehicle, matches: [] };
+    const { error: lookupError } = await supabase
+      .from("vehicle_lookup_requests")
+      .insert({
+        trade_account_id: context.tradeAccountId,
+        rego: input.rego,
+        vin: input.vin,
+        query: input.query,
+        vehicle: [
+          result.vehicle.make,
+          result.vehicle.model,
+          result.vehicle.year,
+        ]
+          .filter(Boolean)
+          .join(" "),
+        match_count: result.matches.length,
+        confidence: result.vehicle.confidence,
+        created_by: context.actorId,
+      });
 
     if (lookupError) throw lookupError;
     return result;
   }
 
-  async getTradeAccountState(tradeAccountId: string): Promise<TradeAccountState> {
+  async getTradeAccountState(
+    tradeAccountId: string,
+  ): Promise<TradeAccountState> {
     const supabase = this.client();
-    const [{ data: orderRecords, error: orderError }, { data: documentRecords, error: documentError }] = await Promise.all([
+    const [
+      { data: orderRecords, error: orderError },
+      { data: documentRecords, error: documentError },
+    ] = await Promise.all([
       supabase
         .from("sales_orders")
         .select(
-          "id, trade_account_id, po_number, vehicle_vin, vehicle_rego, status, subtotal_ex_gst_cents, gst_cents, total_inc_gst_cents, created_by, created_at, sales_order_lines(quantity, unit_price_ex_gst_cents, line_total_ex_gst_cents, gst_cents, line_total_inc_gst_cents, products(sku))",
+          "id, trade_account_id, po_number, vehicle_vin, vehicle_rego, status, subtotal_ex_gst_cents, gst_cents, total_inc_gst_cents, delivery_charge_ex_gst_cents, carrier, tracking_number, dispatched_at, payment_due_at, invoice_status, created_by, created_at, sales_order_lines(quantity, unit_price_ex_gst_cents, line_total_ex_gst_cents, gst_cents, line_total_inc_gst_cents, products(sku))",
         )
         .eq("trade_account_id", tradeAccountId)
         .order("created_at", { ascending: false })
         .limit(25),
       supabase
         .from("account_documents")
-        .select("id, trade_account_id, document_type, document_ref, storage_path, created_at")
+        .select(
+          "id, trade_account_id, document_type, document_ref, storage_path, created_at",
+        )
         .eq("trade_account_id", tradeAccountId)
         .order("created_at", { ascending: false })
         .limit(25),
@@ -1087,21 +1435,29 @@ export class SupabaseRepository implements DrivemateRepository {
     return {
       tradeAccountId,
       orders: ((orderRecords ?? []) as SalesOrderRecord[]).map(toSalesOrder),
-      accountDocuments: ((documentRecords ?? []) as AccountDocumentRecord[]).map(toAccountDocument),
+      accountDocuments: (
+        (documentRecords ?? []) as AccountDocumentRecord[]
+      ).map(toAccountDocument),
     };
   }
 
-  async getAccountDocumentAccess(documentId: string, tradeAccountId?: string): Promise<AccountDocumentAccessResult> {
+  async getAccountDocumentAccess(
+    documentId: string,
+    tradeAccountId?: string,
+  ): Promise<AccountDocumentAccessResult> {
     const supabase = this.client();
     let query = supabase
       .from("account_documents")
-      .select("id, trade_account_id, document_type, document_ref, storage_path, created_at")
+      .select(
+        "id, trade_account_id, document_type, document_ref, storage_path, created_at",
+      )
       .eq("id", documentId);
 
     if (tradeAccountId) query = query.eq("trade_account_id", tradeAccountId);
 
     const { data, error } = await query.single();
-    if (error || !data) return { ok: false, message: "Account document was not found." };
+    if (error || !data)
+      return { ok: false, message: "Account document was not found." };
 
     const document = toAccountDocument(data as AccountDocumentRecord);
     const { data: signedUrl, error: signedUrlError } = await supabase.storage
@@ -1126,6 +1482,92 @@ export class SupabaseRepository implements DrivemateRepository {
     if (input.quantity <= 0 || !Number.isInteger(input.quantity)) {
       return { ok: false, message: "Quantity must be positive." };
     }
+
+    if (!input.idempotencyKey)
+      return { ok: false, message: "Idempotency key is required." };
+    if (["inbound", "dispatch", "return"].includes(input.type)) {
+      return {
+        ok: false,
+        message: "Use the dedicated receipt, order dispatch, or RMA workflow.",
+      };
+    }
+
+    const sourceInput =
+      input.type === "putaway"
+        ? (input.fromLocation ?? input.location ?? "BNE receiving")
+        : input.type === "adjustment" &&
+            !input.quarantineAction &&
+            input.adjustmentDirection === "increase"
+          ? undefined
+          : input.location;
+    const targetInput =
+      input.type === "putaway"
+        ? (input.toLocation ?? "BNE-A01-03")
+        : input.type === "adjustment" &&
+            !input.quarantineAction &&
+            input.adjustmentDirection !== "decrease"
+          ? (input.location ?? "BNE-A01-03")
+          : undefined;
+    const source = sourceInput
+      ? parseWarehouseLocation(sourceInput)
+      : undefined;
+    const target = targetInput
+      ? parseWarehouseLocation(targetInput)
+      : undefined;
+
+    const { data: movementId, error: movementError } = await supabase.rpc(
+      "dm_apply_inventory_movement",
+      {
+        p_product_id: product.id,
+        p_movement_type: input.type,
+        p_quantity: input.quantity,
+        p_reference: input.reference,
+        p_source_warehouse: source?.warehouse ?? null,
+        p_source_zone: source?.zone ?? null,
+        p_source_bin: source?.binCode ?? null,
+        p_target_warehouse: target?.warehouse ?? null,
+        p_target_zone: target?.zone ?? null,
+        p_target_bin: target?.binCode ?? null,
+        p_adjustment_direction: input.adjustmentDirection ?? null,
+        p_quarantine_action: input.quarantineAction ?? null,
+        p_idempotency_key: input.idempotencyKey,
+        p_actor_id: context.actorId ?? null,
+      },
+    );
+    if (movementError || !movementId) {
+      return {
+        ok: false,
+        message:
+          movementError?.message ??
+          "Inventory movement could not be completed.",
+      };
+    }
+
+    const { data: movement, error: reloadError } = await supabase
+      .from("stock_movements")
+      .select(
+        "id, movement_type, quantity, reference_type, reference_id, created_at, created_by, products(sku), from_location:inventory_locations!stock_movements_from_location_id_fkey(warehouse, zone, bin_code), to_location:inventory_locations!stock_movements_to_location_id_fkey(warehouse, zone, bin_code)",
+      )
+      .eq("id", movementId as string)
+      .single();
+    if (reloadError || !movement)
+      throw (
+        reloadError ?? new Error("Inventory movement audit row was not found.")
+      );
+
+    const state = await this.getAdminState();
+    return {
+      ok: true,
+      inventory: state.catalogue.map((row) => ({
+        sku: row.sku,
+        onHand: row.onHand,
+        reserved: row.reserved,
+        quarantine: row.quarantine,
+      })),
+      movement: toStockMovement(movement as MovementRecord),
+    };
+
+    /* Legacy multi-request inventory flow retained temporarily for migration comparison.
 
     if (input.type === "putaway") {
       const sourceLocation = await this.ensureInventoryLocation(input.fromLocation ?? input.location ?? "BNE receiving");
@@ -1362,9 +1804,13 @@ export class SupabaseRepository implements DrivemateRepository {
       inventory: state.catalogue.map((row) => ({ sku: row.sku, onHand: row.onHand, reserved: row.reserved, quarantine: row.quarantine })),
       movement: toStockMovement(movement as MovementRecord),
     };
+    */
   }
 
-  async submitOrder(input: CreateOrderInput, context: RepositoryWriteContext = {}): Promise<SubmitOrderResult> {
+  async submitOrder(
+    input: CreateOrderInput,
+    context: RepositoryWriteContext = {},
+  ): Promise<SubmitOrderResult> {
     return this.submitOrderTransactional(input, context);
     /* Legacy prototype flow retained below for migration reference.
     const supabase = this.client();
@@ -1722,6 +2168,20 @@ export class SupabaseRepository implements DrivemateRepository {
     input: TradeAccountApplicationInput,
   ): Promise<TradeAccountApplicationResult> {
     const supabase = this.client();
+    const { data: existingEmail, error: existingEmailError } = await supabase
+      .from("trade_accounts")
+      .select("id")
+      .ilike("contact_email", input.contactEmail.trim())
+      .neq("status", "closed")
+      .maybeSingle();
+    if (existingEmailError) throw existingEmailError;
+    if (existingEmail) {
+      return {
+        ok: false,
+        message: "An active application already exists for this email.",
+      };
+    }
+
     const { data, error } = await supabase
       .from("trade_accounts")
       .insert({
@@ -1733,18 +2193,36 @@ export class SupabaseRepository implements DrivemateRepository {
         postcode: input.postcode,
         notes: input.notes,
         status: "pending",
-        privacy_consent_at: input.privacyConsent ? new Date().toISOString() : null,
-        trade_terms_consent_at: input.tradeTermsConsent ? new Date().toISOString() : null,
+        privacy_consent_at: input.privacyConsent
+          ? new Date().toISOString()
+          : null,
+        trade_terms_consent_at: input.tradeTermsConsent
+          ? new Date().toISOString()
+          : null,
         consent_version: input.consentVersion,
       })
-      .select("id, account_name, abn, contact_name, contact_email, contact_phone, postcode, notes, status, created_at")
+      .select(
+        "id, account_name, abn, contact_name, contact_email, contact_phone, postcode, notes, status, created_at",
+      )
       .single();
 
-    if (error || !data) throw error ?? new Error("Trade account application insert failed.");
-    return { ok: true, application: toTradeAccountApplication(data as TradeAccountRecord) };
+    if (error?.code === "23505") {
+      return {
+        ok: false,
+        message: "An active application already exists for this email or ABN.",
+      };
+    }
+    if (error || !data)
+      throw error ?? new Error("Trade account application insert failed.");
+    return {
+      ok: true,
+      application: toTradeAccountApplication(data as TradeAccountRecord),
+    };
   }
 
-  async approveTradeAccountApplication(applicationId: string): Promise<ApproveTradeAccountApplicationResult> {
+  async approveTradeAccountApplication(
+    applicationId: string,
+  ): Promise<ApproveTradeAccountApplicationResult> {
     const supabase = this.client();
     const { data: existing, error: existingError } = await supabase
       .from("trade_accounts")
@@ -1752,71 +2230,99 @@ export class SupabaseRepository implements DrivemateRepository {
       .eq("id", applicationId)
       .single();
 
-    if (existingError || !existing) return { ok: false, message: "Trade account application was not found." };
-    if (existing.status !== "pending") return { ok: false, message: "Trade account application is not pending." };
+    if (existingError || !existing)
+      return { ok: false, message: "Trade account application was not found." };
+    if (existing.status !== "pending")
+      return {
+        ok: false,
+        message: "Trade account application is not pending.",
+      };
 
     const { data, error } = await supabase
       .from("trade_accounts")
       .update({ status: "approved" })
       .eq("id", applicationId)
-      .select("id, account_name, abn, contact_name, contact_email, contact_phone, postcode, notes, status, created_at")
+      .select(
+        "id, account_name, abn, contact_name, contact_email, contact_phone, postcode, notes, status, created_at",
+      )
       .single();
 
-    if (error || !data) throw error ?? new Error("Trade account application approval failed.");
-    return { ok: true, application: toTradeAccountApplication(data as TradeAccountRecord) };
+    if (error || !data)
+      throw error ?? new Error("Trade account application approval failed.");
+    return {
+      ok: true,
+      application: toTradeAccountApplication(data as TradeAccountRecord),
+    };
   }
 
-  async provisionTradeAccountLogin(applicationId: string): Promise<ProvisionTradeAccountLoginResult> {
+  async provisionTradeAccountLogin(
+    applicationId: string,
+  ): Promise<ProvisionTradeAccountLoginResult> {
     const supabase = this.client();
     const { data: existing, error: existingError } = await supabase
       .from("trade_accounts")
-      .select("id, account_name, abn, contact_name, contact_email, contact_phone, postcode, notes, status, created_at")
+      .select(
+        "id, account_name, abn, contact_name, contact_email, contact_phone, postcode, notes, status, created_at",
+      )
       .eq("id", applicationId)
       .single();
 
-    if (existingError || !existing) return { ok: false, message: "Trade account application was not found." };
+    if (existingError || !existing)
+      return { ok: false, message: "Trade account application was not found." };
     const account = existing as TradeAccountRecord;
     if (account.status === "paused" || account.status === "closed") {
-      return { ok: false, message: "Paused or closed trade accounts cannot be provisioned." };
+      return {
+        ok: false,
+        message: "Paused or closed trade accounts cannot be provisioned.",
+      };
     }
     if (!account.contact_email) {
-      return { ok: false, message: "Trade account contact email is required before login can be provisioned." };
+      return {
+        ok: false,
+        message:
+          "Trade account contact email is required before login can be provisioned.",
+      };
     }
 
     const existingUser = await this.findAuthUserByEmail(account.contact_email);
     let user = existingUser;
     if (!user) {
-      const { data: invitedUser, error: createError } = await supabase.auth.admin.inviteUserByEmail(
-        account.contact_email,
-        {
+      const { data: invitedUser, error: createError } =
+        await supabase.auth.admin.inviteUserByEmail(account.contact_email, {
           redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/auth/confirm?next=/password-setup`,
           data: {
             display_name: account.contact_name ?? account.account_name,
             drivemate_role: "trade",
             trade_account_id: account.id,
           },
-        },
-      );
+        });
 
       if (createError) throw createError;
       user = invitedUser.user;
     } else {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(account.contact_email, {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/auth/confirm?next=/password-setup`,
-      });
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        account.contact_email,
+        {
+          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/auth/confirm?next=/password-setup`,
+        },
+      );
       if (resetError) throw resetError;
     }
 
-    if (!user) return { ok: false, message: "Trade account user could not be created." };
+    if (!user)
+      return { ok: false, message: "Trade account user could not be created." };
 
     const { data: updatedAccount, error: updateError } = await supabase
       .from("trade_accounts")
       .update({ status: "approved" })
       .eq("id", account.id)
-      .select("id, account_name, abn, contact_name, contact_email, contact_phone, postcode, notes, status, created_at")
+      .select(
+        "id, account_name, abn, contact_name, contact_email, contact_phone, postcode, notes, status, created_at",
+      )
       .single();
 
-    if (updateError || !updatedAccount) throw updateError ?? new Error("Trade account approval failed.");
+    if (updateError || !updatedAccount)
+      throw updateError ?? new Error("Trade account approval failed.");
 
     const { error: profileError } = await supabase.from("user_profiles").upsert(
       {
@@ -1832,7 +2338,9 @@ export class SupabaseRepository implements DrivemateRepository {
 
     return {
       ok: true,
-      application: toTradeAccountApplication(updatedAccount as TradeAccountRecord),
+      application: toTradeAccountApplication(
+        updatedAccount as TradeAccountRecord,
+      ),
       login: {
         email: account.contact_email,
         userId: user.id,
@@ -1851,16 +2359,23 @@ export class SupabaseRepository implements DrivemateRepository {
       .from("trade_accounts")
       .update({ status })
       .eq("id", applicationId)
-      .select("id, account_name, abn, contact_name, contact_email, contact_phone, postcode, notes, status, created_at")
+      .select(
+        "id, account_name, abn, contact_name, contact_email, contact_phone, postcode, notes, status, created_at",
+      )
       .maybeSingle();
 
     if (error) throw error;
     if (!data) return { ok: false, message: "Trade account was not found." };
 
-    return { ok: true, application: toTradeAccountApplication(data as TradeAccountRecord) };
+    return {
+      ok: true,
+      application: toTradeAccountApplication(data as TradeAccountRecord),
+    };
   }
 
-  async createProductMaster(input: CreateProductMasterInput): Promise<CreateProductMasterResult> {
+  async createProductMaster(
+    input: CreateProductMasterInput,
+  ): Promise<CreateProductMasterResult> {
     const supabase = this.client();
     const sku = input.sku.trim().toUpperCase();
 
@@ -1882,28 +2397,40 @@ export class SupabaseRepository implements DrivemateRepository {
 
     if (error) {
       if (error.code === "23505") {
-        return { ok: false, message: "SKU, barcode, or OEM part number is already mapped." };
+        return {
+          ok: false,
+          message: "SKU, barcode, or OEM part number is already mapped.",
+        };
       }
       throw error;
     }
-    if (!data) return { ok: false, message: "Product master could not be created." };
+    if (!data)
+      return { ok: false, message: "Product master could not be created." };
 
     const state = await this.getAdminState();
     const product = state.catalogue.find((row) => row.sku === sku);
-    return product ? { ok: true, product } : { ok: false, message: "SKU was not found." };
+    return product
+      ? { ok: true, product }
+      : { ok: false, message: "SKU was not found." };
   }
 
-  async updateProductMaster(input: UpdateProductMasterInput): Promise<UpdateProductMasterResult> {
+  async updateProductMaster(
+    input: UpdateProductMasterInput,
+  ): Promise<UpdateProductMasterResult> {
     const supabase = this.client();
     const update: Record<string, string | number | null> = {};
 
-    if (input.barcode !== undefined) update.barcode = input.barcode.trim() || null;
-    if (input.oemPartNumber !== undefined) update.oem_part_number = input.oemPartNumber.trim() || null;
+    if (input.barcode !== undefined)
+      update.barcode = input.barcode.trim() || null;
+    if (input.oemPartNumber !== undefined)
+      update.oem_part_number = input.oemPartNumber.trim() || null;
     if (input.brand !== undefined) update.brand = input.brand;
     if (input.name !== undefined) update.part_name = input.name.trim();
     if (input.category !== undefined) update.category = input.category.trim();
-    if (input.reorderPoint !== undefined) update.reorder_point = input.reorderPoint;
-    if (input.reorderQuantity !== undefined) update.reorder_quantity = input.reorderQuantity;
+    if (input.reorderPoint !== undefined)
+      update.reorder_point = input.reorderPoint;
+    if (input.reorderQuantity !== undefined)
+      update.reorder_quantity = input.reorderQuantity;
     if (input.status !== undefined) update.status = input.status;
 
     if (!Object.keys(update).length) {
@@ -1922,10 +2449,14 @@ export class SupabaseRepository implements DrivemateRepository {
 
     const state = await this.getAdminState();
     const product = state.catalogue.find((row) => row.sku === input.sku);
-    return product ? { ok: true, product } : { ok: false, message: "SKU was not found." };
+    return product
+      ? { ok: true, product }
+      : { ok: false, message: "SKU was not found." };
   }
 
-  async createFitmentRule(input: CreateFitmentRuleInput): Promise<CreateFitmentRuleResult> {
+  async createFitmentRule(
+    input: CreateFitmentRuleInput,
+  ): Promise<CreateFitmentRuleResult> {
     const supabase = this.client();
     const sku = input.sku.trim().toUpperCase();
     const { data: product, error: productError } = await supabase
@@ -1950,7 +2481,11 @@ export class SupabaseRepository implements DrivemateRepository {
       .maybeSingle();
 
     if (duplicateError) throw duplicateError;
-    if (duplicate) return { ok: false, message: "Fitment rule already exists for this SKU and vehicle." };
+    if (duplicate)
+      return {
+        ok: false,
+        message: "Fitment rule already exists for this SKU and vehicle.",
+      };
 
     const { error } = await supabase.from("fitment_rules").insert({
       product_id: product.id,
@@ -1976,6 +2511,8 @@ export class SupabaseRepository implements DrivemateRepository {
   }
 
   async resetForTests(): Promise<void> {
-    throw new Error("Supabase repository reset is not available from the application runtime.");
+    throw new Error(
+      "Supabase repository reset is not available from the application runtime.",
+    );
   }
 }

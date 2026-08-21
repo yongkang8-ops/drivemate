@@ -41,21 +41,23 @@ James / 澳洲端：
 
 1. Sign in to Supabase and export a staging backup.
 2. Apply `20260821_v11_prelaunch.sql` to staging.
-3. Add missing Preview environment variables in Vercel and redeploy `feat/v1.1-prelaunch`.
-4. Preserve the designated Trade, Warehouse and Admin test users; remove obsolete smoke business records.
-5. Enroll Admin and Warehouse TOTP factors.
-6. Run PI Preview, review all 119 rows, then Commit.
-7. Verify 706 units are on order and public availability remains zero.
-8. Run AAL2 staging smoke tests and browser tests.
+3. Run `npm run verify:supabase` in non-strict mode and confirm schema/RLS/grant checks.
+4. Add missing Preview environment variables in Vercel and redeploy `feat/v1.1-prelaunch`.
+5. Preserve the designated Trade, Warehouse and Admin test users; remove obsolete smoke business records.
+6. Enroll Admin and Warehouse TOTP factors.
+7. Run PI Preview, review all 119 rows, then Commit.
+8. Set `REQUIRE_PI_IMPORT=true`, rerun `verify:supabase`, and confirm 706 units are on order with zero public availability.
+9. Run AAL2 staging smoke tests and browser tests.
 
-9. 登录 Supabase 并导出 staging 备份。
-10. 在 staging 执行 `20260821_v11_prelaunch.sql`。
-11. 在 Vercel 补齐 Preview 环境变量并重新部署 `feat/v1.1-prelaunch`。
-12. 保留指定的 Trade、Warehouse、Admin 测试用户，清理旧 smoke 业务数据。
-13. 为 Admin 和 Warehouse 注册 TOTP。
-14. 执行 PI Preview，逐行审核 119 行后 Commit。
-15. 验证 706 件仅计入 on-order，公开可售库存仍为零。
-16. 执行 AAL2 staging smoke 与浏览器测试。
+10. 登录 Supabase 并导出 staging 备份。
+11. 在 staging 执行 `20260821_v11_prelaunch.sql`。
+12. 以非严格模式执行 `npm run verify:supabase`，确认 schema、RLS 和授权检查。
+13. 在 Vercel 补齐 Preview 环境变量并重新部署 `feat/v1.1-prelaunch`。
+14. 保留指定的 Trade、Warehouse、Admin 测试用户，清理旧 smoke 业务数据。
+15. 为 Admin 和 Warehouse 注册 TOTP。
+16. 执行 PI Preview，逐行审核 119 行后 Commit。
+17. 设置 `REQUIRE_PI_IMPORT=true` 后重新执行 `verify:supabase`，确认 706 件仅计入 on-order，公开可售库存为零。
+18. 执行 AAL2 staging smoke 与浏览器测试。
 
 ## Human Intervention Still Required / 仍需人工介入
 

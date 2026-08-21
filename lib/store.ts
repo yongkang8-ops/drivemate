@@ -170,12 +170,7 @@ function isTradeAccountApprovedForOrdering(tradeAccountId: string) {
 
 export function applyInventoryMovement(input: {
   type:
-    | "inbound"
-    | "putaway"
-    | "dispatch"
-    | "return"
-    | "quarantine"
-    | "adjustment";
+    "inbound" | "putaway" | "dispatch" | "return" | "quarantine" | "adjustment";
   sku: string;
   quantity: number;
   reference: string;
@@ -470,6 +465,22 @@ export function cancelOrder(
 export function submitTradeAccountApplication(
   input: TradeAccountApplicationInput,
 ) {
+  const normalizedEmail = input.contactEmail.trim().toLowerCase();
+  const normalizedAbn = (input.abn ?? "").replace(/[^0-9]/g, "");
+  const duplicate = state.accountApplications.find(
+    (candidate) =>
+      candidate.status !== "closed" &&
+      (candidate.contactEmail.trim().toLowerCase() === normalizedEmail ||
+        (normalizedAbn &&
+          (candidate.abn ?? "").replace(/[^0-9]/g, "") === normalizedAbn)),
+  );
+  if (duplicate) {
+    return {
+      ok: false as const,
+      message: "An active application already exists for this email or ABN.",
+    };
+  }
+
   const application: TradeAccountApplication = {
     ...input,
     id: `TA-${Date.now()}`,

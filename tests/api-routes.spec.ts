@@ -799,6 +799,27 @@ test("trade account application API creates an admin-visible pending account", a
   ).toBeTruthy();
 });
 
+test("trade account application API rate limits repeated email submissions", async ({
+  request,
+}) => {
+  const email = `rate-${Date.now()}@example.com`;
+  const statuses: number[] = [];
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const response = await request.post("/api/trade-account-applications", {
+      headers: { ...publicHeaders(), "x-forwarded-for": "203.0.113.47" },
+      data: tradeApplication({
+        accountName: `Rate Limit Workshop ${attempt}`,
+        contactName: "Rate Test",
+        contactEmail: email,
+        contactPhone: "0400000047",
+      }),
+    });
+    statuses.push(response.status());
+  }
+
+  expect(statuses).toEqual([200, 422, 422, 429]);
+});
+
 test("admin can approve a pending trade account application", async ({
   request,
 }) => {

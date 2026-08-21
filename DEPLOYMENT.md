@@ -48,9 +48,9 @@ Apply this migration once in the staging SQL editor:
 supabase/migrations/20260821_v11_prelaunch.sql
 ```
 
-The migration is idempotent and creates purchase, shipment, receipt, landed-cost, compliance, VIN, allocation, credit-ledger, audit and RMA entities. New business tables have RLS enabled; `anon` and `authenticated` receive no direct business-table or RPC access.
+The migration is idempotent and creates purchase, shipment, receipt, landed-cost, compliance, VIN, allocation, credit-ledger, audit and RMA entities. All core business tables have RLS enabled; `anon` and `authenticated` receive no direct business-table write or RPC access.
 
-该 migration 可重复执行，建立采购、运输、收货、到岸成本、合规、VIN、分配、信用台账、审计和 RMA 实体。新增业务表启用 RLS，`anon` 与 `authenticated` 不获得业务表或 RPC 的直接权限。
+该 migration 可重复执行，建立采购、运输、收货、到岸成本、合规、VIN、分配、信用台账、审计和 RMA 实体。所有核心业务表启用 RLS，`anon` 与 `authenticated` 不获得业务表写入或 RPC 的直接权限。
 
 ## Purchase Import / 采购导入
 
@@ -69,6 +69,18 @@ The migration is idempotent and creates purchase, shipment, receipt, landed-cost
 Supplier prices and import preview payloads must never be committed to Git. `data/private/`, `test-results/` and `*.import-preview.json` are ignored.
 
 供应商价格和 import preview payload 不得提交至 Git。`data/private/`、`test-results/` 和 `*.import-preview.json` 已被忽略。
+
+Run the read-only staging verifier after migration, then enable strict PI controls after Commit:
+
+完成 migration 后执行只读 staging 验证；PI Commit 后再启用严格控制数：
+
+```powershell
+npm run verify:supabase
+$env:REQUIRE_PI_IMPORT='true'
+$env:REQUIRE_SUPABASE_USERS='true'
+$env:REQUIRE_SUPABASE_STORAGE='true'
+npm run verify:supabase
+```
 
 ## Vercel Environment / Vercel 环境变量
 

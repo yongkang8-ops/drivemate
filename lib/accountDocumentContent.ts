@@ -33,8 +33,8 @@ export function getBusinessProfile(): BusinessProfile {
 export function hasConfiguredBusinessProfile(): boolean {
   return Boolean(
     process.env.DRIVEMATE_LEGAL_NAME?.trim() &&
-      process.env.DRIVEMATE_ABN?.trim() &&
-      process.env.DRIVEMATE_ACCOUNTS_EMAIL?.trim(),
+    process.env.DRIVEMATE_ABN?.trim() &&
+    process.env.DRIVEMATE_ACCOUNTS_EMAIL?.trim(),
   );
 }
 
@@ -86,6 +86,9 @@ export function createAccountDocumentText(input: {
   type: AccountDocument["type"];
   reference: string;
   tradeAccountId: string;
+  customerName?: string;
+  customerAbn?: string;
+  customerEmail?: string;
   generatedAt?: string | Date;
   contentLines?: string[];
 }) {
@@ -100,6 +103,9 @@ export function createAccountDocumentText(input: {
     `Accounts contact: ${profile.accountsEmail}`,
     `Dispatch location: ${profile.warehouseLabel}`,
     `Trade account: ${input.tradeAccountId}`,
+    `Bill to: ${input.customerName || input.tradeAccountId}`,
+    `Buyer ABN: ${input.customerAbn || "Not supplied"}`,
+    `Buyer contact: ${input.customerEmail || "Not supplied"}`,
     `Generated: ${formatDate(input.generatedAt)}`,
     "",
     ...(input.contentLines ?? []),

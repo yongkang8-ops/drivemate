@@ -44,7 +44,9 @@ function parseDispatchScans(value: string) {
     .map((entry) => entry.trim())
     .filter(Boolean)
     .map((entry) => {
-      const match = entry.match(/^(.+?)(?:\s*(?:x|\*)\s*(\d+)|\s*,\s*(\d+))?$/i);
+      const match = entry.match(
+        /^(.+?)(?:\s*(?:x|\*)\s*(\d+)|\s*,\s*(\d+))?$/i,
+      );
       return {
         sku: (match?.[1] ?? entry).trim(),
         quantity: Number.parseInt(match?.[2] ?? match?.[3] ?? "1", 10),
@@ -63,7 +65,8 @@ export function WarehouseScannerPanel() {
   const [putawaySku, setPutawaySku] = useState("DM-GWM-OF-001");
   const [putawayRef, setPutawayRef] = useState("PUT-1001");
   const [putawayQty, setPutawayQty] = useState("1");
-  const [putawayFromLocation, setPutawayFromLocation] = useState("BNE receiving");
+  const [putawayFromLocation, setPutawayFromLocation] =
+    useState("BNE receiving");
   const [putawayToLocation, setPutawayToLocation] = useState("BNE-A01-03");
   const [dispatchSku, setDispatchSku] = useState("DM-GWM-OF-001");
   const [dispatchRef, setDispatchRef] = useState("ORD-1042");
@@ -71,26 +74,42 @@ export function WarehouseScannerPanel() {
   const [returnSku, setReturnSku] = useState("DM-GWM-OF-001");
   const [returnRef, setReturnRef] = useState("RET-1001");
   const [returnQty, setReturnQty] = useState("1");
-  const [returnAction, setReturnAction] = useState<"return" | "quarantine">("quarantine");
+  const [returnAction, setReturnAction] = useState<"return" | "quarantine">(
+    "quarantine",
+  );
   const [quarantineSku, setQuarantineSku] = useState("DM-GWM-OF-001");
   const [quarantineRef, setQuarantineRef] = useState("QA-1001");
   const [quarantineQty, setQuarantineQty] = useState("1");
-  const [quarantineLocation, setQuarantineLocation] = useState("BNE quarantine");
-  const [quarantineAction, setQuarantineAction] = useState<"release" | "writeoff">("release");
+  const [quarantineLocation, setQuarantineLocation] =
+    useState("BNE quarantine");
+  const [quarantineAction, setQuarantineAction] = useState<
+    "release" | "writeoff"
+  >("release");
   const [adjustSku, setAdjustSku] = useState("DM-GWM-OF-001");
   const [adjustRef, setAdjustRef] = useState("COUNT-1001");
   const [adjustQty, setAdjustQty] = useState("1");
   const [adjustLocation, setAdjustLocation] = useState("BNE-A01-03");
-  const [adjustDirection, setAdjustDirection] = useState<"increase" | "decrease">("decrease");
+  const [adjustDirection, setAdjustDirection] = useState<
+    "increase" | "decrease"
+  >("decrease");
   const [bulkReceiveCsv, setBulkReceiveCsv] = useState(
     "sku,quantity,reference,location\nDMPGWMOF001,10,BNE-2026-06-PILOT,BNE receiving\nDMPGWMAF002,10,BNE-2026-06-PILOT,BNE receiving",
   );
-  const [dispatchScansByOrder, setDispatchScansByOrder] = useState<Record<string, string>>({});
-  const [dispatchMetaByOrder, setDispatchMetaByOrder] = useState<Record<string, { deliveryCharge: string; carrier: string; trackingNumber: string }>>({});
+  const [dispatchScansByOrder, setDispatchScansByOrder] = useState<
+    Record<string, string>
+  >({});
+  const [dispatchMetaByOrder, setDispatchMetaByOrder] = useState<
+    Record<
+      string,
+      { deliveryCharge: string; carrier: string; trackingNumber: string }
+    >
+  >({});
   const [message, setMessage] = useState("Ready to scan stock movements.");
 
   async function loadWarehouseState() {
-    const response = await fetch("/api/warehouse-state", { headers: await buildApiHeaders("warehouse") });
+    const response = await fetch("/api/warehouse-state", {
+      headers: await buildApiHeaders("warehouse"),
+    });
     if (!response.ok) {
       setMessage("Warehouse state could not be loaded.");
       return;
@@ -112,11 +131,19 @@ export function WarehouseScannerPanel() {
   }, []);
 
   function addMovement(movement: Omit<MovementRow, "id">) {
-    setMovements((current) => [{ ...movement, id: Date.now() }, ...current].slice(0, 8));
+    setMovements((current) =>
+      [{ ...movement, id: Date.now() }, ...current].slice(0, 8),
+    );
   }
 
   async function submitMovement(input: {
-    type: "inbound" | "putaway" | "dispatch" | "return" | "quarantine" | "adjustment";
+    type:
+      | "inbound"
+      | "putaway"
+      | "dispatch"
+      | "return"
+      | "quarantine"
+      | "adjustment";
     sku: string;
     quantity: number;
     reference: string;
@@ -126,10 +153,13 @@ export function WarehouseScannerPanel() {
     adjustmentDirection?: "increase" | "decrease";
     quarantineAction?: "release" | "writeoff";
   }) {
+    const payload = { ...input, idempotencyKey: crypto.randomUUID() };
     const response = await fetch("/api/inventory-movement", {
       method: "POST",
-      headers: await buildApiHeaders("warehouse", { "Content-Type": "application/json" }),
-      body: JSON.stringify(input),
+      headers: await buildApiHeaders("warehouse", {
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify(payload),
     });
     return response.json() as Promise<
       | { ok: true; inventory: InventoryRow[]; movement: MovementRow }
@@ -146,17 +176,28 @@ export function WarehouseScannerPanel() {
     if (!lines.length) return [];
 
     const delimiter = lines[0].includes("\t") ? "\t" : ",";
-    const firstCells = lines[0].split(delimiter).map((cell) => cell.trim().toLowerCase().replace(/[\s_-]/g, ""));
+    const firstCells = lines[0].split(delimiter).map((cell) =>
+      cell
+        .trim()
+        .toLowerCase()
+        .replace(/[\s_-]/g, ""),
+    );
     const hasHeader = firstCells.includes("sku");
-    const columns = hasHeader ? firstCells : ["sku", "quantity", "reference", "location"];
+    const columns = hasHeader
+      ? firstCells
+      : ["sku", "quantity", "reference", "location"];
     const dataLines = hasHeader ? lines.slice(1) : lines;
 
     return dataLines.map((line, index) => {
       const cells = line.split(delimiter).map((cell) => cell.trim());
       const get = (...keys: string[]) => {
-        const normalizedKeys = keys.map((key) => key.replace(/[\s_-]/g, "").toLowerCase());
-        const columnIndex = columns.findIndex((column) => normalizedKeys.includes(column));
-        return columnIndex >= 0 ? cells[columnIndex] ?? "" : "";
+        const normalizedKeys = keys.map((key) =>
+          key.replace(/[\s_-]/g, "").toLowerCase(),
+        );
+        const columnIndex = columns.findIndex((column) =>
+          normalizedKeys.includes(column),
+        );
+        return columnIndex >= 0 ? (cells[columnIndex] ?? "") : "";
       };
       const rowNumber = hasHeader ? index + 2 : index + 1;
       const sku = get("sku", "barcode", "identifier");
@@ -165,7 +206,9 @@ export function WarehouseScannerPanel() {
       const location = get("location", "bin") || "BNE receiving";
 
       if (!sku || !Number.isInteger(quantity) || quantity <= 0 || !reference) {
-        throw new Error(`Row ${rowNumber} must include sku, positive quantity and reference/batch.`);
+        throw new Error(
+          `Row ${rowNumber} must include sku, positive quantity and reference/batch.`,
+        );
       }
 
       return { sku, quantity, reference, location };
@@ -177,7 +220,11 @@ export function WarehouseScannerPanel() {
     try {
       rows = parseBulkReceiveRows(bulkReceiveCsv);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Bulk receiving content could not be parsed.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Bulk receiving content could not be parsed.",
+      );
       return;
     }
 
@@ -188,7 +235,9 @@ export function WarehouseScannerPanel() {
 
     const response = await fetch("/api/inventory-movement/import", {
       method: "POST",
-      headers: await buildApiHeaders("warehouse", { "Content-Type": "application/json" }),
+      headers: await buildApiHeaders("warehouse", {
+        "Content-Type": "application/json",
+      }),
       body: JSON.stringify({
         rows: rows.map((row) => ({
           type: "inbound",
@@ -212,7 +261,11 @@ export function WarehouseScannerPanel() {
       | { error: unknown };
 
     if (!response.ok || !("summary" in body)) {
-      setMessage("message" in body ? body.message : "Bulk receiving import could not be completed.");
+      setMessage(
+        "message" in body
+          ? body.message
+          : "Bulk receiving import could not be completed.",
+      );
       return;
     }
 
@@ -221,7 +274,9 @@ export function WarehouseScannerPanel() {
     const failureNote = body.failures.length
       ? ` ${body.failures.length} failed; first issue: ${body.failures[0].sku} ${body.failures[0].message}.`
       : "";
-    setMessage(`Bulk receiving complete: ${body.summary.created} movements recorded.${failureNote}`);
+    setMessage(
+      `Bulk receiving complete: ${body.summary.created} movements recorded.${failureNote}`,
+    );
   }
 
   async function handleReceive(scannedIdentifier = receiveSku) {
@@ -246,7 +301,9 @@ export function WarehouseScannerPanel() {
 
     setRows(result.inventory);
     addMovement(result.movement);
-    setMessage(`${result.movement.sku} received into ${result.movement.location}.`);
+    setMessage(
+      `${result.movement.sku} received into ${result.movement.location}.`,
+    );
   }
 
   async function handlePutaway(scannedIdentifier = putawaySku) {
@@ -298,7 +355,9 @@ export function WarehouseScannerPanel() {
 
     setRows(result.inventory);
     addMovement(result.movement);
-    setMessage(`${result.movement.sku} dispatched for ${result.movement.reference}.`);
+    setMessage(
+      `${result.movement.sku} dispatched for ${result.movement.reference}.`,
+    );
   }
 
   async function handleReturnMovement(scannedIdentifier = returnSku) {
@@ -323,7 +382,9 @@ export function WarehouseScannerPanel() {
 
     setRows(result.inventory);
     addMovement(result.movement);
-    setMessage(`${result.movement.sku} recorded as ${result.movement.movement}.`);
+    setMessage(
+      `${result.movement.sku} recorded as ${result.movement.movement}.`,
+    );
   }
 
   async function handleAdjustment(scannedIdentifier = adjustSku) {
@@ -349,7 +410,9 @@ export function WarehouseScannerPanel() {
 
     setRows(result.inventory);
     addMovement(result.movement);
-    setMessage(`${result.movement.sku} adjusted at ${result.movement.location}.`);
+    setMessage(
+      `${result.movement.sku} adjusted at ${result.movement.location}.`,
+    );
   }
 
   async function handleQuarantineReview(scannedIdentifier = quarantineSku) {
@@ -375,7 +438,9 @@ export function WarehouseScannerPanel() {
 
     setRows(result.inventory);
     addMovement(result.movement);
-    setMessage(`${result.movement.sku} ${result.movement.movement.toLowerCase()} recorded.`);
+    setMessage(
+      `${result.movement.sku} ${result.movement.movement.toLowerCase()} recorded.`,
+    );
   }
 
   async function dispatchOrder(orderId: string) {
@@ -385,23 +450,46 @@ export function WarehouseScannerPanel() {
       setMessage("Scan each order line before confirming dispatch.");
       return;
     }
-    if (!dispatchMeta?.carrier.trim() || !dispatchMeta.trackingNumber.trim() || !Number.isFinite(Number(dispatchMeta.deliveryCharge))) {
-      setMessage("Delivery charge, carrier and tracking number are required before dispatch.");
+    if (
+      !dispatchMeta?.carrier.trim() ||
+      !dispatchMeta.trackingNumber.trim() ||
+      !Number.isFinite(Number(dispatchMeta.deliveryCharge))
+    ) {
+      setMessage(
+        "Delivery charge, carrier and tracking number are required before dispatch.",
+      );
       return;
     }
 
     const response = await fetch(`/api/orders/${orderId}/dispatch`, {
       method: "POST",
-      headers: await buildApiHeaders("warehouse", { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }),
-      body: JSON.stringify({ scans, deliveryChargeExGstCents: Math.round(Number(dispatchMeta.deliveryCharge) * 100), carrier: dispatchMeta.carrier.trim(), trackingNumber: dispatchMeta.trackingNumber.trim() }),
+      headers: await buildApiHeaders("warehouse", {
+        "Content-Type": "application/json",
+        "Idempotency-Key": crypto.randomUUID(),
+      }),
+      body: JSON.stringify({
+        scans,
+        deliveryChargeExGstCents: Math.round(
+          Number(dispatchMeta.deliveryCharge) * 100,
+        ),
+        carrier: dispatchMeta.carrier.trim(),
+        trackingNumber: dispatchMeta.trackingNumber.trim(),
+      }),
     });
 
     const body = (await response.json()) as
-      | { ok: true; order: PickOrder; inventory: InventoryRow[]; movements: MovementRow[] }
+      | {
+          ok: true;
+          order: PickOrder;
+          inventory: InventoryRow[];
+          movements: MovementRow[];
+        }
       | { ok: false; message: string };
 
     if (!response.ok || !body.ok) {
-      setMessage("message" in body ? body.message : "Order could not be dispatched.");
+      setMessage(
+        "message" in body ? body.message : "Order could not be dispatched.",
+      );
       return;
     }
 
@@ -434,19 +522,34 @@ export function WarehouseScannerPanel() {
             />
             <label>
               Batch number
-              <input value={receiveBatch} onChange={(event) => setReceiveBatch(event.target.value)} />
+              <input
+                value={receiveBatch}
+                onChange={(event) => setReceiveBatch(event.target.value)}
+              />
             </label>
             <label>
               Receive quantity
-              <input value={receiveQty} type="number" min="1" onChange={(event) => setReceiveQty(event.target.value)} />
+              <input
+                value={receiveQty}
+                type="number"
+                min="1"
+                onChange={(event) => setReceiveQty(event.target.value)}
+              />
             </label>
             <label>
               Location
-              <input value={receiveLocation} onChange={(event) => setReceiveLocation(event.target.value)} />
+              <input
+                value={receiveLocation}
+                onChange={(event) => setReceiveLocation(event.target.value)}
+              />
             </label>
           </div>
           <p>
-            <button className="primary-button" onClick={() => void handleReceive()} type="button">
+            <button
+              className="primary-button"
+              onClick={() => void handleReceive()}
+              type="button"
+            >
               Receive stock
             </button>
           </p>
@@ -454,7 +557,10 @@ export function WarehouseScannerPanel() {
 
         <div className="panel">
           <h2>Bulk receiving import</h2>
-          <p>Paste receiving rows from the shipment worksheet after SKU masters have been mapped.</p>
+          <p>
+            Paste receiving rows from the shipment worksheet after SKU masters
+            have been mapped.
+          </p>
           <label>
             Receiving rows
             <textarea
@@ -465,7 +571,11 @@ export function WarehouseScannerPanel() {
             />
           </label>
           <p>
-            <button className="primary-button" onClick={() => void importInboundReceipts()} type="button">
+            <button
+              className="primary-button"
+              onClick={() => void importInboundReceipts()}
+              type="button"
+            >
               Import receiving rows
             </button>
           </p>
@@ -485,23 +595,41 @@ export function WarehouseScannerPanel() {
             />
             <label>
               Move reference
-              <input value={putawayRef} onChange={(event) => setPutawayRef(event.target.value)} />
+              <input
+                value={putawayRef}
+                onChange={(event) => setPutawayRef(event.target.value)}
+              />
             </label>
             <label>
               Move quantity
-              <input value={putawayQty} type="number" min="1" onChange={(event) => setPutawayQty(event.target.value)} />
+              <input
+                value={putawayQty}
+                type="number"
+                min="1"
+                onChange={(event) => setPutawayQty(event.target.value)}
+              />
             </label>
             <label>
               From location
-              <input value={putawayFromLocation} onChange={(event) => setPutawayFromLocation(event.target.value)} />
+              <input
+                value={putawayFromLocation}
+                onChange={(event) => setPutawayFromLocation(event.target.value)}
+              />
             </label>
             <label>
               To location
-              <input value={putawayToLocation} onChange={(event) => setPutawayToLocation(event.target.value)} />
+              <input
+                value={putawayToLocation}
+                onChange={(event) => setPutawayToLocation(event.target.value)}
+              />
             </label>
           </div>
           <p>
-            <button className="primary-button" onClick={() => void handlePutaway()} type="button">
+            <button
+              className="primary-button"
+              onClick={() => void handlePutaway()}
+              type="button"
+            >
               Move to bin
             </button>
           </p>
@@ -512,7 +640,10 @@ export function WarehouseScannerPanel() {
           <div className="form-grid">
             <label>
               Order / reference
-              <input value={dispatchRef} onChange={(event) => setDispatchRef(event.target.value)} />
+              <input
+                value={dispatchRef}
+                onChange={(event) => setDispatchRef(event.target.value)}
+              />
             </label>
             <ScannerInput
               label="Scan SKU / barcode"
@@ -525,7 +656,12 @@ export function WarehouseScannerPanel() {
             />
             <label>
               Dispatch quantity
-              <input value={dispatchQty} type="number" min="1" onChange={(event) => setDispatchQty(event.target.value)} />
+              <input
+                value={dispatchQty}
+                type="number"
+                min="1"
+                onChange={(event) => setDispatchQty(event.target.value)}
+              />
             </label>
             <label>
               Dispatch lane
@@ -533,7 +669,11 @@ export function WarehouseScannerPanel() {
             </label>
           </div>
           <p>
-            <button className="primary-button" onClick={() => void handleDispatch()} type="button">
+            <button
+              className="primary-button"
+              onClick={() => void handleDispatch()}
+              type="button"
+            >
               Dispatch stock
             </button>
           </p>
@@ -553,17 +693,27 @@ export function WarehouseScannerPanel() {
             />
             <label>
               Return / case reference
-              <input value={returnRef} onChange={(event) => setReturnRef(event.target.value)} />
+              <input
+                value={returnRef}
+                onChange={(event) => setReturnRef(event.target.value)}
+              />
             </label>
             <label>
               Return quantity
-              <input value={returnQty} type="number" min="1" onChange={(event) => setReturnQty(event.target.value)} />
+              <input
+                value={returnQty}
+                type="number"
+                min="1"
+                onChange={(event) => setReturnQty(event.target.value)}
+              />
             </label>
             <label>
               Action
               <select
                 value={returnAction}
-                onChange={(event) => setReturnAction(event.target.value as "return" | "quarantine")}
+                onChange={(event) =>
+                  setReturnAction(event.target.value as "return" | "quarantine")
+                }
               >
                 <option value="quarantine">Move to quarantine</option>
                 <option value="return">Return to available stock</option>
@@ -571,7 +721,11 @@ export function WarehouseScannerPanel() {
             </label>
           </div>
           <p>
-            <button className="primary-button" onClick={() => void handleReturnMovement()} type="button">
+            <button
+              className="primary-button"
+              onClick={() => void handleReturnMovement()}
+              type="button"
+            >
               Record movement
             </button>
           </p>
@@ -591,21 +745,36 @@ export function WarehouseScannerPanel() {
             />
             <label>
               Count / adjustment reference
-              <input value={adjustRef} onChange={(event) => setAdjustRef(event.target.value)} />
+              <input
+                value={adjustRef}
+                onChange={(event) => setAdjustRef(event.target.value)}
+              />
             </label>
             <label>
               Adjustment quantity
-              <input value={adjustQty} type="number" min="1" onChange={(event) => setAdjustQty(event.target.value)} />
+              <input
+                value={adjustQty}
+                type="number"
+                min="1"
+                onChange={(event) => setAdjustQty(event.target.value)}
+              />
             </label>
             <label>
               Adjustment location
-              <input value={adjustLocation} onChange={(event) => setAdjustLocation(event.target.value)} />
+              <input
+                value={adjustLocation}
+                onChange={(event) => setAdjustLocation(event.target.value)}
+              />
             </label>
             <label>
               Direction
               <select
                 value={adjustDirection}
-                onChange={(event) => setAdjustDirection(event.target.value as "increase" | "decrease")}
+                onChange={(event) =>
+                  setAdjustDirection(
+                    event.target.value as "increase" | "decrease",
+                  )
+                }
               >
                 <option value="decrease">Reduce available stock</option>
                 <option value="increase">Increase on-hand stock</option>
@@ -613,7 +782,11 @@ export function WarehouseScannerPanel() {
             </label>
           </div>
           <p>
-            <button className="primary-button" onClick={() => void handleAdjustment()} type="button">
+            <button
+              className="primary-button"
+              onClick={() => void handleAdjustment()}
+              type="button"
+            >
               Record adjustment
             </button>
           </p>
@@ -633,7 +806,10 @@ export function WarehouseScannerPanel() {
             />
             <label>
               QA / review reference
-              <input value={quarantineRef} onChange={(event) => setQuarantineRef(event.target.value)} />
+              <input
+                value={quarantineRef}
+                onChange={(event) => setQuarantineRef(event.target.value)}
+              />
             </label>
             <label>
               Review quantity
@@ -646,13 +822,20 @@ export function WarehouseScannerPanel() {
             </label>
             <label>
               Quarantine location
-              <input value={quarantineLocation} onChange={(event) => setQuarantineLocation(event.target.value)} />
+              <input
+                value={quarantineLocation}
+                onChange={(event) => setQuarantineLocation(event.target.value)}
+              />
             </label>
             <label>
               Outcome
               <select
                 value={quarantineAction}
-                onChange={(event) => setQuarantineAction(event.target.value as "release" | "writeoff")}
+                onChange={(event) =>
+                  setQuarantineAction(
+                    event.target.value as "release" | "writeoff",
+                  )
+                }
               >
                 <option value="release">Release to available stock</option>
                 <option value="writeoff">Write off from stock</option>
@@ -660,7 +843,11 @@ export function WarehouseScannerPanel() {
             </label>
           </div>
           <p>
-            <button className="primary-button" onClick={() => void handleQuarantineReview()} type="button">
+            <button
+              className="primary-button"
+              onClick={() => void handleQuarantineReview()}
+              type="button"
+            >
               Record QA outcome
             </button>
           </p>
@@ -693,11 +880,17 @@ export function WarehouseScannerPanel() {
                     <td>{order.id}</td>
                     <td>{order.status}</td>
                     <td>{order.poNumber ?? "No PO"}</td>
-                    <td>{order.lines.map((line) => `${line.sku} x ${line.quantity}`).join(", ")}</td>
+                    <td>
+                      {order.lines
+                        .map((line) => `${line.sku} x ${line.quantity}`)
+                        .join(", ")}
+                    </td>
                     <td>{order.createdBy ?? "System"}</td>
                     <td>
                       <label className="inline-label">
-                        <span className="sr-only">Scanned dispatch lines for {order.id}</span>
+                        <span className="sr-only">
+                          Scanned dispatch lines for {order.id}
+                        </span>
                         <textarea
                           aria-label={`Scanned dispatch lines for ${order.id}`}
                           placeholder="One scanned SKU per line, e.g. DMPGWMOF001 x 1"
@@ -713,13 +906,76 @@ export function WarehouseScannerPanel() {
                     </td>
                     <td>
                       <div className="dispatch-meta">
-                        <label>Charge ex GST<input inputMode="decimal" placeholder="0.00" value={dispatchMetaByOrder[order.id]?.deliveryCharge ?? ""} onChange={(event) => setDispatchMetaByOrder((current) => ({ ...current, [order.id]: { deliveryCharge: event.target.value, carrier: current[order.id]?.carrier ?? "", trackingNumber: current[order.id]?.trackingNumber ?? "" } }))} /></label>
-                        <label>Carrier<input placeholder="Courier" value={dispatchMetaByOrder[order.id]?.carrier ?? ""} onChange={(event) => setDispatchMetaByOrder((current) => ({ ...current, [order.id]: { deliveryCharge: current[order.id]?.deliveryCharge ?? "", carrier: event.target.value, trackingNumber: current[order.id]?.trackingNumber ?? "" } }))} /></label>
-                        <label>Tracking<input placeholder="Tracking number" value={dispatchMetaByOrder[order.id]?.trackingNumber ?? ""} onChange={(event) => setDispatchMetaByOrder((current) => ({ ...current, [order.id]: { deliveryCharge: current[order.id]?.deliveryCharge ?? "", carrier: current[order.id]?.carrier ?? "", trackingNumber: event.target.value } }))} /></label>
+                        <label>
+                          Charge ex GST
+                          <input
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            value={
+                              dispatchMetaByOrder[order.id]?.deliveryCharge ??
+                              ""
+                            }
+                            onChange={(event) =>
+                              setDispatchMetaByOrder((current) => ({
+                                ...current,
+                                [order.id]: {
+                                  deliveryCharge: event.target.value,
+                                  carrier: current[order.id]?.carrier ?? "",
+                                  trackingNumber:
+                                    current[order.id]?.trackingNumber ?? "",
+                                },
+                              }))
+                            }
+                          />
+                        </label>
+                        <label>
+                          Carrier
+                          <input
+                            placeholder="Courier"
+                            value={dispatchMetaByOrder[order.id]?.carrier ?? ""}
+                            onChange={(event) =>
+                              setDispatchMetaByOrder((current) => ({
+                                ...current,
+                                [order.id]: {
+                                  deliveryCharge:
+                                    current[order.id]?.deliveryCharge ?? "",
+                                  carrier: event.target.value,
+                                  trackingNumber:
+                                    current[order.id]?.trackingNumber ?? "",
+                                },
+                              }))
+                            }
+                          />
+                        </label>
+                        <label>
+                          Tracking
+                          <input
+                            placeholder="Tracking number"
+                            value={
+                              dispatchMetaByOrder[order.id]?.trackingNumber ??
+                              ""
+                            }
+                            onChange={(event) =>
+                              setDispatchMetaByOrder((current) => ({
+                                ...current,
+                                [order.id]: {
+                                  deliveryCharge:
+                                    current[order.id]?.deliveryCharge ?? "",
+                                  carrier: current[order.id]?.carrier ?? "",
+                                  trackingNumber: event.target.value,
+                                },
+                              }))
+                            }
+                          />
+                        </label>
                       </div>
                     </td>
                     <td>
-                      <button className="primary-button" onClick={() => void dispatchOrder(order.id)} type="button">
+                      <button
+                        className="primary-button"
+                        onClick={() => void dispatchOrder(order.id)}
+                        type="button"
+                      >
                         Confirm dispatch
                       </button>
                     </td>
@@ -752,7 +1008,12 @@ export function WarehouseScannerPanel() {
                   <td>{row.onHand}</td>
                   <td>{row.reserved}</td>
                   <td>{row.quarantine ?? 0}</td>
-                  <td>{Math.max(row.onHand - row.reserved - (row.quarantine ?? 0), 0)}</td>
+                  <td>
+                    {Math.max(
+                      row.onHand - row.reserved - (row.quarantine ?? 0),
+                      0,
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -785,7 +1046,9 @@ export function WarehouseScannerPanel() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6}>No stock movements in this browser session.</td>
+                  <td colSpan={6}>
+                    No stock movements in this browser session.
+                  </td>
                 </tr>
               )}
             </tbody>
