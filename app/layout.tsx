@@ -31,7 +31,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className={`${geist.variable} ${geistMono.variable}`}>
         <div className="site-shell">
           <header className="site-header">
-            <Link className="brand" href="/" aria-label="DriveMate Parts home">
+            <Link className="brand" href="/">
               <span className="brand-mark" aria-hidden="true">DM</span>
               <span className="brand-copy">DriveMate <strong>Parts</strong></span>
             </Link>
