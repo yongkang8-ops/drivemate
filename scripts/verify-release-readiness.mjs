@@ -100,6 +100,8 @@ function checkEnvironment() {
   const abn = envValue("DRIVEMATE_ABN");
   const accountsEmail = envValue("DRIVEMATE_ACCOUNTS_EMAIL");
   const importSigningSecret = envValue("DRIVEMATE_IMPORT_SIGNING_SECRET");
+  const turnstileSiteKey = envValue("NEXT_PUBLIC_TURNSTILE_SITE_KEY");
+  const turnstileSecretKey = envValue("TURNSTILE_SECRET_KEY");
 
   if (baseUrl.includes("localhost") || baseUrl.includes("127.0.0.1")) {
     fail("DRIVEMATE_BASE_URL must be a deployed staging URL, not localhost.");
@@ -156,6 +158,12 @@ function checkEnvironment() {
     fail("DRIVEMATE_REQUIRE_STAFF_MFA must be true.");
   if (process.env.DRIVEMATE_TURNSTILE_REQUIRED !== "true")
     fail("DRIVEMATE_TURNSTILE_REQUIRED must be true.");
+  if (
+    turnstileSiteKey === "1x00000000000000000000AA" ||
+    turnstileSecretKey === "1x0000000000000000000000000000000AA"
+  ) {
+    fail("Production release cannot use Cloudflare Turnstile test credentials.");
+  }
   if (
     process.env.DRIVEMATE_ENVIRONMENT !== "production" ||
     process.env.DRIVEMATE_SUPABASE_ENVIRONMENT !== "production"

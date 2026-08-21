@@ -22,6 +22,9 @@ function addCheck(
   checks.push({ name, status, message });
 }
 
+const TURNSTILE_TEST_SITE_KEY = "1x00000000000000000000AA";
+const TURNSTILE_TEST_SECRET_KEY = "1x0000000000000000000000000000000AA";
+
 export function getRuntimeReadiness() {
   const vercelEnvironment = process.env.VERCEL_ENV?.trim();
   const configuredEnvironment = process.env.DRIVEMATE_ENVIRONMENT?.trim();
@@ -54,6 +57,9 @@ export function getRuntimeReadiness() {
     process.env.TURNSTILE_SECRET_KEY?.trim() &&
     process.env.DRIVEMATE_TURNSTILE_REQUIRED === "true",
   );
+  const turnstileTestMode =
+    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY === TURNSTILE_TEST_SITE_KEY ||
+    process.env.TURNSTILE_SECRET_KEY === TURNSTILE_TEST_SECRET_KEY;
   const importSigningReady =
     (process.env.DRIVEMATE_IMPORT_SIGNING_SECRET?.trim().length ?? 0) >= 32;
   const expectedDataEnvironment = isProduction
@@ -211,14 +217,37 @@ export function getRuntimeReadiness() {
       ? "Admin and warehouse MFA enforcement is enabled."
       : "Hosted environments require DRIVEMATE_REQUIRE_STAFF_MFA=true.",
   );
-  addCheck(
-    checks,
-    "turnstile",
-    !isHosted || turnstileReady ? "pass" : "fail",
-    turnstileReady
-      ? "Trade account bot protection is configured."
-      : "Hosted environments require Turnstile keys and enforcement.",
-  );
+  if (isProduction && turnstileTestMode) {
+    addCheck(
+      checks,
+      "turnstile",
+      "fail",
+      "Production cannot use Cloudflare Turnstile test credentials.",
+    );
+  } else if (isHosted && !turnstileReady) {
+    addCheck(
+      checks,
+      "turnstile",
+      "fail",
+      "Hosted environments require Turnstile keys and enforcement.",
+    );
+  } else if (turnstileTestMode) {
+    addCheck(
+      checks,
+      "turnstile",
+      "warn",
+      "Official Turnstile test credentials are enabled for protected preview testing.",
+    );
+  } else {
+    addCheck(
+      checks,
+      "turnstile",
+      "pass",
+      turnstileReady
+        ? "Trade account bot protection is configured."
+        : "Turnstile is optional for local testing.",
+    );
+  }
   addCheck(
     checks,
     "import_signing",

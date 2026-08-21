@@ -78,4 +78,31 @@ describe("runtime release gates", () => {
         ?.message,
     ).toContain("production");
   });
+
+  it("allows official Turnstile test credentials only in Preview", () => {
+    configureHostedPreview();
+    process.env.DRIVEMATE_REQUIRE_STAFF_MFA = "true";
+    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY = "1x00000000000000000000AA";
+    process.env.TURNSTILE_SECRET_KEY = "1x0000000000000000000000000000000AA";
+    process.env.DRIVEMATE_TURNSTILE_REQUIRED = "true";
+    process.env.DRIVEMATE_IMPORT_SIGNING_SECRET = "a".repeat(32);
+    process.env.DRIVEMATE_ENVIRONMENT = "staging";
+    process.env.DRIVEMATE_SUPABASE_ENVIRONMENT = "staging";
+
+    const preview = getRuntimeReadiness();
+    expect(preview.ready).toBe(true);
+    expect(
+      preview.checks.find((check) => check.name === "turnstile")?.status,
+    ).toBe("warn");
+
+    process.env.VERCEL_ENV = "production";
+    process.env.NEXT_PUBLIC_SITE_URL = "https://drivemateparts.com.au";
+    process.env.DRIVEMATE_ENVIRONMENT = "production";
+    process.env.DRIVEMATE_SUPABASE_ENVIRONMENT = "production";
+    const production = getRuntimeReadiness();
+    expect(production.ready).toBe(false);
+    expect(
+      production.checks.find((check) => check.name === "turnstile")?.status,
+    ).toBe("fail");
+  });
 });
