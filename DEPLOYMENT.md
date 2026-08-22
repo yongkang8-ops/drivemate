@@ -36,16 +36,19 @@ npx vitest run tests/purchase-import.test.ts
 
 ## Staging Database / Staging 数据库
 
-Current staging must be backed up before migration. Do not re-run `schema.sql` or `seed.sql` over an existing project.
+Current staging must be backed up before migration. Do not re-run `schema.sql` or `seed.sql` over an existing project. New environments must use the complete ordered migration chain in `supabase/migrations/`.
 
-迁移前必须备份当前 staging。已有项目不得重新覆盖执行 `schema.sql` 或 `seed.sql`。
+迁移前必须备份当前 staging。已有项目不得重新覆盖执行 `schema.sql` 或 `seed.sql`。新环境必须按顺序执行 `supabase/migrations/` 中的完整 migration chain。
 
-Apply this migration once in the staging SQL editor:
+The migration chain starts with the clean-environment baseline and ends with the V1.1 controls:
 
-在 staging SQL Editor 中执行：
+Migration chain 从干净环境 baseline 开始，以 V1.1 控制结束：
 
 ```text
-supabase/migrations/20260821_v11_prelaunch.sql
+20260529_initial_schema.sql
+20260530_add_trade_order_pricing.sql
+20260531_add_vehicle_lookup_requests.sql
+20260821_v11_prelaunch.sql
 ```
 
 The migration is idempotent and creates purchase, shipment, receipt, landed-cost, compliance, VIN, allocation, credit-ledger, audit and RMA entities. All core business tables have RLS enabled; `anon` and `authenticated` receive no direct business-table write or RPC access.
@@ -107,9 +110,10 @@ TURNSTILE_SECRET_KEY=<production secret key>
 DRIVEMATE_TURNSTILE_REQUIRED=true
 DRIVEMATE_ENVIRONMENT=production
 DRIVEMATE_SUPABASE_ENVIRONMENT=production
-DRIVEMATE_LEGAL_NAME=DRIVEMATE PARTS PTY LTD
-DRIVEMATE_ABN=<real ABN>
+DRIVEMATE_LEGAL_NAME=DRIVER MATE PTY LTD
+DRIVEMATE_ABN=66701612768
 DRIVEMATE_ACCOUNTS_EMAIL=<monitored accounts email>
+DRIVEMATE_GST_REGISTERED=true
 ```
 
 Never reuse staging database keys, users, buckets or signing secrets in production.
@@ -136,6 +140,8 @@ Production release remains blocked until all are true:
 
 - Registered legal name, real ABN and monitored accounts email are configured.
 - 已配置注册公司名、真实 ABN 和可监控 accounts email。
+- GST registration is effective on the ABR before GST is charged or a Tax Invoice is issued.
+- 在收取 GST 或开具 Tax Invoice 前，ABR 必须显示 GST 注册已经生效。
 - `drivemateparts.com.au`, privacy documents and trade terms have been legally reviewed.
 - `drivemateparts.com.au`、隐私文件及 trade terms 已完成法律审核。
 - Production Supabase is separate, backed up and has verified Admin/Warehouse MFA.

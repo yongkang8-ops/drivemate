@@ -79,6 +79,37 @@ describe("runtime release gates", () => {
     ).toContain("production");
   });
 
+  it("blocks production trading until GST registration is confirmed", () => {
+    configureHostedPreview();
+    process.env.VERCEL_ENV = "production";
+    process.env.NEXT_PUBLIC_SITE_URL = "https://drivemateparts.com.au";
+    process.env.DRIVEMATE_REQUIRE_STAFF_MFA = "true";
+    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY = "site-live";
+    process.env.TURNSTILE_SECRET_KEY = "secret-live";
+    process.env.DRIVEMATE_TURNSTILE_REQUIRED = "true";
+    process.env.DRIVEMATE_IMPORT_SIGNING_SECRET = "a".repeat(32);
+    process.env.DRIVEMATE_ENVIRONMENT = "production";
+    process.env.DRIVEMATE_SUPABASE_ENVIRONMENT = "production";
+    process.env.DRIVEMATE_LEGAL_NAME = "DRIVER MATE PTY LTD";
+    process.env.DRIVEMATE_ABN = "66701612768";
+    process.env.DRIVEMATE_ACCOUNTS_EMAIL = "accounts@drivemateparts.com.au";
+    process.env.DRIVEMATE_GST_REGISTERED = "false";
+
+    const blocked = getRuntimeReadiness();
+    expect(blocked.ready).toBe(false);
+    expect(
+      blocked.checks.find((check) => check.name === "gst_registration")
+        ?.status,
+    ).toBe("fail");
+
+    process.env.DRIVEMATE_GST_REGISTERED = "true";
+    const registered = getRuntimeReadiness();
+    expect(
+      registered.checks.find((check) => check.name === "gst_registration")
+        ?.status,
+    ).toBe("pass");
+  });
+
   it("allows official Turnstile test credentials only in Preview", () => {
     configureHostedPreview();
     process.env.DRIVEMATE_REQUIRE_STAFF_MFA = "true";

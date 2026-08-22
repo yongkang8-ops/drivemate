@@ -49,6 +49,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <div>
               <Link className="brand footer-brand" href="/"><span className="brand-mark">DM</span><span>DriveMate <strong>Parts</strong></span></Link>
               <p>Trade parts supply for Australian workshops, dispatched from Brisbane.</p>
+              <p>DriveMate Parts is operated by DRIVER MATE PTY LTD | ABN 66 701 612 768.</p>
             </div>
             <nav aria-label="Legal information">
               <Link href="/privacy">Privacy</Link>

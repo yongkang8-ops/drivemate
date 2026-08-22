@@ -10,6 +10,7 @@ const requiredEnv = [
   "DRIVEMATE_LEGAL_NAME",
   "DRIVEMATE_ABN",
   "DRIVEMATE_ACCOUNTS_EMAIL",
+  "DRIVEMATE_GST_REGISTERED",
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
   "SUPABASE_SERVICE_ROLE_KEY",
@@ -118,6 +119,11 @@ function checkEnvironment() {
       "NEXT_PUBLIC_SITE_URL must be a real public site URL, not localhost or a placeholder.",
     );
   }
+  if (process.env.DRIVEMATE_GST_REGISTERED !== "true") {
+    fail(
+      "DRIVEMATE_GST_REGISTERED must be true after the effective GST registration is confirmed on the ABR.",
+    );
+  }
   if (siteUrl && !siteUrl.startsWith("https://")) {
     fail("NEXT_PUBLIC_SITE_URL must use https.");
   }
@@ -176,9 +182,14 @@ function checkEnvironment() {
   if (process.exitCode) process.exit();
 }
 
-loadEnvFile(".env.release.local");
-loadEnvFile(".env.local");
-loadEnvFile(".env");
+const explicitReleaseEnvFile = process.env.DRIVEMATE_RELEASE_ENV_FILE?.trim();
+if (explicitReleaseEnvFile) {
+  loadEnvFile(explicitReleaseEnvFile);
+} else {
+  loadEnvFile(".env.release.local");
+  loadEnvFile(".env.local");
+  loadEnvFile(".env");
+}
 
 console.log("DriveMate release readiness verification");
 console.log("");

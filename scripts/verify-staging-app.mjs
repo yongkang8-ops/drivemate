@@ -60,6 +60,7 @@ const expectedHealthChecks = [
   "supabase_env",
   "document_bucket",
   "business_profile",
+  "gst_registration",
   "site_url",
   "staff_mfa",
   "turnstile",

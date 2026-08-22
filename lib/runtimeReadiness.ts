@@ -50,6 +50,7 @@ export function getRuntimeReadiness() {
   const accountDocumentsBucket =
     process.env.SUPABASE_ACCOUNT_DOCUMENTS_BUCKET ?? "account-documents";
   const businessProfileConfigured = hasConfiguredBusinessProfile();
+  const gstRegistered = process.env.DRIVEMATE_GST_REGISTERED === "true";
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   const staffMfaRequired = process.env.DRIVEMATE_REQUIRE_STAFF_MFA === "true";
   const turnstileReady = Boolean(
@@ -194,6 +195,17 @@ export function getRuntimeReadiness() {
     );
   }
 
+  addCheck(
+    checks,
+    "gst_registration",
+    gstRegistered ? "pass" : isProduction ? "fail" : "warn",
+    gstRegistered
+      ? "GST registration is confirmed for production tax documents."
+      : isProduction
+        ? "Production trading is blocked until GST registration is effective and confirmed on the ABR."
+        : "GST registration is not yet confirmed; preview testing may continue without live sales.",
+  );
+
   const siteUrlReady = isProduction
     ? siteUrl === "https://drivemateparts.com.au"
     : !isHosted || Boolean(siteUrl?.startsWith("https://"));
@@ -288,6 +300,7 @@ export function getRuntimeReadiness() {
     },
     businessProfile: {
       configured: businessProfileConfigured,
+      gstRegistered,
     },
     ready: !hasFailures,
     checks,

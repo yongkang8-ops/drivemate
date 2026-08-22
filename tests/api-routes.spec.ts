@@ -90,6 +90,7 @@ test("health API reports deployment readiness without exposing secrets", async (
       "supabase_env",
       "document_bucket",
       "business_profile",
+      "gst_registration",
     ]),
   );
   expect(JSON.stringify(body)).not.toContain("SERVICE_ROLE_KEY");

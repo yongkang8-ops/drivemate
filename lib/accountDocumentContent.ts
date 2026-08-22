@@ -19,8 +19,8 @@ type BusinessProfile = {
 export function getBusinessProfile(): BusinessProfile {
   return {
     legalName:
-      process.env.DRIVEMATE_LEGAL_NAME?.trim() || "DriveMate Parts Pty Ltd",
-    abn: process.env.DRIVEMATE_ABN?.trim() || "ABN pending",
+      process.env.DRIVEMATE_LEGAL_NAME?.trim() || "DRIVER MATE PTY LTD",
+    abn: process.env.DRIVEMATE_ABN?.trim() || "66 701 612 768",
     accountsEmail:
       process.env.DRIVEMATE_ACCOUNTS_EMAIL?.trim() ||
       "accounts@drivemateparts.com.au",
