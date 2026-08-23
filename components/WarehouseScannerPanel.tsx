@@ -54,7 +54,13 @@ function parseDispatchScans(value: string) {
     });
 }
 
-export function WarehouseScannerPanel() {
+type WarehouseScannerPanelProps = {
+  showLegacyDirectMovements?: boolean;
+};
+
+export function WarehouseScannerPanel({
+  showLegacyDirectMovements = false,
+}: WarehouseScannerPanelProps) {
   const [rows, setRows] = useState<InventoryRow[]>([]);
   const [movements, setMovements] = useState<MovementRow[]>([]);
   const [pickOrders, setPickOrders] = useState<PickOrder[]>([]);
@@ -507,8 +513,9 @@ export function WarehouseScannerPanel() {
   return (
     <>
       <section className="two-column" id="putaway" style={{ marginTop: 18 }}>
-        <div className="panel">
-          <h2>Inbound receiving</h2>
+        {showLegacyDirectMovements ? (
+          <div className="panel">
+            <h2>Inbound receiving</h2>
           <div className="form-grid">
             <ScannerInput
               label="Scan SKU / barcode"
@@ -553,10 +560,12 @@ export function WarehouseScannerPanel() {
               Receive stock
             </button>
           </p>
-        </div>
+          </div>
+        ) : null}
 
-        <div className="panel">
-          <h2>Bulk receiving import</h2>
+        {showLegacyDirectMovements ? (
+          <div className="panel">
+            <h2>Bulk receiving import</h2>
           <p>
             Paste receiving rows from the shipment worksheet after SKU masters
             have been mapped.
@@ -579,7 +588,8 @@ export function WarehouseScannerPanel() {
               Import receiving rows
             </button>
           </p>
-        </div>
+          </div>
+        ) : null}
 
         <div className="panel">
           <h2>Putaway / bin transfer</h2>
@@ -635,8 +645,9 @@ export function WarehouseScannerPanel() {
           </p>
         </div>
 
-        <div className="panel">
-          <h2>Outbound scan</h2>
+        {showLegacyDirectMovements ? (
+          <div className="panel">
+            <h2>Outbound scan</h2>
           <div className="form-grid">
             <label>
               Order / reference
@@ -677,10 +688,12 @@ export function WarehouseScannerPanel() {
               Dispatch stock
             </button>
           </p>
-        </div>
+          </div>
+        ) : null}
 
-        <div className="panel">
-          <h2>Returns & quarantine</h2>
+        {showLegacyDirectMovements ? (
+          <div className="panel">
+            <h2>Returns & quarantine</h2>
           <div className="form-grid">
             <ScannerInput
               label="Scan returned SKU"
@@ -729,7 +742,8 @@ export function WarehouseScannerPanel() {
               Record movement
             </button>
           </p>
-        </div>
+          </div>
+        ) : null}
 
         <div className="panel">
           <h2>Stock adjustment</h2>
