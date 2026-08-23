@@ -91,6 +91,12 @@ Use separate Preview and Production values. Required production controls include
 
 Preview 与 Production 必须分开配置。Production 至少需要：
 
+Vercel Functions must run in Sydney (`syd1`) so server-side work stays close to the
+Australia-region Supabase project. This is enforced by the repository `vercel.json`.
+
+Vercel Functions 必须运行在 Sydney（`syd1`），以便服务端请求靠近澳洲区 Supabase。
+该要求由仓库内的 `vercel.json` 强制执行。
+
 ```text
 NEXT_PUBLIC_SITE_URL=https://drivemateparts.com.au
 NEXT_PUBLIC_SUPABASE_URL=<production project URL>
