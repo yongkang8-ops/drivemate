@@ -2,15 +2,18 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Barcode, Package, ShieldCheck, Truck } from "@phosphor-icons/react/dist/ssr";
 import { RevealSection } from "../components/RevealSection";
+import { getTradingGate } from "../lib/tradingGate";
 
 const servicePoints = [
   { icon: Barcode, title: "Fitment-led lookup", copy: "Search by approved VIN, Part Number, vehicle or engine. Unverified matches are sent for review." },
   { icon: Package, title: "Brisbane stock", copy: "See released availability after workshop sign-in, with batch-controlled warehouse handling." },
-  { icon: Truck, title: "Workshop delivery", copy: "Build an order, add a job reference and receive carrier tracking after dispatch." },
-  { icon: ShieldCheck, title: "Account records", copy: "Order confirmations, tax invoices, delivery records and statements stay with your account." },
+  { icon: Truck, title: "Workshop workflow", copy: "Keep job references with parts activity and receive carrier tracking once dispatch is available." },
+  { icon: ShieldCheck, title: "Account records", copy: "Order confirmations, invoices, delivery records and statements stay with your account." },
 ];
 
 export default function HomePage() {
+  const tradingEnabled = getTradingGate().enabled;
+
   return (
     <main>
       <section className="public-hero">
@@ -18,7 +21,7 @@ export default function HomePage() {
         <div className="hero-content">
           <p className="eyebrow">Brisbane trade parts supply</p>
           <h1>Parts support built around the workshop job.</h1>
-          <p className="lead">Focused supply for Chinese-brand vehicles in Australia, with reviewed fitment, local stock visibility and trade account ordering.</p>
+          <p className="lead">Focused supply for Chinese-brand vehicles in Australia, with reviewed fitment, local stock visibility and trade account access.</p>
           <form className="hero-search" action="/catalogue">
             <label className="sr-only" htmlFor="parts-search">VIN, Part Number, vehicle or engine</label>
             <input id="parts-search" name="q" placeholder="VIN, Part Number, vehicle or engine" autoComplete="off" />
@@ -53,13 +56,13 @@ export default function HomePage() {
         <ol className="workflow-steps">
           <li><span>01</span><h3>Identify</h3><p>Use an approved VIN or send vehicle details for manual review.</p></li>
           <li><span>02</span><h3>Confirm</h3><p>Review Part Number, fitment summary, released stock and trade price.</p></li>
-          <li><span>03</span><h3>Order</h3><p>Add workshop references and submit against approved account terms.</p></li>
-          <li><span>04</span><h3>Dispatch</h3><p>Receive carrier, tracking, delivery record and tax invoice after pick confirmation.</p></li>
+          <li><span>03</span><h3>{tradingEnabled ? "Order" : "Prepare"}</h3><p>{tradingEnabled ? "Add workshop references and submit against approved account terms." : "Save workshop requirements while live ordering remains closed."}</p></li>
+          <li><span>04</span><h3>{tradingEnabled ? "Dispatch" : "Review"}</h3><p>{tradingEnabled ? "Receive carrier, tracking, delivery record and invoice after pick confirmation." : "Use reviewed fitment and account records to prepare for launch."}</p></li>
         </ol>
       </RevealSection>
 
       <RevealSection className="account-cta page-band" id="open-account">
-        <div><p className="eyebrow">Workshop accounts</p><h2>Set up access for your team.</h2><p>Apply once, then use one workspace for vehicle lookup, ordering and account documents.</p></div>
+        <div><p className="eyebrow">Workshop accounts</p><h2>Set up access for your team.</h2><p>Apply once, then use one workspace for vehicle lookup, account records and {tradingEnabled ? "ordering" : "launch preparation"}.</p></div>
         <div className="cta-actions"><Link className="button button-primary" href="/open-account">Open Trade Account<ArrowRight size={18} /></Link><Link className="button button-secondary" href="/portal">Trade Login</Link></div>
       </RevealSection>
 

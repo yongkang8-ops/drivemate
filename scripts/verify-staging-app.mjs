@@ -61,6 +61,7 @@ const expectedHealthChecks = [
   "document_bucket",
   "business_profile",
   "gst_registration",
+  "trading_mode",
   "site_url",
   "staff_mfa",
   "turnstile",

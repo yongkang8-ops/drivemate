@@ -1,5 +1,6 @@
 import { isDemoRoleHeaderEnabled } from "./auth";
 import { hasConfiguredBusinessProfile } from "./accountDocumentContent";
+import { getTradingGate } from "./tradingGate";
 
 type ReadinessStatus = "pass" | "warn" | "fail";
 
@@ -50,7 +51,7 @@ export function getRuntimeReadiness() {
   const accountDocumentsBucket =
     process.env.SUPABASE_ACCOUNT_DOCUMENTS_BUCKET ?? "account-documents";
   const businessProfileConfigured = hasConfiguredBusinessProfile();
-  const gstRegistered = process.env.DRIVEMATE_GST_REGISTERED === "true";
+  const tradingGate = getTradingGate();
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   const staffMfaRequired = process.env.DRIVEMATE_REQUIRE_STAFF_MFA === "true";
   const turnstileReady = Boolean(
@@ -198,12 +199,27 @@ export function getRuntimeReadiness() {
   addCheck(
     checks,
     "gst_registration",
-    gstRegistered ? "pass" : isProduction ? "fail" : "warn",
-    gstRegistered
+    tradingGate.gstRegistered
+      ? "pass"
+      : tradingGate.mode === "invalid"
+        ? "fail"
+        : "warn",
+    tradingGate.gstRegistered
       ? "GST registration is confirmed for production tax documents."
-      : isProduction
-        ? "Production trading is blocked until GST registration is effective and confirmed on the ABR."
-        : "GST registration is not yet confirmed; preview testing may continue without live sales.",
+      : tradingGate.mode === "invalid"
+        ? "Trading is configured on but GST registration is not confirmed."
+        : "GST registration is not yet confirmed; pre-trade operation may continue without live sales.",
+  );
+
+  addCheck(
+    checks,
+    "trading_mode",
+    tradingGate.mode === "invalid" ? "fail" : "pass",
+    tradingGate.enabled
+      ? "Live trading is enabled with confirmed GST registration."
+      : tradingGate.mode === "pretrade"
+        ? "Pre-trade mode is active; order submission and dispatch are disabled."
+        : tradingGate.message,
   );
 
   const siteUrlReady = isProduction
@@ -300,7 +316,9 @@ export function getRuntimeReadiness() {
     },
     businessProfile: {
       configured: businessProfileConfigured,
-      gstRegistered,
+      gstRegistered: tradingGate.gstRegistered,
+      tradingEnabled: tradingGate.enabled,
+      tradingMode: tradingGate.mode,
     },
     ready: !hasFailures,
     checks,

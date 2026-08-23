@@ -119,7 +119,8 @@ DRIVEMATE_SUPABASE_ENVIRONMENT=production
 DRIVEMATE_LEGAL_NAME=DRIVER MATE PTY LTD
 DRIVEMATE_ABN=66701612768
 DRIVEMATE_ACCOUNTS_EMAIL=<monitored accounts email>
-DRIVEMATE_GST_REGISTERED=true
+DRIVEMATE_GST_REGISTERED=false
+DRIVEMATE_TRADING_ENABLED=false
 ```
 
 Never reuse staging database keys, users, buckets or signing secrets in production.
@@ -146,12 +147,14 @@ Production release remains blocked until all are true:
 
 - Registered legal name, real ABN and monitored accounts email are configured.
 - 已配置注册公司名、真实 ABN 和可监控 accounts email。
-- GST registration is effective on the ABR before GST is charged or a Tax Invoice is issued.
-- 在收取 GST 或开具 Tax Invoice 前，ABR 必须显示 GST 注册已经生效。
+- Pre-trade Production keeps `DRIVEMATE_TRADING_ENABLED=false`; order submission, dispatch and invoice generation remain blocked.
+- Pre-trade Production 保持 `DRIVEMATE_TRADING_ENABLED=false`；订单提交、出库和发票生成保持阻断。
+- Full trading requires both `DRIVEMATE_GST_REGISTERED=true` and `DRIVEMATE_TRADING_ENABLED=true` after ABR confirmation.
+- ABR 确认后，完整交易模式必须同时设置 `DRIVEMATE_GST_REGISTERED=true` 与 `DRIVEMATE_TRADING_ENABLED=true`。
 - `drivemateparts.com.au`, privacy documents and trade terms have been legally reviewed.
 - `drivemateparts.com.au`、隐私文件及 trade terms 已完成法律审核。
-- Production Supabase is separate, backed up and has verified Admin/Warehouse MFA.
-- Production Supabase 独立、已备份，并完成 Admin/Warehouse MFA 验证。
+- Production Supabase is separate and backed up. Pre-trade requires verified Admin MFA; full trading also requires Warehouse MFA.
+- Production Supabase 独立且已备份；Pre-trade 需要完成 Admin MFA，完整交易还需要 Warehouse MFA。
 - Turnstile, import signing, monitoring and storage are configured.
 - Turnstile、import signing、监控和 storage 已配置。
 - `npm run verify:release` passes against the deployed HTTPS environment.

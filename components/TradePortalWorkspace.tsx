@@ -69,7 +69,11 @@ function formatMoney(value: number | undefined) {
   }).format(value / 100);
 }
 
-export function TradePortalWorkspace() {
+export function TradePortalWorkspace({
+  tradingEnabled,
+}: {
+  tradingEnabled: boolean;
+}) {
   const [rego, setRego] = useState("QLD 24ALPHA");
   const [vin, setVin] = useState("LGWFFEA6XRA000245");
   const [query, setQuery] = useState("GWM Cannon Alpha filters");
@@ -82,7 +86,9 @@ export function TradePortalWorkspace() {
   );
   const [poNumber, setPoNumber] = useState("JOB-1842");
   const [message, setMessage] = useState(
-    "Ready to search by rego, VIN or part number.",
+    tradingEnabled
+      ? "Ready to search by rego, VIN or part number."
+      : "Parts lookup is available. Live ordering is not yet open.",
   );
   const [rmaOrderId, setRmaOrderId] = useState("");
   const [rmaReason, setRmaReason] = useState<
@@ -376,8 +382,9 @@ export function TradePortalWorkspace() {
         <div className="panel">
           <h2>Quote / order pad</h2>
           <p>
-            Trade pricing and account terms are shown only after account
-            approval and login.
+            {tradingEnabled
+              ? "Trade pricing and account terms are shown only after account approval and login."
+              : "Use parts lookup and account records while live ordering remains closed."}
           </p>
           <div className="table-shell">
             <table>
@@ -397,8 +404,8 @@ export function TradePortalWorkspace() {
                       <td>{line.sku}</td>
                       <td>{line.name}</td>
                       <td>{line.quantity}</td>
-                      <td>{formatMoney(line.unitPriceExGstCents)} ex GST</td>
-                      <td>{formatMoney(line.lineTotalIncGstCents)} inc GST</td>
+                      <td>{tradingEnabled ? `${formatMoney(line.unitPriceExGstCents)} ex GST` : "Unavailable"}</td>
+                      <td>{tradingEnabled ? `${formatMoney(line.lineTotalIncGstCents)} inc GST` : "Unavailable"}</td>
                     </tr>
                   ))
                 ) : (
@@ -409,7 +416,7 @@ export function TradePortalWorkspace() {
               </tbody>
             </table>
           </div>
-          {orderLines.length ? (
+          {tradingEnabled && orderLines.length ? (
             <p>
               Subtotal {formatMoney(orderSubtotalExGstCents)} ex GST · GST{" "}
               {formatMoney(orderGstCents)} · Total{" "}
@@ -419,11 +426,11 @@ export function TradePortalWorkspace() {
           <p>
             <button
               className="primary-button"
-              disabled={!orderLines.length}
+              disabled={!tradingEnabled || !orderLines.length}
               onClick={submitOrder}
               type="button"
             >
-              Submit order
+              {tradingEnabled ? "Submit order" : "Ordering unavailable"}
             </button>
           </p>
         </div>
@@ -455,15 +462,15 @@ export function TradePortalWorkspace() {
                   <td>{part.name}</td>
                   <td>{part.fitmentConfidence}</td>
                   <td>{part.available}</td>
-                  <td>{formatMoney(part.tradePriceExGstCents)} ex GST</td>
+                  <td>{tradingEnabled ? `${formatMoney(part.tradePriceExGstCents)} ex GST` : "Available when ordering opens"}</td>
                   <td>
                     <button
                       className="primary-button"
-                      disabled={part.available <= 0}
+                      disabled={!tradingEnabled || part.available <= 0}
                       onClick={() => addToOrder(part)}
                       type="button"
                     >
-                      Add
+                      {tradingEnabled ? "Add" : "Closed"}
                     </button>
                   </td>
                 </tr>

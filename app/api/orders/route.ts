@@ -4,8 +4,15 @@ import { can } from "../../../lib/auth";
 import { getRequestContext } from "../../../lib/serverAuth";
 import { createOrderSchema } from "../../../lib/validators";
 import { mutationRequestAllowed } from "../../../lib/requestSecurity";
+import {
+  getTradingGate,
+  tradingDisabledPayload,
+} from "../../../lib/tradingGate";
 
 export async function POST(request: Request) {
+  if (!getTradingGate().enabled) {
+    return NextResponse.json(tradingDisabledPayload(), { status: 503 });
+  }
   if (!mutationRequestAllowed(request)) {
     return NextResponse.json({ ok: false, message: "Request security validation failed." }, { status: 403 });
   }

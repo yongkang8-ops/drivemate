@@ -11,12 +11,16 @@ const requiredEnv = [
   "DRIVEMATE_ABN",
   "DRIVEMATE_ACCOUNTS_EMAIL",
   "DRIVEMATE_GST_REGISTERED",
+  "DRIVEMATE_TRADING_ENABLED",
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
   "SUPABASE_SERVICE_ROLE_KEY",
   "DRIVEMATE_IMPORT_SIGNING_SECRET",
   "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
   "TURNSTILE_SECRET_KEY",
+];
+
+const tradingSmokeTokenEnv = [
   "DRIVEMATE_SMOKE_TRADE_TOKEN",
   "DRIVEMATE_SMOKE_WAREHOUSE_TOKEN",
   "DRIVEMATE_SMOKE_ADMIN_TOKEN",
@@ -91,7 +95,13 @@ function looksPlaceholder(value) {
 }
 
 function checkEnvironment() {
+  const tradingEnabled = process.env.DRIVEMATE_TRADING_ENABLED === "true";
   const missing = requiredEnv.filter((key) => !process.env[key]?.trim());
+  if (tradingEnabled) {
+    missing.push(
+      ...tradingSmokeTokenEnv.filter((key) => !process.env[key]?.trim()),
+    );
+  }
   for (const key of missing)
     fail(`${key} is required for release readiness verification.`);
 
@@ -119,9 +129,16 @@ function checkEnvironment() {
       "NEXT_PUBLIC_SITE_URL must be a real public site URL, not localhost or a placeholder.",
     );
   }
-  if (process.env.DRIVEMATE_GST_REGISTERED !== "true") {
+  if (
+    !["true", "false"].includes(
+      process.env.DRIVEMATE_TRADING_ENABLED ?? "",
+    )
+  ) {
+    fail("DRIVEMATE_TRADING_ENABLED must be explicitly true or false.");
+  }
+  if (tradingEnabled && process.env.DRIVEMATE_GST_REGISTERED !== "true") {
     fail(
-      "DRIVEMATE_GST_REGISTERED must be true after the effective GST registration is confirmed on the ABR.",
+      "Live trading requires effective GST registration confirmed on the ABR.",
     );
   }
   if (siteUrl && !siteUrl.startsWith("https://")) {
@@ -198,13 +215,16 @@ checkEnvironment();
 
 const strictEnv = {
   ...process.env,
-  REQUIRE_SUPABASE_USERS: "true",
+  REQUIRE_SUPABASE_USERS:
+    process.env.DRIVEMATE_TRADING_ENABLED === "true" ? "true" : "false",
   REQUIRE_SUPABASE_STORAGE: "true",
   DRIVEMATE_SMOKE_USE_DEMO_HEADERS: "false",
-  DRIVEMATE_SMOKE_WRITE_CHECK: "true",
-  DRIVEMATE_SMOKE_E2E_CHECK: "true",
-  DRIVEMATE_SMOKE_MASTERDATA_CHECK: "true",
-  DRIVEMATE_SMOKE_ACCOUNT_PROVISION_CHECK: "true",
+  DRIVEMATE_SMOKE_WRITE_CHECK:
+    process.env.DRIVEMATE_TRADING_ENABLED === "true" ? "true" : "false",
+  DRIVEMATE_SMOKE_E2E_CHECK:
+    process.env.DRIVEMATE_TRADING_ENABLED === "true" ? "true" : "false",
+  DRIVEMATE_SMOKE_MASTERDATA_CHECK: "false",
+  DRIVEMATE_SMOKE_ACCOUNT_PROVISION_CHECK: "false",
 };
 
 console.log("== Supabase strict readiness ==");

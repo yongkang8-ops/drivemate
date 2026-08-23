@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { getRuntimeReadiness } from "../lib/runtimeReadiness";
 
 const originalEnvironment = { ...process.env };
@@ -60,6 +60,7 @@ describe("runtime release gates", () => {
   it("requires the real domain and production data markers for Vercel Production", () => {
     configureHostedPreview();
     process.env.VERCEL_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     process.env.DRIVEMATE_REQUIRE_STAFF_MFA = "true";
     process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY = "site-test";
     process.env.TURNSTILE_SECRET_KEY = "secret-test";
@@ -79,9 +80,10 @@ describe("runtime release gates", () => {
     ).toContain("production");
   });
 
-  it("blocks production trading until GST registration is confirmed", () => {
+  it("allows pre-trade production while blocking an invalid trading configuration", () => {
     configureHostedPreview();
     process.env.VERCEL_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     process.env.NEXT_PUBLIC_SITE_URL = "https://drivemateparts.com.au";
     process.env.DRIVEMATE_REQUIRE_STAFF_MFA = "true";
     process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY = "site-live";
@@ -94,18 +96,33 @@ describe("runtime release gates", () => {
     process.env.DRIVEMATE_ABN = "66701612768";
     process.env.DRIVEMATE_ACCOUNTS_EMAIL = "accounts@drivemateparts.com.au";
     process.env.DRIVEMATE_GST_REGISTERED = "false";
+    process.env.DRIVEMATE_TRADING_ENABLED = "false";
 
-    const blocked = getRuntimeReadiness();
-    expect(blocked.ready).toBe(false);
+    const pretrade = getRuntimeReadiness();
     expect(
-      blocked.checks.find((check) => check.name === "gst_registration")
+      pretrade.checks.filter((check) => check.status === "fail"),
+    ).toEqual([]);
+    expect(pretrade.ready).toBe(true);
+    expect(
+      pretrade.checks.find((check) => check.name === "gst_registration")
         ?.status,
+    ).toBe("warn");
+    expect(
+      pretrade.checks.find((check) => check.name === "trading_mode")?.status,
+    ).toBe("pass");
+
+    process.env.DRIVEMATE_TRADING_ENABLED = "true";
+    const invalid = getRuntimeReadiness();
+    expect(invalid.ready).toBe(false);
+    expect(
+      invalid.checks.find((check) => check.name === "trading_mode")?.status,
     ).toBe("fail");
 
     process.env.DRIVEMATE_GST_REGISTERED = "true";
-    const registered = getRuntimeReadiness();
+    const trading = getRuntimeReadiness();
+    expect(trading.ready).toBe(true);
     expect(
-      registered.checks.find((check) => check.name === "gst_registration")
+      trading.checks.find((check) => check.name === "gst_registration")
         ?.status,
     ).toBe("pass");
   });
