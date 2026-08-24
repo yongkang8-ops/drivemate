@@ -23,7 +23,7 @@ export default function HomePage() {
   return (
     <main>
       <section className="public-hero">
-        <Image src="/assets/brisbane-dispatch-hero.webp" alt="DriveMate warehouse dispatch preparation in Brisbane" fill priority sizes="100vw" quality={72} />
+        <Image src="/assets/brisbane-dispatch-hero-v2.webp" alt="DriveMate warehouse worker scanning and packing automotive parts in Brisbane" fill priority sizes="100vw" quality={72} />
         <div className="hero-content">
           <p className="eyebrow">Brisbane trade parts supply</p>
           <h1>Parts support built around the workshop job.</h1>
