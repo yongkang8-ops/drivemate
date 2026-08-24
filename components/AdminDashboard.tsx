@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { buildApiHeaders } from "../lib/clientAuth";
 
 type AdminState = {
@@ -181,12 +181,12 @@ function formatMoney(value: number | undefined) {
 export function AdminDashboard() {
   const [state, setState] = useState<AdminState>(emptyState);
   const [message, setMessage] = useState("Loading operating state.");
-  const [masterSku, setMasterSku] = useState("DM-GWM-OF-001");
-  const [masterBarcode, setMasterBarcode] = useState("DMPGWMOF001");
-  const [masterOemPartNumber, setMasterOemPartNumber] = useState("GWM-OEM-OF-001");
-  const [masterReorderPoint, setMasterReorderPoint] = useState("12");
-  const [masterReorderQuantity, setMasterReorderQuantity] = useState("48");
-  const [masterStatus, setMasterStatus] = useState<"active" | "draft" | "paused">("active");
+  const [masterSku, setMasterSku] = useState("");
+  const [masterBarcode, setMasterBarcode] = useState("");
+  const [masterOemPartNumber, setMasterOemPartNumber] = useState("");
+  const [masterReorderPoint, setMasterReorderPoint] = useState("0");
+  const [masterReorderQuantity, setMasterReorderQuantity] = useState("0");
+  const [masterStatus, setMasterStatus] = useState<"active" | "draft" | "paused">("draft");
   const [newSku, setNewSku] = useState("");
   const [newBrand, setNewBrand] = useState<"GWM" | "BYD" | "MG">("GWM");
   const [newName, setNewName] = useState("");
@@ -196,7 +196,7 @@ export function AdminDashboard() {
   const [newReorderPoint, setNewReorderPoint] = useState("0");
   const [newReorderQuantity, setNewReorderQuantity] = useState("0");
   const [newStatus, setNewStatus] = useState<"active" | "draft" | "paused">("draft");
-  const [fitmentSku, setFitmentSku] = useState("DM-GWM-OF-001");
+  const [fitmentSku, setFitmentSku] = useState("");
   const [fitmentMake, setFitmentMake] = useState("GWM");
   const [fitmentModel, setFitmentModel] = useState("Cannon Alpha");
   const [fitmentYearFrom, setFitmentYearFrom] = useState("2024");
@@ -209,6 +209,7 @@ export function AdminDashboard() {
   const [bulkFitmentCsv, setBulkFitmentCsv] = useState(
     "sku,make,model,yearFrom,yearTo,engine,confidence\nDM-GWM-NEW-099,GWM,Cannon Alpha,2024,,GW4D24,confirm_vin",
   );
+  const masterInitialized = useRef(false);
 
   function loadProductMaster(row: AdminState["catalogue"][number]) {
     setMasterSku(row.sku);
@@ -226,7 +227,13 @@ export function AdminDashboard() {
       return;
     }
 
-    setState((await response.json()) as AdminState);
+    const nextState = (await response.json()) as AdminState;
+    setState(nextState);
+    if (!masterInitialized.current && nextState.catalogue[0]) {
+      loadProductMaster(nextState.catalogue[0]);
+      setFitmentSku(nextState.catalogue[0].sku);
+      masterInitialized.current = true;
+    }
     setMessage("Operating state refreshed.");
   }
 
