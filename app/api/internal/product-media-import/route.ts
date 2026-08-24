@@ -7,6 +7,7 @@ type MediaMetadata = {
   mediaType: "main_image" | "label_evidence";
   sourceRow: number;
   originalFilename: string;
+  sourceSha256?: string;
   sha256: string;
   byteSize: number;
   width: number;
@@ -28,7 +29,8 @@ function parseMetadata(value: string | null): MediaMetadata | null {
     if (!['main_image', 'label_evidence'].includes(parsed.mediaType)) return null;
     if (![parsed.sourceRow, parsed.byteSize, parsed.width, parsed.height].every((item) => Number.isInteger(item) && item > 0)) return null;
     if (!/^[a-f0-9]{64}$/i.test(parsed.sha256 ?? "")) return null;
-    if (typeof parsed.originalFilename !== "string" || !parsed.originalFilename.endsWith(parsed.mediaType === "main_image" ? ".png" : ".png")) return null;
+    if (parsed.sourceSha256 !== undefined && !/^[a-f0-9]{64}$/i.test(parsed.sourceSha256)) return null;
+    if (typeof parsed.originalFilename !== "string" || !/\.(png|jpe?g)$/i.test(parsed.originalFilename)) return null;
     return parsed as MediaMetadata;
   } catch {
     return null;
@@ -89,6 +91,7 @@ export async function POST(request: Request) {
       width: metadata.width,
       height: metadata.height,
       sha256: metadata.sha256,
+      source_sha256: metadata.sourceSha256 ?? metadata.sha256,
       original_filename: metadata.originalFilename,
       source_row: metadata.sourceRow,
       part_number: metadata.pn,

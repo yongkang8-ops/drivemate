@@ -1,13 +1,12 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile, copyFile, stat } from "node:fs/promises";
+import { mkdir, readFile, writeFile, stat } from "node:fs/promises";
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
 import process from "node:process";
 import sharp from "sharp";
 
-const PRODUCT_SUFFIX = "_产品图片.png";
-const LABEL_SUFFIX = "_标签图片.png";
+const MEDIA_FILENAME = /^(?<pn>[^_]+)_.+?_(?<kind>产品图片|标签图片)\.(?<extension>png|jpe?g)$/i;
 const execAsync = promisify(exec);
 
 function argument(name, fallback) {
@@ -52,21 +51,16 @@ async function sha256(filePath) {
   return createHash("sha256").update(await readFile(filePath)).digest("hex");
 }
 
-function relativePartNumber(name, suffix) {
-  return name.endsWith(suffix) ? name.slice(0, -suffix.length).split("_")[0] : null;
-}
-
 async function loadMedia(sourceDirectory) {
   const entries = await (await import("node:fs/promises")).readdir(sourceDirectory, { withFileTypes: true });
   const grouped = new Map();
   for (const entry of entries) {
-    if (!entry.isFile() || !entry.name.endsWith(".png")) continue;
-    const productPn = relativePartNumber(entry.name, PRODUCT_SUFFIX);
-    const labelPn = relativePartNumber(entry.name, LABEL_SUFFIX);
-    const pn = productPn ?? labelPn;
-    if (!pn) continue;
+    if (!entry.isFile()) continue;
+    const match = entry.name.match(MEDIA_FILENAME);
+    if (!match?.groups) continue;
+    const { pn, kind } = match.groups;
     const record = grouped.get(pn) ?? { pn };
-    record[productPn ? "product" : "label"] = path.join(sourceDirectory, entry.name);
+    record[kind === "产品图片" ? "product" : "label"] = path.join(sourceDirectory, entry.name);
     grouped.set(pn, record);
   }
   return grouped;
@@ -97,8 +91,10 @@ async function prepare({ sourceDirectory, piPath, outputDirectory }) {
     const labelDirectory = path.join(outputDirectory, "product-evidence", item.pn);
     await mkdir(labelDirectory, { recursive: true });
     const labelPath = path.join(labelDirectory, "label.png");
-    await copyFile(pair.label, labelPath);
-    const labelMeta = await sharp(pair.label).metadata();
+    const labelInfo = await sharp(pair.label)
+      .rotate()
+      .png()
+      .toFile(labelPath);
     matched.push({
       pn: item.pn,
       source_row: item.source_row,
@@ -116,9 +112,10 @@ async function prepare({ sourceDirectory, piPath, outputDirectory }) {
         source_file: path.basename(pair.label),
         source_sha256: await sha256(pair.label),
         prepared_file: path.relative(outputDirectory, labelPath).replaceAll("\\", "/"),
+        prepared_sha256: await sha256(labelPath),
         bytes: (await stat(labelPath)).size,
-        width: labelMeta.width,
-        height: labelMeta.height,
+        width: labelInfo.width,
+        height: labelInfo.height,
       },
     });
   }
@@ -147,12 +144,20 @@ async function upload({ manifestPath }) {
   const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
   const outputDirectory = path.dirname(manifestPath);
   const limit = Number(argument("limit", "0"));
-  const items = Number.isInteger(limit) && limit > 0 ? manifest.items.slice(0, limit) : manifest.items;
+  const partNumber = argument("part-number");
+  let items = partNumber
+    ? manifest.items.filter((item) => item.pn === partNumber.toUpperCase())
+    : manifest.items;
+  if (partNumber && !items.length) throw new Error(`Part Number ${partNumber} is not present in the media manifest.`);
+  if (Number.isInteger(limit) && limit > 0) items = items.slice(0, limit);
   const report = { uploaded_at: new Date().toISOString(), matched: [], missing: manifest.missing };
+  const reportName = partNumber
+    ? `product-media-upload-report-${partNumber.toUpperCase()}.json`
+    : "product-media-upload-report.json";
   for (const item of items) {
     for (const media of [
-      { mediaType: "main_image", contentType: "image/webp", file: item.product.prepared_file, originalFilename: item.product.source_file, sha256: item.product.prepared_sha256, byteSize: item.product.bytes, width: item.product.width, height: item.product.height },
-      { mediaType: "label_evidence", contentType: "image/png", file: item.label.prepared_file, originalFilename: item.label.source_file, sha256: item.label.source_sha256, byteSize: item.label.bytes, width: item.label.width, height: item.label.height },
+      { mediaType: "main_image", contentType: "image/webp", file: item.product.prepared_file, originalFilename: item.product.source_file, sourceSha256: item.product.source_sha256, sha256: item.product.prepared_sha256, byteSize: item.product.bytes, width: item.product.width, height: item.product.height },
+      { mediaType: "label_evidence", contentType: "image/png", file: item.label.prepared_file, originalFilename: item.label.source_file, sourceSha256: item.label.source_sha256, sha256: item.label.prepared_sha256, byteSize: item.label.bytes, width: item.label.width, height: item.label.height },
     ]) {
       const metadata = Buffer.from(JSON.stringify({ pn: item.pn, sourceRow: item.source_row, ...media })).toString("base64url");
       const payload = await postThroughVercel({
@@ -160,10 +165,10 @@ async function upload({ manifestPath }) {
       });
       if (!payload.ok) throw new Error(`Upload failed for ${item.pn}/${media.mediaType}: ${payload.message ?? "unknown error"}`);
       report.matched.push(payload);
-      await writeFile(path.join(outputDirectory, "product-media-upload-report.json"), `${JSON.stringify(report, null, 2)}\n`);
+      await writeFile(path.join(outputDirectory, reportName), `${JSON.stringify(report, null, 2)}\n`);
     }
   }
-  await writeFile(path.join(outputDirectory, "product-media-upload-report.json"), `${JSON.stringify(report, null, 2)}\n`);
+  await writeFile(path.join(outputDirectory, reportName), `${JSON.stringify(report, null, 2)}\n`);
   return report;
 }
 
