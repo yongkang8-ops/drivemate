@@ -137,8 +137,10 @@ async function upload({ manifestPath }) {
   const scope = argument("scope", "yongkang-lis-projects");
   const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
   const outputDirectory = path.dirname(manifestPath);
+  const limit = Number(argument("limit", "0"));
+  const items = Number.isInteger(limit) && limit > 0 ? manifest.items.slice(0, limit) : manifest.items;
   const report = { uploaded_at: new Date().toISOString(), matched: [], missing: manifest.missing };
-  for (const item of manifest.items) {
+  for (const item of items) {
     for (const media of [
       { mediaType: "main_image", contentType: "image/webp", file: item.product.prepared_file, originalFilename: item.product.source_file, sha256: item.product.prepared_sha256, byteSize: item.product.bytes, width: item.product.width, height: item.product.height },
       { mediaType: "label_evidence", contentType: "image/png", file: item.label.prepared_file, originalFilename: item.label.source_file, sha256: item.label.source_sha256, byteSize: item.label.bytes, width: item.label.width, height: item.label.height },
