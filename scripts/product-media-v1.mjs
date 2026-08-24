@@ -20,16 +20,23 @@ function required(value, message) {
   return value;
 }
 
-async function resolveVercelBypassToken(endpoint) {
-  const scope = argument("scope", "yongkang-lis-projects");
-  const { stdout, stderr } = await execAsync(`npx vercel --debug curl ${endpoint}/api/health --scope ${scope}`, {
-    cwd: process.cwd(),
-    maxBuffer: 1024 * 1024,
-    windowsHide: true,
-  });
-  const match = `${stdout}\n${stderr}`.match(/Using existing protection bypass token from project settings:\s*([^\s]+)/);
-  if (!match) throw new Error("Unable to obtain a local Vercel deployment-protection bypass token.");
-  return match[1];
+function quoteShell(value) {
+  return `"${String(value).replaceAll('"', '\\"')}"`;
+}
+
+async function postThroughVercel({ endpoint, scope, importToken, metadata, contentType, filePath }) {
+  const url = `${endpoint}/api/internal/product-media-import`;
+  const command = [
+    "npx vercel curl", quoteShell(url), "--scope", quoteShell(scope), "-X", "POST",
+    "-H", quoteShell(`content-type: ${contentType}`),
+    "-H", quoteShell(`x-drivemate-media-import-token: ${importToken}`),
+    "-H", quoteShell(`x-drivemate-media-metadata: ${metadata}`),
+    "--data-binary", quoteShell(`@${filePath}`),
+  ].join(" ");
+  const { stdout, stderr } = await execAsync(command, { cwd: process.cwd(), maxBuffer: 1024 * 1024, windowsHide: true });
+  const matches = `${stdout}\n${stderr}`.match(/\{"ok":(?:true|false),[^\r\n]*\}/g);
+  if (!matches?.length) throw new Error("Media import endpoint returned no JSON response.");
+  return JSON.parse(matches.at(-1));
 }
 
 async function sha256(filePath) {
@@ -127,7 +134,7 @@ async function prepare({ sourceDirectory, piPath, outputDirectory }) {
 async function upload({ manifestPath }) {
   const endpoint = required(argument("endpoint"), "--endpoint is required").replace(/\/$/, "");
   const importToken = required(process.env.DRIVEMATE_MEDIA_IMPORT_TOKEN, "DRIVEMATE_MEDIA_IMPORT_TOKEN is required");
-  const vercelBypassToken = await resolveVercelBypassToken(endpoint);
+  const scope = argument("scope", "yongkang-lis-projects");
   const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
   const outputDirectory = path.dirname(manifestPath);
   const report = { uploaded_at: new Date().toISOString(), matched: [], missing: manifest.missing };
@@ -137,18 +144,10 @@ async function upload({ manifestPath }) {
       { mediaType: "label_evidence", contentType: "image/png", file: item.label.prepared_file, originalFilename: item.label.source_file, sha256: item.label.source_sha256, byteSize: item.label.bytes, width: item.label.width, height: item.label.height },
     ]) {
       const metadata = Buffer.from(JSON.stringify({ pn: item.pn, sourceRow: item.source_row, ...media })).toString("base64url");
-      const response = await fetch(`${endpoint}/api/internal/product-media-import`, {
-        method: "POST",
-        headers: {
-          "content-type": media.contentType,
-          "x-vercel-protection-bypass": vercelBypassToken,
-          "x-drivemate-media-import-token": importToken,
-          "x-drivemate-media-metadata": metadata,
-        },
-        body: await readFile(path.join(outputDirectory, media.file)),
+      const payload = await postThroughVercel({
+        endpoint, scope, importToken, metadata, contentType: media.contentType, filePath: path.join(outputDirectory, media.file),
       });
-      const payload = await response.json();
-      if (!response.ok || !payload.ok) throw new Error(`Upload failed for ${item.pn}/${media.mediaType}: ${payload.message ?? response.status}`);
+      if (!payload.ok) throw new Error(`Upload failed for ${item.pn}/${media.mediaType}: ${payload.message ?? "unknown error"}`);
       report.matched.push(payload);
     }
   }
