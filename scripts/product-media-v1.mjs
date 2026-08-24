@@ -33,10 +33,19 @@ async function postThroughVercel({ endpoint, scope, importToken, metadata, conte
     "-H", quoteShell(`x-drivemate-media-metadata: ${metadata}`),
     "--data-binary", quoteShell(`@${filePath}`),
   ].join(" ");
-  const { stdout, stderr } = await execAsync(command, { cwd: process.cwd(), maxBuffer: 1024 * 1024, windowsHide: true });
-  const matches = `${stdout}\n${stderr}`.match(/\{"ok":(?:true|false),[^\r\n]*\}/g);
-  if (!matches?.length) throw new Error("Media import endpoint returned no JSON response.");
-  return JSON.parse(matches.at(-1));
+  let lastError;
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    try {
+      const { stdout, stderr } = await execAsync(command, { cwd: process.cwd(), maxBuffer: 1024 * 1024, windowsHide: true });
+      const matches = `${stdout}\n${stderr}`.match(/\{"ok":(?:true|false),[^\r\n]*\}/g);
+      if (!matches?.length) throw new Error("Media import endpoint returned no JSON response.");
+      return JSON.parse(matches.at(-1));
+    } catch (error) {
+      lastError = error;
+      if (attempt < 4) await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
+    }
+  }
+  throw new Error(`Vercel media upload request failed after 4 attempts (${lastError?.code ?? "unknown"}).`);
 }
 
 async function sha256(filePath) {
@@ -151,6 +160,7 @@ async function upload({ manifestPath }) {
       });
       if (!payload.ok) throw new Error(`Upload failed for ${item.pn}/${media.mediaType}: ${payload.message ?? "unknown error"}`);
       report.matched.push(payload);
+      await writeFile(path.join(outputDirectory, "product-media-upload-report.json"), `${JSON.stringify(report, null, 2)}\n`);
     }
   }
   await writeFile(path.join(outputDirectory, "product-media-upload-report.json"), `${JSON.stringify(report, null, 2)}\n`);
