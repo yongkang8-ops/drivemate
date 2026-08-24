@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile, copyFile, stat } from "node:fs/promises";
-import { execFile } from "node:child_process";
+import { exec } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
 import process from "node:process";
@@ -8,7 +8,7 @@ import sharp from "sharp";
 
 const PRODUCT_SUFFIX = "_产品图片.png";
 const LABEL_SUFFIX = "_标签图片.png";
-const execFileAsync = promisify(execFile);
+const execAsync = promisify(exec);
 
 function argument(name, fallback) {
   const index = process.argv.indexOf(`--${name}`);
@@ -21,8 +21,8 @@ function required(value, message) {
 }
 
 async function resolveVercelBypassToken(endpoint) {
-  const executable = process.platform === "win32" ? "npx.cmd" : "npx";
-  const { stdout, stderr } = await execFileAsync(executable, ["vercel", "curl", `${endpoint}/api/health`, "--scope", argument("scope", "yongkang-lis-projects"), "--debug"], {
+  const scope = argument("scope", "yongkang-lis-projects");
+  const { stdout, stderr } = await execAsync(`npx vercel curl ${endpoint}/api/health --scope ${scope} --debug`, {
     cwd: process.cwd(),
     maxBuffer: 1024 * 1024,
     windowsHide: true,
