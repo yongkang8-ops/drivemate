@@ -22,7 +22,7 @@ function required(value, message) {
 
 async function resolveVercelBypassToken(endpoint) {
   const scope = argument("scope", "yongkang-lis-projects");
-  const { stdout, stderr } = await execAsync(`npx vercel curl ${endpoint}/api/health --scope ${scope} --debug`, {
+  const { stdout, stderr } = await execAsync(`npx vercel --debug curl ${endpoint}/api/health --scope ${scope}`, {
     cwd: process.cwd(),
     maxBuffer: 1024 * 1024,
     windowsHide: true,
