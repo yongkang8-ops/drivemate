@@ -1,11 +1,14 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile, copyFile, stat } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import path from "node:path";
 import process from "node:process";
 import sharp from "sharp";
 
 const PRODUCT_SUFFIX = "_产品图片.png";
 const LABEL_SUFFIX = "_标签图片.png";
+const execFileAsync = promisify(execFile);
 
 function argument(name, fallback) {
   const index = process.argv.indexOf(`--${name}`);
@@ -15,6 +18,18 @@ function argument(name, fallback) {
 function required(value, message) {
   if (!value) throw new Error(message);
   return value;
+}
+
+async function resolveVercelBypassToken(endpoint) {
+  const executable = process.platform === "win32" ? "npx.cmd" : "npx";
+  const { stdout, stderr } = await execFileAsync(executable, ["vercel", "curl", `${endpoint}/api/health`, "--scope", argument("scope", "yongkang-lis-projects"), "--debug"], {
+    cwd: process.cwd(),
+    maxBuffer: 1024 * 1024,
+    windowsHide: true,
+  });
+  const match = `${stdout}\n${stderr}`.match(/Using existing protection bypass token from project settings:\s*([^\s]+)/);
+  if (!match) throw new Error("Unable to obtain a local Vercel deployment-protection bypass token.");
+  return match[1];
 }
 
 async function sha256(filePath) {
@@ -112,6 +127,7 @@ async function prepare({ sourceDirectory, piPath, outputDirectory }) {
 async function upload({ manifestPath }) {
   const endpoint = required(argument("endpoint"), "--endpoint is required").replace(/\/$/, "");
   const importToken = required(process.env.DRIVEMATE_MEDIA_IMPORT_TOKEN, "DRIVEMATE_MEDIA_IMPORT_TOKEN is required");
+  const vercelBypassToken = await resolveVercelBypassToken(endpoint);
   const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
   const outputDirectory = path.dirname(manifestPath);
   const report = { uploaded_at: new Date().toISOString(), matched: [], missing: manifest.missing };
@@ -125,6 +141,7 @@ async function upload({ manifestPath }) {
         method: "POST",
         headers: {
           "content-type": media.contentType,
+          "x-vercel-protection-bypass": vercelBypassToken,
           "x-drivemate-media-import-token": importToken,
           "x-drivemate-media-metadata": metadata,
         },
