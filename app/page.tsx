@@ -11,10 +11,10 @@ const servicePoints = [
   { icon: ShieldCheck, title: "Account records", copy: "Order confirmations, invoices, delivery records and statements stay with your account." },
 ];
 
-const referenceParts = [
-  { src: "/assets/real-parts/oil-filter-main.webp", alt: "Engine oil filter photographed for DriveMate product reference", label: "Engine service" },
-  { src: "/assets/real-parts/air-filter-main.webp", alt: "Air filter photographed for DriveMate product reference", label: "Air intake" },
-  { src: "/assets/real-parts/fuel-filter-main.webp", alt: "Fuel filter photographed for DriveMate product reference", label: "Fuel system" },
+const coverageReferenceParts = [
+  { src: "/assets/real-parts/water-pump-main.webp", alt: "Water pump from the initial DriveMate GWM purchase range" },
+  { src: "/assets/real-parts/transmission-pan-main.webp", alt: "Transmission pan from the initial DriveMate GWM purchase range" },
+  { src: "/assets/real-parts/engine-mount-main.webp", alt: "Engine mount from the initial DriveMate GWM purchase range" },
 ];
 
 export default function HomePage() {
@@ -23,26 +23,17 @@ export default function HomePage() {
   return (
     <main>
       <section className="public-hero">
-        <div className="hero-grid">
-          <div className="hero-content">
-            <p className="eyebrow">Brisbane trade parts supply</p>
-            <h1>Parts support built around the workshop job.</h1>
-            <p className="lead">Focused supply for Chinese-brand vehicles in Australia, with reviewed fitment, local stock visibility and trade account access.</p>
-            <form className="hero-search" action="/catalogue">
-              <label className="sr-only" htmlFor="parts-search">VIN, Part Number, vehicle or engine</label>
-              <input id="parts-search" name="q" placeholder="VIN, Part Number, vehicle or engine" autoComplete="off" />
-              <button className="button button-primary" type="submit">Search catalogue<ArrowRight size={18} weight="bold" /></button>
-            </form>
-            <p className="hero-note">Rego can be saved as a workshop job reference. Automatic Rego decoding is not currently offered.</p>
-          </div>
-          <div className="hero-product-stage" aria-label="Reference parts photography">
-            {referenceParts.map(({ src, alt, label }, index) => (
-              <figure className={index === 0 ? "hero-product-image hero-product-primary" : "hero-product-image"} key={src}>
-                <Image src={src} alt={alt} fill priority={index === 0} sizes="(max-width: 700px) 50vw, 28vw" quality={75} />
-                <figcaption>{label}</figcaption>
-              </figure>
-            ))}
-          </div>
+        <Image src="/assets/brisbane-dispatch-hero.webp" alt="DriveMate warehouse dispatch preparation in Brisbane" fill priority sizes="100vw" quality={72} />
+        <div className="hero-content">
+          <p className="eyebrow">Brisbane trade parts supply</p>
+          <h1>Parts support built around the workshop job.</h1>
+          <p className="lead">Focused supply for Chinese-brand vehicles in Australia, with reviewed fitment, local stock visibility and trade account access.</p>
+          <form className="hero-search" action="/catalogue">
+            <label className="sr-only" htmlFor="parts-search">VIN, Part Number, vehicle or engine</label>
+            <input id="parts-search" name="q" placeholder="VIN, Part Number, vehicle or engine" autoComplete="off" />
+            <button className="button button-primary" type="submit">Search catalogue<ArrowRight size={18} weight="bold" /></button>
+          </form>
+          <p className="hero-note">Rego can be saved as a workshop job reference. Automatic Rego decoding is not currently offered.</p>
         </div>
       </section>
 
@@ -59,11 +50,15 @@ export default function HomePage() {
           <p>Initial coverage spans Cannon Alpha, Cannon, Haval H6, Haval Jolion and Tank 300 service, engine and chassis requirements. Every item remains hidden from ordering until fitment, compliance, price and stock gates are complete.</p>
           <Link className="text-link" href="/catalogue">Browse released catalogue <ArrowRight size={17} /></Link>
         </div>
-        <div className="parts-rail" aria-label="Common parts categories">
-          {referenceParts.map(({ src, label }) => (
-            <figure key={label}><Image src={src} alt={label} width={320} height={220} /><figcaption>{label}</figcaption></figure>
+        <aside className="coverage-showcase" aria-label="Initial GWM purchase range reference photography">
+          <header><span>Initial GWM range</span><span>Reference imagery</span></header>
+          {coverageReferenceParts.map(({ src, alt }, index) => (
+            <figure className={index === 0 ? "coverage-photo coverage-photo-primary" : "coverage-photo"} key={src}>
+              <Image src={src} alt={alt} fill sizes="(max-width: 1040px) 90vw, 32vw" quality={75} />
+            </figure>
           ))}
-        </div>
+          <footer>Service, engine and chassis components from the initial purchase range.</footer>
+        </aside>
       </RevealSection>
 
       <RevealSection className="workflow-band page-band" id="delivery">
