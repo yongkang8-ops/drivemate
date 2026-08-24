@@ -10,11 +10,15 @@ type CatalogueProduct = {
   imageUrl?: string; fitment?: string; availability: "Available" | "Enquire"; availableStock?: number; tradePriceExGstCents?: number;
 };
 
-const categoryImage: Record<string, string> = { filter: "/assets/oil-filter.png", air: "/assets/air-filter.png", fuel: "/assets/fuel-filter.png", wiper: "/assets/wiper-set.png" };
+const categoryImage: Record<string, string> = {
+  filter: "/assets/real-parts/oil-filter-main.webp",
+  air: "/assets/real-parts/air-filter-main.webp",
+  fuel: "/assets/real-parts/fuel-filter-main.webp",
+};
 function imageFor(product: CatalogueProduct) {
   if (product.imageUrl) return product.imageUrl;
   const value = `${product.name} ${product.category}`.toLowerCase();
-  return Object.entries(categoryImage).find(([keyword]) => value.includes(keyword))?.[1] ?? "/assets/clip-kit.png";
+  return Object.entries(categoryImage).find(([keyword]) => value.includes(keyword))?.[1] ?? "/assets/real-parts/oil-filter-main.webp";
 }
 
 export function CatalogueBrowser({ initialQuery }: { initialQuery: string }) {

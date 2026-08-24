@@ -11,23 +11,38 @@ const servicePoints = [
   { icon: ShieldCheck, title: "Account records", copy: "Order confirmations, invoices, delivery records and statements stay with your account." },
 ];
 
+const referenceParts = [
+  { src: "/assets/real-parts/oil-filter-main.webp", alt: "Engine oil filter photographed for DriveMate product reference", label: "Engine service" },
+  { src: "/assets/real-parts/air-filter-main.webp", alt: "Air filter photographed for DriveMate product reference", label: "Air intake" },
+  { src: "/assets/real-parts/fuel-filter-main.webp", alt: "Fuel filter photographed for DriveMate product reference", label: "Fuel system" },
+];
+
 export default function HomePage() {
   const tradingEnabled = getTradingGate().enabled;
 
   return (
     <main>
       <section className="public-hero">
-        <Image src="/assets/brisbane-dispatch-hero.webp" alt="DriveMate warehouse dispatch preparation in Brisbane" fill priority sizes="100vw" quality={72} />
-        <div className="hero-content">
-          <p className="eyebrow">Brisbane trade parts supply</p>
-          <h1>Parts support built around the workshop job.</h1>
-          <p className="lead">Focused supply for Chinese-brand vehicles in Australia, with reviewed fitment, local stock visibility and trade account access.</p>
-          <form className="hero-search" action="/catalogue">
-            <label className="sr-only" htmlFor="parts-search">VIN, Part Number, vehicle or engine</label>
-            <input id="parts-search" name="q" placeholder="VIN, Part Number, vehicle or engine" autoComplete="off" />
-            <button className="button button-primary" type="submit">Search catalogue<ArrowRight size={18} weight="bold" /></button>
-          </form>
-          <p className="hero-note">Rego can be saved as a workshop job reference. Automatic Rego decoding is not currently offered.</p>
+        <div className="hero-grid">
+          <div className="hero-content">
+            <p className="eyebrow">Brisbane trade parts supply</p>
+            <h1>Parts support built around the workshop job.</h1>
+            <p className="lead">Focused supply for Chinese-brand vehicles in Australia, with reviewed fitment, local stock visibility and trade account access.</p>
+            <form className="hero-search" action="/catalogue">
+              <label className="sr-only" htmlFor="parts-search">VIN, Part Number, vehicle or engine</label>
+              <input id="parts-search" name="q" placeholder="VIN, Part Number, vehicle or engine" autoComplete="off" />
+              <button className="button button-primary" type="submit">Search catalogue<ArrowRight size={18} weight="bold" /></button>
+            </form>
+            <p className="hero-note">Rego can be saved as a workshop job reference. Automatic Rego decoding is not currently offered.</p>
+          </div>
+          <div className="hero-product-stage" aria-label="Reference parts photography">
+            {referenceParts.map(({ src, alt, label }, index) => (
+              <figure className={index === 0 ? "hero-product-image hero-product-primary" : "hero-product-image"} key={src}>
+                <Image src={src} alt={alt} fill priority={index === 0} sizes="(max-width: 700px) 50vw, 28vw" quality={75} />
+                <figcaption>{label}</figcaption>
+              </figure>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -45,7 +60,7 @@ export default function HomePage() {
           <Link className="text-link" href="/catalogue">Browse released catalogue <ArrowRight size={17} /></Link>
         </div>
         <div className="parts-rail" aria-label="Common parts categories">
-          {[["/assets/oil-filter.png", "Service filters"], ["/assets/fuel-filter.png", "Fuel system"], ["/assets/air-filter.png", "Air intake"]].map(([src, label]) => (
+          {referenceParts.map(({ src, label }) => (
             <figure key={label}><Image src={src} alt={label} width={320} height={220} /><figcaption>{label}</figcaption></figure>
           ))}
         </div>

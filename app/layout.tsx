@@ -32,8 +32,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <div className="site-shell">
           <header className="site-header">
             <Link className="brand" href="/">
-              <span className="brand-mark" aria-hidden="true">DM</span>
-              <span className="brand-copy">DriveMate <strong>Parts</strong></span>
+              <img className="brand-logo" src="/assets/brand/DriveMate_Parts_Primary_Lockup_v2.0.svg" alt="DriveMate Parts" />
             </Link>
             <nav className="site-nav" aria-label="Main navigation">
               {publicNavItems.map((item) => <Link href={item.href} key={item.href}>{item.label}</Link>)}
@@ -47,7 +46,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           {children}
           <footer className="site-footer">
             <div>
-              <Link className="brand footer-brand" href="/"><span className="brand-mark">DM</span><span>DriveMate <strong>Parts</strong></span></Link>
+              <Link className="brand footer-brand" href="/"><img className="brand-logo" src="/assets/brand/DriveMate_Parts_Primary_Lockup_v2.0.svg" alt="DriveMate Parts" /></Link>
               <p>Trade parts supply for Australian workshops, dispatched from Brisbane.</p>
               <p>DriveMate Parts is operated by DRIVER MATE PTY LTD | ABN 66 701 612 768.</p>
             </div>
