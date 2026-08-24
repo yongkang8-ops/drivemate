@@ -20,7 +20,12 @@ const noIndexHeaders = [{ key: "X-Robots-Tag", value: "noindex, nofollow" }];
 const nextConfig = {
   poweredByHeader: false,
   serverExternalPackages: ["read-excel-file", "unzipper"],
-  images: { qualities: [72, 75] },
+  images: {
+    qualities: [72, 75],
+    remotePatterns: [
+      { protocol: "https", hostname: "**.supabase.co", pathname: "/storage/v1/object/public/product-images/**" },
+    ],
+  },
   async headers() {
     return [
       {

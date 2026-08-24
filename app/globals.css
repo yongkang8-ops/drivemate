@@ -161,8 +161,9 @@ tbody tr:hover { background: color-mix(in srgb, var(--brand-soft) 35%, transpare
 .catalogue-toolbar span { color: var(--muted); font-size: 12px; font-weight: 650; }
 .product-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
 .product-card { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
-.product-image { position: relative; aspect-ratio: 4 / 3; background: #f0f3f1; }
-.product-image img { object-fit: contain; padding: 24px; }
+.product-image { position: relative; aspect-ratio: 4 / 3; background: #f0f3f1; overflow: hidden; }
+.product-image-photo { object-fit: cover; object-position: center 62%; }
+.product-image-fallback { object-fit: contain; padding: 24px; }
 .product-body { padding: 15px; }
 .product-meta, .product-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .product-meta { color: var(--brand); font-size: 11px; font-weight: 720; text-transform: uppercase; }
