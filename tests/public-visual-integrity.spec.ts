@@ -34,3 +34,30 @@ test("public home fits a 390px mobile viewport without hidden sections", async (
   expect(layout.documentWidth).toBeLessThanOrEqual(390);
   expect(layout.hiddenSections).toEqual([]);
 });
+
+test("public home fits tablet and desktop viewports without overflow", async ({
+  page,
+}) => {
+  for (const viewport of [
+    { width: 768, height: 1024 },
+    { width: 1440, height: 900 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+
+    const layout = await page.evaluate(() => ({
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      hiddenSections: [...document.querySelectorAll("main > section")]
+        .filter(
+          (section) =>
+            Number.parseFloat(getComputedStyle(section).opacity) < 0.99,
+        )
+        .map((section) => section.className),
+    }));
+
+    expect(layout.viewportWidth).toBe(viewport.width);
+    expect(layout.documentWidth).toBeLessThanOrEqual(viewport.width);
+    expect(layout.hiddenSections).toEqual([]);
+  }
+});

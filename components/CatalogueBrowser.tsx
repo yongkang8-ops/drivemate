@@ -27,11 +27,28 @@ export function CatalogueBrowser({ initialQuery }: { initialQuery: string }) {
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   useEffect(() => {
     let active = true;
-    fetch("/api/catalogue", { credentials: "include" }).then(async (response) => {
-      const body = await response.json();
-      if (!response.ok || !body.ok) throw new Error("Catalogue unavailable");
-      if (active) { setProducts(body.products); setState("ready"); }
-    }).catch(() => { if (active) setState("error"); });
+    async function loadCatalogue() {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          const response = await fetch("/api/catalogue", {
+            credentials: "include",
+          });
+          const body = await response.json();
+          if (!response.ok || !body.ok) {
+            throw new Error("Catalogue unavailable");
+          }
+          if (active) {
+            setProducts(body.products);
+            setState("ready");
+          }
+          return;
+        } catch {
+          if (attempt === 1 && active) setState("error");
+        }
+      }
+    }
+
+    void loadCatalogue();
     return () => { active = false; };
   }, []);
   const filtered = useMemo(() => {
