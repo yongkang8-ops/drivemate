@@ -12,6 +12,7 @@ import type {
   Product,
   UpdateProductMasterInput,
 } from "./catalogue";
+import type { WarehouseLabelTemplateId } from "./warehouseLabels";
 import type {
   ApproveTradeAccountApplicationResult,
   ProvisionTradeAccountLoginResult,
@@ -42,6 +43,54 @@ export type RepositoryWriteContext = {
   actorId?: string;
   tradeAccountId?: string;
 };
+
+export type WarehouseLabelPrintJobStatus = "pending" | "printed" | "cancelled";
+
+export type WarehouseLabelPrintJob = {
+  id: string;
+  templateId: WarehouseLabelTemplateId;
+  payloadSnapshot: Record<string, unknown>;
+  requestedQuantity: number;
+  status: WarehouseLabelPrintJobStatus;
+  createdBy?: string;
+  createdAt: string;
+  printedAt?: string;
+  cancelledAt?: string;
+  reprintOfJobId?: string;
+  reprintReason?: string;
+};
+
+export type WarehouseLabelPrintItem = {
+  id: string;
+  jobId: string;
+  sequence: number;
+  payloadSnapshot: Record<string, unknown>;
+  createdAt: string;
+};
+
+export type CreateWarehouseLabelPrintJobInput = {
+  templateId: WarehouseLabelTemplateId;
+  payloadSnapshot: Record<string, unknown>;
+  requestedQuantity: number;
+};
+
+export type CreateWarehouseLabelReprintInput = {
+  reprintOfJobId: string;
+  requestedQuantity: number;
+  reason?: string;
+};
+
+export type WarehouseLabelPrintJobResult =
+  | { ok: true; job: WarehouseLabelPrintJob }
+  | { ok: false; message: string };
+
+export type WarehouseLabelPrintItemsResult =
+  | { ok: true; items: WarehouseLabelPrintItem[] }
+  | { ok: false; message: string };
+
+export type WarehouseLabelPrintAuditResult =
+  | { ok: true; job: WarehouseLabelPrintJob; items: WarehouseLabelPrintItem[] }
+  | { ok: false; message: string };
 
 export type StockMovement = {
   id: string;
@@ -254,6 +303,23 @@ export interface DrivemateRepository {
     input: InventoryMovementInput,
     context?: RepositoryWriteContext,
   ): Promise<InventoryMovementResult>;
+  createWarehouseLabelPrintJob(
+    input: CreateWarehouseLabelPrintJobInput,
+    context?: RepositoryWriteContext,
+  ): Promise<WarehouseLabelPrintJobResult>;
+  appendWarehouseLabelPrintItems(
+    jobId: string,
+    payloadSnapshots: Record<string, unknown>[],
+  ): Promise<WarehouseLabelPrintItemsResult>;
+  getWarehouseLabelPrintJob(jobId: string): Promise<WarehouseLabelPrintAuditResult>;
+  recordWarehouseLabelPrintOutcome(
+    jobId: string,
+    outcome: Exclude<WarehouseLabelPrintJobStatus, "pending">,
+  ): Promise<WarehouseLabelPrintJobResult>;
+  createWarehouseLabelReprint(
+    input: CreateWarehouseLabelReprintInput,
+    context?: RepositoryWriteContext,
+  ): Promise<WarehouseLabelPrintJobResult>;
   submitOrder(
     input: CreateOrderInput,
     context?: RepositoryWriteContext,

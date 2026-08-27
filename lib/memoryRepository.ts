@@ -53,6 +53,14 @@ import type {
   InventoryMovementInput,
   RepositoryWriteContext,
   TradeAccountState,
+  CreateWarehouseLabelPrintJobInput,
+  CreateWarehouseLabelReprintInput,
+  WarehouseLabelPrintAuditResult,
+  WarehouseLabelPrintItem,
+  WarehouseLabelPrintItemsResult,
+  WarehouseLabelPrintJob,
+  WarehouseLabelPrintJobResult,
+  WarehouseLabelPrintJobStatus,
 } from "./repository";
 import type {
   TradeAccountApplicationInput,
@@ -88,6 +96,27 @@ function buildReorderAlerts(
       status: row.status,
     }))
     .sort((a, b) => a.available - b.available || a.sku.localeCompare(b.sku));
+}
+
+let warehouseLabelJobSequence = 0;
+let warehouseLabelItemSequence = 0;
+let warehouseLabelPrintJobs: WarehouseLabelPrintJob[] = [];
+let warehouseLabelPrintItems: WarehouseLabelPrintItem[] = [];
+
+function clonePayload(payload: Record<string, unknown>) {
+  return structuredClone(payload);
+}
+
+function cloneWarehouseLabelPrintJob(job: WarehouseLabelPrintJob): WarehouseLabelPrintJob {
+  return { ...job, payloadSnapshot: clonePayload(job.payloadSnapshot) };
+}
+
+function cloneWarehouseLabelPrintItem(item: WarehouseLabelPrintItem): WarehouseLabelPrintItem {
+  return { ...item, payloadSnapshot: clonePayload(item.payloadSnapshot) };
+}
+
+function validRequestedQuantity(value: number) {
+  return Number.isInteger(value) && value > 0;
 }
 
 export class MemoryRepository implements DrivemateRepository {
@@ -260,6 +289,110 @@ export class MemoryRepository implements DrivemateRepository {
     return applyInventoryMovement({ ...input, createdBy: context.actorId });
   }
 
+  async createWarehouseLabelPrintJob(
+    input: CreateWarehouseLabelPrintJobInput,
+    context: RepositoryWriteContext = {},
+  ): Promise<WarehouseLabelPrintJobResult> {
+    if (!validRequestedQuantity(input.requestedQuantity)) {
+      return { ok: false, message: "Requested label quantity must be a positive integer." };
+    }
+
+    const job: WarehouseLabelPrintJob = {
+      id: `memory-label-job-${++warehouseLabelJobSequence}`,
+      templateId: input.templateId,
+      payloadSnapshot: clonePayload(input.payloadSnapshot),
+      requestedQuantity: input.requestedQuantity,
+      status: "pending",
+      createdBy: context.actorId,
+      createdAt: new Date().toISOString(),
+    };
+    warehouseLabelPrintJobs.push(job);
+    return { ok: true, job: cloneWarehouseLabelPrintJob(job) };
+  }
+
+  async appendWarehouseLabelPrintItems(
+    jobId: string,
+    payloadSnapshots: Record<string, unknown>[],
+  ): Promise<WarehouseLabelPrintItemsResult> {
+    const job = warehouseLabelPrintJobs.find((candidate) => candidate.id === jobId);
+    if (!job) return { ok: false, message: "Warehouse label print job was not found." };
+    if (!payloadSnapshots.length) return { ok: false, message: "At least one label item is required." };
+
+    const existing = warehouseLabelPrintItems.filter((item) => item.jobId === jobId);
+    if (existing.length + payloadSnapshots.length > job.requestedQuantity) {
+      return { ok: false, message: "Label item count exceeds the requested quantity." };
+    }
+
+    const createdAt = new Date().toISOString();
+    const items = payloadSnapshots.map((payloadSnapshot, index) => {
+      const item: WarehouseLabelPrintItem = {
+        id: `memory-label-item-${++warehouseLabelItemSequence}`,
+        jobId,
+        sequence: existing.length + index + 1,
+        payloadSnapshot: clonePayload(payloadSnapshot),
+        createdAt,
+      };
+      warehouseLabelPrintItems.push(item);
+      return cloneWarehouseLabelPrintItem(item);
+    });
+    return { ok: true, items };
+  }
+
+  async getWarehouseLabelPrintJob(jobId: string): Promise<WarehouseLabelPrintAuditResult> {
+    const job = warehouseLabelPrintJobs.find((candidate) => candidate.id === jobId);
+    if (!job) return { ok: false, message: "Warehouse label print job was not found." };
+    return {
+      ok: true,
+      job: cloneWarehouseLabelPrintJob(job),
+      items: warehouseLabelPrintItems
+        .filter((item) => item.jobId === jobId)
+        .sort((left, right) => left.sequence - right.sequence)
+        .map(cloneWarehouseLabelPrintItem),
+    };
+  }
+
+  async recordWarehouseLabelPrintOutcome(
+    jobId: string,
+    outcome: Exclude<WarehouseLabelPrintJobStatus, "pending">,
+  ): Promise<WarehouseLabelPrintJobResult> {
+    const job = warehouseLabelPrintJobs.find((candidate) => candidate.id === jobId);
+    if (!job) return { ok: false, message: "Warehouse label print job was not found." };
+    if (job.status !== "pending") return { ok: false, message: "Warehouse label print job outcome was already recorded." };
+
+    const timestamp = new Date().toISOString();
+    job.status = outcome;
+    if (outcome === "printed") job.printedAt = timestamp;
+    if (outcome === "cancelled") job.cancelledAt = timestamp;
+    return { ok: true, job: cloneWarehouseLabelPrintJob(job) };
+  }
+
+  async createWarehouseLabelReprint(
+    input: CreateWarehouseLabelReprintInput,
+    context: RepositoryWriteContext = {},
+  ): Promise<WarehouseLabelPrintJobResult> {
+    const original = warehouseLabelPrintJobs.find((candidate) => candidate.id === input.reprintOfJobId);
+    if (!original) return { ok: false, message: "Original warehouse label print job was not found." };
+    const reason = input.reason?.trim();
+    if (!reason) return { ok: false, message: "A reprint reason is required." };
+    if (!validRequestedQuantity(input.requestedQuantity)) {
+      return { ok: false, message: "Requested label quantity must be a positive integer." };
+    }
+
+    const job: WarehouseLabelPrintJob = {
+      id: `memory-label-job-${++warehouseLabelJobSequence}`,
+      templateId: original.templateId,
+      payloadSnapshot: clonePayload(original.payloadSnapshot),
+      requestedQuantity: input.requestedQuantity,
+      status: "pending",
+      createdBy: context.actorId,
+      createdAt: new Date().toISOString(),
+      reprintOfJobId: original.id,
+      reprintReason: reason,
+    };
+    warehouseLabelPrintJobs.push(job);
+    return { ok: true, job: cloneWarehouseLabelPrintJob(job) };
+  }
+
   async submitOrder(
     input: CreateOrderInput,
     context: RepositoryWriteContext = {},
@@ -360,5 +493,9 @@ export class MemoryRepository implements DrivemateRepository {
   async resetForTests(): Promise<void> {
     resetProductMasterData();
     resetStoreForTests();
+    warehouseLabelJobSequence = 0;
+    warehouseLabelItemSequence = 0;
+    warehouseLabelPrintJobs = [];
+    warehouseLabelPrintItems = [];
   }
 }
