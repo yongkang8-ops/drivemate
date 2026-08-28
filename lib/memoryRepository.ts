@@ -61,7 +61,9 @@ import type {
   WarehouseLabelPrintJob,
   WarehouseLabelPrintJobResult,
   WarehouseLabelPrintJobStatus,
+  WarehouseExpectedReceiptResult,
 } from "./repository";
+import { filterWarehouseExpectedReceipt, type WarehouseExpectedReceipt, type WarehouseInboundSelection } from "./warehouseLabels";
 import type {
   TradeAccountApplicationInput,
   TradeAccountStatus,
@@ -118,6 +120,20 @@ function cloneWarehouseLabelPrintItem(item: WarehouseLabelPrintItem): WarehouseL
 function validRequestedQuantity(value: number) {
   return Number.isInteger(value) && value > 0;
 }
+
+const expectedTestShipment: WarehouseExpectedReceipt = {
+  shipmentId: "shipment-test-1",
+  pallets: [{ sourcePalletNumber: "P001" }, { sourcePalletNumber: "P002" }],
+  cartons: [
+    { sourceCartonNumber: "C001", sourcePalletNumber: "P001" },
+    { sourceCartonNumber: "C002", sourcePalletNumber: "P002" },
+  ],
+  lines: [
+    { sourcePalletNumber: "P001", sourceCartonNumber: "C001", sku: "DM-GWM-OF-001", expectedQuantity: 12 },
+    { sourcePalletNumber: "P001", sourceCartonNumber: "C001", sku: "DM-GWM-AF-002", expectedQuantity: 6 },
+    { sourcePalletNumber: "P002", sourceCartonNumber: "C002", sku: "DM-GWM-OF-001", expectedQuantity: 24 },
+  ],
+};
 
 export class MemoryRepository implements DrivemateRepository {
   mode = "memory" as const;
@@ -287,6 +303,15 @@ export class MemoryRepository implements DrivemateRepository {
     context: RepositoryWriteContext = {},
   ) {
     return applyInventoryMovement({ ...input, createdBy: context.actorId });
+  }
+
+  async getWarehouseExpectedReceipt(
+    selection: WarehouseInboundSelection,
+  ): Promise<WarehouseExpectedReceiptResult> {
+    if (selection.shipmentId !== expectedTestShipment.shipmentId) {
+      return { ok: false, message: "Expected shipment was not found." };
+    }
+    return { ok: true, receipt: filterWarehouseExpectedReceipt(structuredClone(expectedTestShipment), selection) };
   }
 
   async createWarehouseLabelPrintJob(

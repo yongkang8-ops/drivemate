@@ -12,7 +12,7 @@ import type {
   Product,
   UpdateProductMasterInput,
 } from "./catalogue";
-import type { WarehouseLabelTemplateId } from "./warehouseLabels";
+import type { WarehouseExpectedReceipt, WarehouseInboundSelection, WarehouseLabelTemplateId } from "./warehouseLabels";
 import type {
   ApproveTradeAccountApplicationResult,
   ProvisionTradeAccountLoginResult,
@@ -90,6 +90,10 @@ export type WarehouseLabelPrintItemsResult =
 
 export type WarehouseLabelPrintAuditResult =
   | { ok: true; job: WarehouseLabelPrintJob; items: WarehouseLabelPrintItem[] }
+  | { ok: false; message: string };
+
+export type WarehouseExpectedReceiptResult =
+  | { ok: true; receipt: WarehouseExpectedReceipt }
   | { ok: false; message: string };
 
 export type StockMovement = {
@@ -303,6 +307,9 @@ export interface DrivemateRepository {
     input: InventoryMovementInput,
     context?: RepositoryWriteContext,
   ): Promise<InventoryMovementResult>;
+  getWarehouseExpectedReceipt(
+    selection: WarehouseInboundSelection,
+  ): Promise<WarehouseExpectedReceiptResult>;
   createWarehouseLabelPrintJob(
     input: CreateWarehouseLabelPrintJobInput,
     context?: RepositoryWriteContext,

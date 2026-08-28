@@ -34,7 +34,7 @@ import {
   parseWarehouseLocation,
   type WarehouseLocationParts,
 } from "./warehouseLocation";
-import type { WarehouseLabelTemplateId } from "./warehouseLabels";
+import { filterWarehouseExpectedReceipt, type WarehouseInboundSelection, type WarehouseLabelTemplateId } from "./warehouseLabels";
 import type {
   ApproveTradeAccountApplicationResult,
   ProvisionTradeAccountLoginResult,
@@ -67,6 +67,7 @@ import type {
   WarehouseLabelPrintJob,
   WarehouseLabelPrintJobResult,
   WarehouseLabelPrintJobStatus,
+  WarehouseExpectedReceiptResult,
 } from "./repository";
 import { createServiceSupabaseClient } from "./supabaseClient";
 
@@ -2591,6 +2592,80 @@ export class SupabaseRepository implements DrivemateRepository {
       .single();
     if (error || !data) throw error ?? new Error("Warehouse label print job insert failed.");
     return { ok: true, job: toWarehouseLabelPrintJob(data as WarehouseLabelPrintJobRecord) };
+  }
+
+  async getWarehouseExpectedReceipt(
+    selection: WarehouseInboundSelection,
+  ): Promise<WarehouseExpectedReceiptResult> {
+    const { data, error } = await this.client()
+      .from("shipments")
+      .select("id, shipment_pallets(pallet_number), shipment_cartons(carton_number, shipment_pallets(pallet_number), shipment_carton_lines(quantity, purchase_order_lines(products(sku))))")
+      .eq("id", selection.shipmentId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return { ok: false, message: "Expected shipment was not found." };
+
+    const shipment = data as {
+      id: string;
+      shipment_pallets?: Array<{ pallet_number?: string | null }>;
+      shipment_cartons?: Array<{
+        carton_number?: string | null;
+        shipment_pallets?: { pallet_number?: string | null } | Array<{ pallet_number?: string | null }> | null;
+        shipment_carton_lines?: Array<{
+          quantity?: number | null;
+          purchase_order_lines?: {
+            products?: { sku?: string | null } | Array<{ sku?: string | null }> | null;
+          } | Array<{
+            products?: { sku?: string | null } | Array<{ sku?: string | null }> | null;
+          }> | null;
+        }>;
+      }>;
+    };
+    const cartons = (shipment.shipment_cartons ?? []).flatMap((carton) => {
+      const sourceCartonNumber = carton.carton_number?.trim();
+      if (!sourceCartonNumber) return [];
+      const pallet = Array.isArray(carton.shipment_pallets)
+        ? carton.shipment_pallets[0]
+        : carton.shipment_pallets;
+      return [{ sourceCartonNumber, sourcePalletNumber: pallet?.pallet_number?.trim() || undefined }];
+    });
+    const lines = (shipment.shipment_cartons ?? []).flatMap((carton) => {
+      const sourceCartonNumber = carton.carton_number?.trim();
+      if (!sourceCartonNumber) return [];
+      const pallet = Array.isArray(carton.shipment_pallets)
+        ? carton.shipment_pallets[0]
+        : carton.shipment_pallets;
+      return (carton.shipment_carton_lines ?? []).flatMap((line) => {
+        const purchaseOrderLine = Array.isArray(line.purchase_order_lines)
+          ? line.purchase_order_lines[0]
+          : line.purchase_order_lines;
+        const product = Array.isArray(purchaseOrderLine?.products)
+          ? purchaseOrderLine?.products[0]
+          : purchaseOrderLine?.products;
+        if (!product?.sku || !line.quantity) return [];
+        return [{
+          sourcePalletNumber: pallet?.pallet_number?.trim() || undefined,
+          sourceCartonNumber,
+          sku: product.sku,
+          expectedQuantity: line.quantity,
+        }];
+      });
+    });
+
+    return {
+      ok: true,
+      receipt: filterWarehouseExpectedReceipt(
+        {
+          shipmentId: shipment.id,
+          pallets: (shipment.shipment_pallets ?? []).flatMap((pallet) =>
+            pallet.pallet_number?.trim() ? [{ sourcePalletNumber: pallet.pallet_number.trim() }] : [],
+          ),
+          cartons,
+          lines,
+        },
+        selection,
+      ),
+    };
   }
 
   async appendWarehouseLabelPrintItems(

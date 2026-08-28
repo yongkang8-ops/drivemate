@@ -8,6 +8,32 @@ export const WAREHOUSE_LABEL_TEMPLATE_IDS = [
 export type WarehouseLabelTemplateId = (typeof WAREHOUSE_LABEL_TEMPLATE_IDS)[number];
 export type WarehouseBarcodeKind = "product" | "location" | "carton";
 
+export type WarehouseInboundSelection = {
+  shipmentId: string;
+  palletNumbers?: string[];
+  cartonNumbers?: string[];
+  skus?: string[];
+};
+
+export type WarehouseExpectedReceipt = {
+  shipmentId: string;
+  pallets: Array<{ sourcePalletNumber: string }>;
+  cartons: Array<{ sourceCartonNumber: string; sourcePalletNumber?: string }>;
+  lines: Array<{
+    sourcePalletNumber?: string;
+    sourceCartonNumber: string;
+    sku: string;
+    expectedQuantity: number;
+  }>;
+};
+
+export type WarehouseLabelPrintScope = {
+  shipmentId: string;
+  palletNumbers: string[];
+  cartonNumbers: string[];
+  lines: Array<{ sku: string; expectedQuantity: number; productBarcode: string }>;
+};
+
 type WarehouseLabelVisibleField =
   | "brand"
   | "part_name"
@@ -112,3 +138,55 @@ export function parseWarehouseBarcode(value?: string | null): WarehouseBarcodePa
 
   return { ok: true, kind: "product", value: barcode, barcode };
 }
+
+function normalizeScopeValues(values?: string[]) {
+  return new Set((values ?? []).map(normalizeIdentifier).filter(Boolean));
+}
+
+export function filterWarehouseExpectedReceipt(
+  receipt: WarehouseExpectedReceipt,
+  selection: WarehouseInboundSelection,
+): WarehouseExpectedReceipt {
+  const pallets = normalizeScopeValues(selection.palletNumbers);
+  const cartons = normalizeScopeValues(selection.cartonNumbers);
+  const skus = normalizeScopeValues(selection.skus);
+  const selectedCartons = receipt.cartons.filter((carton) => {
+    const palletMatch = !pallets.size || (carton.sourcePalletNumber && pallets.has(normalizeIdentifier(carton.sourcePalletNumber)));
+    const cartonMatch = !cartons.size || cartons.has(normalizeIdentifier(carton.sourceCartonNumber));
+    return palletMatch && cartonMatch;
+  });
+  const cartonNumbers = new Set(selectedCartons.map((carton) => normalizeIdentifier(carton.sourceCartonNumber)));
+  const selectedLines = receipt.lines.filter((line) =>
+    cartonNumbers.has(normalizeIdentifier(line.sourceCartonNumber)) &&
+    (!skus.size || skus.has(normalizeIdentifier(line.sku))),
+  );
+  const selectedPalletNumbers = new Set(
+    selectedCartons.map((carton) => carton.sourcePalletNumber).filter(Boolean).map((value) => normalizeIdentifier(value as string)),
+  );
+
+  return {
+    shipmentId: receipt.shipmentId,
+    pallets: receipt.pallets.filter((pallet) => selectedPalletNumbers.has(normalizeIdentifier(pallet.sourcePalletNumber))),
+    cartons: selectedCartons,
+    lines: selectedLines,
+  };
+}
+
+export function buildWarehouseLabelPrintScope(
+  receipt: WarehouseExpectedReceipt,
+  templateId: WarehouseLabelTemplateId,
+): WarehouseLabelPrintScope {
+  if (templateId !== "unit_product") throw new Error("Only unit product label scope is supported in the first receiving workflow.");
+
+  return {
+    shipmentId: receipt.shipmentId,
+    palletNumbers: receipt.pallets.map((pallet) => pallet.sourcePalletNumber),
+    cartonNumbers: receipt.cartons.map((carton) => carton.sourceCartonNumber),
+    lines: receipt.lines.map((line) => {
+      const product = findProductBySku(line.sku);
+      if (!product) throw new Error(`Expected receipt SKU ${line.sku} was not found.`);
+      return { sku: line.sku, expectedQuantity: line.expectedQuantity, productBarcode: product.barcode };
+    }),
+  };
+}
+import { findProductBySku } from "./catalogue";
