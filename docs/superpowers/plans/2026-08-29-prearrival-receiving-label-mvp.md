@@ -64,7 +64,7 @@ expect(expected).toMatchObject({
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `npm test -- warehouse-prearrival-receiving.test.ts`  
+Run: `npm test -- warehouse-prearrival-receiving.test.ts`
 Expected: FAIL because `getWarehouseExpectedReceipt` and its contract types do not exist.
 
 - [ ] **Step 3: Add the minimal scoped data model**
@@ -102,7 +102,7 @@ The generated payload must include `scope`, `templateId`, selected expected line
 
 - [ ] **Step 5: Run focused tests and typecheck**
 
-Run: `npm test -- warehouse-prearrival-receiving.test.ts && npm run typecheck`  
+Run: `npm test -- warehouse-prearrival-receiving.test.ts && npm run typecheck`
 Expected: PASS.
 
 - [ ] **Step 6: Commit the scoped model**
@@ -141,7 +141,7 @@ expect(receipt).toMatchObject({
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `npm test -- warehouse-prearrival-receiving.test.ts`  
+Run: `npm test -- warehouse-prearrival-receiving.test.ts`
 Expected: FAIL because `confirmWarehouseReceipt` does not exist.
 
 - [ ] **Step 3: Implement the two receipt modes**
@@ -162,7 +162,7 @@ The receipt mutation writes stock to `BNE-RECEIVING-STAGING`. It never creates p
 
 - [ ] **Step 6: Run focused tests and typecheck**
 
-Run: `npm test -- warehouse-prearrival-receiving.test.ts && npm run typecheck`  
+Run: `npm test -- warehouse-prearrival-receiving.test.ts && npm run typecheck`
 Expected: PASS.
 
 - [ ] **Step 7: Commit the local receipt model**
@@ -194,7 +194,7 @@ await expect(page.getByText("P001")).toBeVisible();
 
 - [ ] **Step 2: Run the browser test to verify it fails**
 
-Run: `npx playwright test tests/warehouse-label-print.spec.ts`  
+Run: `npx playwright test tests/warehouse-label-print.spec.ts`
 Expected: FAIL because the scoped label UI and API do not exist.
 
 - [ ] **Step 3: Implement API permission boundaries**
@@ -207,7 +207,7 @@ The UI offers shipment, pallet, carton, SKU and full-shipment selection; creates
 
 - [ ] **Step 5: Run tests, typecheck and build**
 
-Run: `npm test && npx playwright test tests/warehouse-label-print.spec.ts && npm run typecheck && npm run build`  
+Run: `npm test && npx playwright test tests/warehouse-label-print.spec.ts && npm run typecheck && npm run build`
 Expected: all commands exit 0.
 
 - [ ] **Step 6: Commit the print UI**
@@ -242,7 +242,7 @@ await expect(page.getByText(/moved to BNE-A01-03/i)).toBeVisible();
 
 - [ ] **Step 2: Run the browser test to verify it fails**
 
-Run: `npx playwright test tests/warehouse-scan-putaway.spec.ts`  
+Run: `npx playwright test tests/warehouse-scan-putaway.spec.ts`
 Expected: FAIL because the current panel accepts free-text movement without the confirmed receiving-staging rule.
 
 - [ ] **Step 3: Implement product and destination-only validation**
@@ -255,7 +255,7 @@ Permit compact `BNE-A01-03` only through an explicit `Manual location entry` act
 
 - [ ] **Step 5: Run full verification**
 
-Run: `npm test && npx playwright test tests/warehouse-scan-putaway.spec.ts tests/warehouse-smoke.spec.ts && npm run typecheck && npm run build`  
+Run: `npm test && npx playwright test tests/warehouse-scan-putaway.spec.ts tests/warehouse-smoke.spec.ts && npm run typecheck && npm run build`
 Expected: all commands exit 0.
 
 - [ ] **Step 6: Commit the putaway flow**
