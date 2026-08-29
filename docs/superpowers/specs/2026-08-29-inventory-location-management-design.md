@@ -34,7 +34,7 @@ Every location record contains:
 | Field | Rule | Purpose |
 |---|---|---|
 | System ID | Generated and immutable | Stable database identity |
-| Location code | Unique, uppercase canonical code matching `BNE-<segment>-<segment>` with one to four alphanumeric segments after `BNE`; immutable and never reused after creation | Human-readable physical label identity |
+| Location code | Unique, uppercase canonical code with two to four alphanumeric segments after `BNE`, such as `BNE-A01-03` or `BNE-A-01-03`; immutable and never reused after creation | Human-readable physical label identity |
 | Barcode | Derived once as `DMLOC:<location code>`; immutable | Scanner destination identity |
 | Status | `active`, `disabled`, or `archived` | Controls whether the code can receive a putaway |
 | Physical description | Editable short text | E.g. `Rear wall, rack 2, middle shelf` |
