@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       { status: 429 },
     );
   const context = await getRequestContext(request);
-  if (!context.userId || !["admin", "warehouse"].includes(context.role))
+  if (!context.userId || !["admin", "partner"].includes(context.role))
     return NextResponse.json(
       { ok: false, message: "Staff session required." },
       { status: 403 },

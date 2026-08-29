@@ -36,7 +36,7 @@ async function getSupabaseAuthContextFromToken(token: string): Promise<AuthConte
     const assuranceLevel = jwtAssuranceLevel(token);
     const mfaRequired =
       process.env.DRIVEMATE_REQUIRE_STAFF_MFA === "true" &&
-      (role === "admin" || role === "warehouse") &&
+      (role === "admin" || role === "partner") &&
       assuranceLevel !== "aal2";
 
     return {

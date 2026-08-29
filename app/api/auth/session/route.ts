@@ -52,7 +52,7 @@ export async function GET(request: Request) {
   const role = sessionProfile.profile.role;
   const mfaRequired =
     process.env.DRIVEMATE_REQUIRE_STAFF_MFA === "true" &&
-    (role === "admin" || role === "warehouse") &&
+    (role === "admin" || role === "partner") &&
     assuranceLevel !== "aal2";
   const response = NextResponse.json({
     authenticated: true,

@@ -18,7 +18,7 @@ export async function POST(request: Request, context: { params: Promise<{ orderI
   }
   const authContext = await getRequestContext(request);
   if (!can(authContext.role, "inventory_write")) {
-    return NextResponse.json({ ok: false, message: "Order dispatch requires a warehouse role." }, { status: 403 });
+    return NextResponse.json({ ok: false, message: "Order dispatch requires a Partner role." }, { status: 403 });
   }
 
   const rawBody = await request.text();

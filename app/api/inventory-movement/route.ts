@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   const authContext = await getRequestContext(request);
   if (!can(authContext.role, "inventory_write")) {
     return NextResponse.json(
-      { ok: false, message: "Inventory movements require a warehouse role." },
+      { ok: false, message: "Inventory movements require a Partner role." },
       { status: 403 },
     );
   }

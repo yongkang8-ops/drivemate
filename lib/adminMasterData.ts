@@ -111,9 +111,9 @@ export const demoUserRoles = [
     tradeAccountId: "acct-demo",
   },
   {
-    userId: "demo-warehouse-user",
-    role: "warehouse",
-    displayName: "Demo warehouse operator",
+    userId: "demo-partner-user",
+    role: "partner",
+    displayName: "Demo partner operator",
   },
   {
     userId: "demo-admin-user",

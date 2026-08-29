@@ -23,7 +23,7 @@ create table public.trade_accounts (
 create table public.user_profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   trade_account_id uuid references public.trade_accounts(id),
-  role text not null check (role in ('public', 'trade', 'warehouse', 'admin')),
+  role text not null check (role in ('public', 'trade', 'partner', 'admin')),
   display_name text,
   created_at timestamptz not null default now()
 );

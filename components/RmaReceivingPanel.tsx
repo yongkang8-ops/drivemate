@@ -20,7 +20,7 @@ export function RmaReceivingPanel() {
       });
     const response = await fetch(`/api/warehouse/rma/${rmaId}/receive`, {
       method: "POST",
-      headers: await buildApiHeaders("warehouse", {
+      headers: await buildApiHeaders("partner", {
         "Content-Type": "application/json",
       }),
       body: JSON.stringify({

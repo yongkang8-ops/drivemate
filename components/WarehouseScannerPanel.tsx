@@ -114,7 +114,7 @@ export function WarehouseScannerPanel({
 
   async function loadWarehouseState() {
     const response = await fetch("/api/warehouse-state", {
-      headers: await buildApiHeaders("warehouse"),
+      headers: await buildApiHeaders("partner"),
     });
     if (!response.ok) {
       setMessage("Warehouse state could not be loaded.");
@@ -162,7 +162,7 @@ export function WarehouseScannerPanel({
     const payload = { ...input, idempotencyKey: crypto.randomUUID() };
     const response = await fetch("/api/inventory-movement", {
       method: "POST",
-      headers: await buildApiHeaders("warehouse", {
+      headers: await buildApiHeaders("partner", {
         "Content-Type": "application/json",
       }),
       body: JSON.stringify(payload),
@@ -241,7 +241,7 @@ export function WarehouseScannerPanel({
 
     const response = await fetch("/api/inventory-movement/import", {
       method: "POST",
-      headers: await buildApiHeaders("warehouse", {
+      headers: await buildApiHeaders("partner", {
         "Content-Type": "application/json",
       }),
       body: JSON.stringify({
@@ -469,7 +469,7 @@ export function WarehouseScannerPanel({
 
     const response = await fetch(`/api/orders/${orderId}/dispatch`, {
       method: "POST",
-      headers: await buildApiHeaders("warehouse", {
+      headers: await buildApiHeaders("partner", {
         "Content-Type": "application/json",
         "Idempotency-Key": crypto.randomUUID(),
       }),

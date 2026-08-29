@@ -17,6 +17,8 @@ describe("role capability model", () => {
     expect(parseRole(null)).toBe("public");
     expect(parseRole("owner")).toBe("public");
     expect(parseRole("trade")).toBe("trade");
+    expect(parseRole("partner")).toBe("partner");
+    expect(parseRole("warehouse")).toBe("public");
   });
 
   it("allows each role only its intended V1 capabilities", () => {
@@ -26,10 +28,12 @@ describe("role capability model", () => {
     expect(can("trade", "create_order")).toBe(true);
     expect(can("trade", "inventory_write")).toBe(false);
     expect(can("trade", "warehouse_read")).toBe(false);
-    expect(can("warehouse", "warehouse_read")).toBe(true);
-    expect(can("warehouse", "inventory_write")).toBe(true);
-    expect(can("warehouse", "admin_read")).toBe(false);
-    expect(can("warehouse", "admin_write")).toBe(false);
+    expect(can("partner", "vehicle_lookup")).toBe(true);
+    expect(can("partner", "trade_read")).toBe(false);
+    expect(can("partner", "warehouse_read")).toBe(true);
+    expect(can("partner", "inventory_write")).toBe(true);
+    expect(can("partner", "admin_read")).toBe(false);
+    expect(can("partner", "admin_write")).toBe(false);
     expect(can("admin", "warehouse_read")).toBe(true);
     expect(can("admin", "admin_read")).toBe(true);
     expect(can("admin", "admin_write")).toBe(true);

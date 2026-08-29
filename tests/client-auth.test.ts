@@ -4,7 +4,7 @@ import { buildApiHeaders } from "../lib/clientAuth";
 
 describe("client API auth headers", () => {
   it("does not expose a bearer token or demo role in ordinary client headers", async () => {
-    const headers = new Headers(await buildApiHeaders("warehouse", { "Content-Type": "application/json" }));
+    const headers = new Headers(await buildApiHeaders("partner", { "Content-Type": "application/json" }));
 
     expect(headers.get("Content-Type")).toBe("application/json");
     expect(headers.get(DEMO_ROLE_HEADER)).toBeNull();

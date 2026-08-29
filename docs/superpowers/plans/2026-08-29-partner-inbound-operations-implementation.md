@@ -86,7 +86,7 @@ export type AppRole = "public" | "trade" | "partner" | "admin";
 
 const capabilityRoles: Record<Capability, AppRole[]> = {
   vehicle_lookup: ["trade", "partner", "admin"],
-  trade_read: ["trade", "partner", "admin"],
+  trade_read: ["trade", "admin"],
   create_order: ["trade", "admin"],
   inventory_write: ["partner", "admin"],
   warehouse_read: ["partner", "admin"],

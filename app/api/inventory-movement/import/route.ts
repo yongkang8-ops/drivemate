@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ok: false,
-        message: "Inventory movement import requires a warehouse role.",
+        message: "Inventory movement import requires a Partner role.",
       },
       { status: 403 },
     );

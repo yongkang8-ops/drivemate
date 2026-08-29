@@ -21,8 +21,8 @@ function roleCanAccess(
   expectedRole: AuthenticatedRole,
 ): boolean {
   if (expectedRole === "admin") return role === "admin";
-  if (expectedRole === "warehouse")
-    return role === "warehouse" || role === "admin";
+  if (expectedRole === "partner")
+    return role === "partner" || role === "admin";
   return role === "trade";
 }
 

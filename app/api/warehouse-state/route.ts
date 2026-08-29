@@ -4,7 +4,7 @@ import { requestCan } from "../../../lib/serverAuth";
 
 export async function GET(request: Request) {
   if (!(await requestCan(request, "warehouse_read"))) {
-    return NextResponse.json({ ok: false, message: "Warehouse state requires a warehouse role." }, { status: 403 });
+    return NextResponse.json({ ok: false, message: "Warehouse state requires a Partner role." }, { status: 403 });
   }
 
   const state = await getRepository().getAdminState();

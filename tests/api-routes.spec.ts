@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 let requestSequence = 0;
-function roleHeaders(role: "trade" | "warehouse" | "admin") {
+function roleHeaders(role: "trade" | "partner" | "admin") {
   requestSequence += 1;
   return {
     "x-drivemate-role": role,
@@ -149,7 +149,7 @@ test("orders API rejects draft or paused SKUs from trade ordering", async ({
   );
 
   const warehouseReceive = await request.post("/api/inventory-movement", {
-    headers: roleHeaders("warehouse"),
+    headers: roleHeaders("partner"),
     data: {
       type: "inbound",
       sku: "DMPGWMOF001",
@@ -239,7 +239,7 @@ test("order dispatch API confirms a warehouse dispatch", async ({
   const dispatchResponse = await request.post(
     `/api/orders/${orderBody.order.id}/dispatch`,
     {
-      headers: roleHeaders("warehouse"),
+      headers: roleHeaders("partner"),
       data: dispatchPayload([{ sku: "DMPGWMOF001", quantity: 1 }]),
     },
   );
@@ -253,7 +253,7 @@ test("order dispatch API confirms a warehouse dispatch", async ({
         sku: "DM-GWM-OF-001",
         movement: "Dispatch",
         reference: orderBody.order.id,
-        createdBy: "demo-warehouse-user",
+        createdBy: "demo-partner-user",
       }),
     ]),
   );
@@ -305,7 +305,7 @@ test("order dispatch API requires scanned lines that match the order", async ({
   const missingScans = await request.post(
     `/api/orders/${orderBody.order.id}/dispatch`,
     {
-      headers: roleHeaders("warehouse"),
+      headers: roleHeaders("partner"),
       data: dispatchPayload(),
     },
   );
@@ -314,7 +314,7 @@ test("order dispatch API requires scanned lines that match the order", async ({
   const wrongScan = await request.post(
     `/api/orders/${orderBody.order.id}/dispatch`,
     {
-      headers: roleHeaders("warehouse"),
+      headers: roleHeaders("partner"),
       data: dispatchPayload([{ sku: "DM-GWM-AF-002", quantity: 1 }]),
     },
   );
@@ -325,7 +325,7 @@ test("order dispatch API requires scanned lines that match the order", async ({
   const barcodeScan = await request.post(
     `/api/orders/${orderBody.order.id}/dispatch`,
     {
-      headers: roleHeaders("warehouse"),
+      headers: roleHeaders("partner"),
       data: dispatchPayload([{ sku: "DMPGWMOF001", quantity: 1 }]),
     },
   );
@@ -346,7 +346,7 @@ test("order cancel API releases reserved stock before dispatch", async ({
   const orderBody = await orderResponse.json();
 
   const reservedState = await request.get("/api/warehouse-state", {
-    headers: roleHeaders("warehouse"),
+    headers: roleHeaders("partner"),
   });
   const reservedBody = await reservedState.json();
   expect(
@@ -367,7 +367,7 @@ test("order cancel API releases reserved stock before dispatch", async ({
   expect(cancelBody.order.status).toBe("cancelled");
 
   const releasedState = await request.get("/api/warehouse-state", {
-    headers: roleHeaders("warehouse"),
+    headers: roleHeaders("partner"),
   });
   const releasedBody = await releasedState.json();
   expect(
@@ -380,7 +380,7 @@ test("order cancel API releases reserved stock before dispatch", async ({
   const dispatchCancelled = await request.post(
     `/api/orders/${orderBody.order.id}/dispatch`,
     {
-      headers: roleHeaders("warehouse"),
+      headers: roleHeaders("partner"),
       data: dispatchPayload([{ sku: "DM-GWM-OF-001", quantity: 1 }]),
     },
   );
@@ -521,7 +521,7 @@ test("inventory movement API validates stock availability", async ({
   request,
 }) => {
   const response = await request.post("/api/inventory-movement", {
-    headers: roleHeaders("warehouse"),
+    headers: roleHeaders("partner"),
     data: {
       type: "dispatch",
       sku: "DM-MG-CF-008",
@@ -540,7 +540,7 @@ test("inventory movement API records and reviews quarantine stock", async ({
   request,
 }) => {
   const response = await request.post("/api/inventory-movement", {
-    headers: roleHeaders("warehouse"),
+    headers: roleHeaders("partner"),
     data: {
       type: "quarantine",
       sku: "DM-GWM-OF-001",
@@ -556,7 +556,7 @@ test("inventory movement API records and reviews quarantine stock", async ({
     sku: "DM-GWM-OF-001",
     movement: "Quarantine",
     reference: "RET-QA-API",
-    createdBy: "demo-warehouse-user",
+    createdBy: "demo-partner-user",
   });
   const row = body.inventory.find(
     (item: { sku: string }) => item.sku === "DM-GWM-OF-001",
@@ -564,7 +564,7 @@ test("inventory movement API records and reviews quarantine stock", async ({
   expect(row).toMatchObject({ onHand: 42, reserved: 1, quarantine: 3 });
 
   const release = await request.post("/api/inventory-movement", {
-    headers: roleHeaders("warehouse"),
+    headers: roleHeaders("partner"),
     data: {
       type: "adjustment",
       sku: "DM-GWM-OF-001",
@@ -587,7 +587,7 @@ test("inventory movement API records and reviews quarantine stock", async ({
   expect(releasedRow).toMatchObject({ onHand: 42, reserved: 1, quarantine: 2 });
 
   const writeoff = await request.post("/api/inventory-movement", {
-    headers: roleHeaders("warehouse"),
+    headers: roleHeaders("partner"),
     data: {
       type: "adjustment",
       sku: "DM-GWM-OF-001",
@@ -614,7 +614,7 @@ test("inventory movement API records putaway transfers", async ({
   request,
 }) => {
   const response = await request.post("/api/inventory-movement", {
-    headers: roleHeaders("warehouse"),
+    headers: roleHeaders("partner"),
     data: {
       type: "putaway",
       sku: "DMPGWMOF001",
@@ -632,7 +632,7 @@ test("inventory movement API records putaway transfers", async ({
     movement: "Putaway",
     reference: "PUT-API",
     location: "BNE-A01-03",
-    createdBy: "demo-warehouse-user",
+    createdBy: "demo-partner-user",
   });
 });
 
@@ -640,7 +640,7 @@ test("inventory movement API records stock adjustments", async ({
   request,
 }) => {
   const response = await request.post("/api/inventory-movement", {
-    headers: roleHeaders("warehouse"),
+    headers: roleHeaders("partner"),
     data: {
       type: "adjustment",
       sku: "DM-GWM-OF-001",
@@ -658,7 +658,7 @@ test("inventory movement API records stock adjustments", async ({
     movement: "Adjustment",
     reference: "COUNT-API",
     location: "BNE-A01-03",
-    createdBy: "demo-warehouse-user",
+    createdBy: "demo-partner-user",
   });
   const row = body.inventory.find(
     (item: { sku: string }) => item.sku === "DM-GWM-OF-001",
@@ -670,7 +670,7 @@ test("inventory movement import API records bulk inbound receiving", async ({
   request,
 }) => {
   const response = await request.post("/api/inventory-movement/import", {
-    headers: roleHeaders("warehouse"),
+    headers: roleHeaders("partner"),
     data: {
       rows: [
         {
@@ -748,7 +748,7 @@ test("warehouse state API returns inventory and pick orders for warehouse users"
   });
 
   const response = await request.get("/api/warehouse-state", {
-    headers: roleHeaders("warehouse"),
+    headers: roleHeaders("partner"),
   });
 
   expect(response.ok()).toBeTruthy();
@@ -1129,7 +1129,7 @@ test("admin can update product master scanner fields", async ({ request }) => {
   });
 
   const scan = await request.post("/api/inventory-movement", {
-    headers: roleHeaders("warehouse"),
+    headers: roleHeaders("partner"),
     data: {
       type: "inbound",
       sku: "GWM-OEM-OF-API",
@@ -1174,7 +1174,7 @@ test("admin can create product master records for warehouse scans", async ({
   });
 
   const scan = await request.post("/api/inventory-movement", {
-    headers: roleHeaders("warehouse"),
+    headers: roleHeaders("partner"),
     data: {
       type: "inbound",
       sku: "DMPGWMAPI099",
@@ -1243,7 +1243,7 @@ test("admin can bulk import product masters for scanner setup", async ({
   );
 
   const scan = await request.post("/api/inventory-movement", {
-    headers: roleHeaders("warehouse"),
+    headers: roleHeaders("partner"),
     data: {
       type: "inbound",
       sku: "DMPBYDIMP201",
@@ -1288,7 +1288,7 @@ test("admin can create fitment rules for trade vehicle lookup", async ({
   expect(fitment.status()).toBe(201);
 
   await request.post("/api/inventory-movement", {
-    headers: roleHeaders("warehouse"),
+    headers: roleHeaders("partner"),
     data: {
       type: "inbound",
       sku: "DMPGWMFITAPI",
@@ -1363,7 +1363,7 @@ test("admin can bulk import fitment rules for trade lookup", async ({
   );
 
   await request.post("/api/inventory-movement", {
-    headers: roleHeaders("warehouse"),
+    headers: roleHeaders("partner"),
     data: {
       type: "inbound",
       sku: "DMPGWMFITBULK",

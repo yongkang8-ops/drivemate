@@ -18,7 +18,7 @@ const enrollSchema = z.object({
 });
 
 function staffRole(role: string) {
-  return role === "admin" || role === "warehouse";
+  return role === "admin" || role === "partner";
 }
 
 export async function GET(request: Request) {

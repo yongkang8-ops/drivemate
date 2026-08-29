@@ -1,4 +1,4 @@
-export type AppRole = "public" | "trade" | "warehouse" | "admin";
+export type AppRole = "public" | "trade" | "partner" | "admin";
 
 export type Capability =
   | "vehicle_lookup"
@@ -12,14 +12,14 @@ export type Capability =
 export const DEMO_ROLE_HEADER = "x-drivemate-role";
 export const DEMO_ROLE_ENV = "DRIVEMATE_ENABLE_DEMO_AUTH";
 
-const roles: AppRole[] = ["public", "trade", "warehouse", "admin"];
+const roles: AppRole[] = ["public", "trade", "partner", "admin"];
 
 const capabilityRoles: Record<Capability, AppRole[]> = {
-  vehicle_lookup: ["trade", "warehouse", "admin"],
+  vehicle_lookup: ["trade", "partner", "admin"],
   trade_read: ["trade", "admin"],
   create_order: ["trade", "admin"],
-  inventory_write: ["warehouse", "admin"],
-  warehouse_read: ["warehouse", "admin"],
+  inventory_write: ["partner", "admin"],
+  warehouse_read: ["partner", "admin"],
   admin_read: ["admin"],
   admin_write: ["admin"],
 };

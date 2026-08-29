@@ -184,7 +184,7 @@ test("trade portal submits an order and admin can see operating state", async ({
   ).toBeVisible();
   await expect(
     page.getByRole("row", {
-      name: /DM-GWM-OF-001\s+Dispatch\s+1\s+BNE dispatch\s+SO-\d+.*demo-warehouse-user/,
+      name: /DM-GWM-OF-001\s+Dispatch\s+1\s+BNE dispatch\s+SO-\d+.*demo-partner-user/,
     }),
   ).toBeVisible();
 });
