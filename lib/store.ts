@@ -310,6 +310,61 @@ export function applyInventoryMovement(input: {
   };
 }
 
+export function receiveQuarantinedStock(input: {
+  sku: string;
+  quantity: number;
+  reference: string;
+  location: string;
+  createdBy?: string;
+}) {
+  const sku = resolveSkuIdentifier(input.sku);
+  if (!sku) return { ok: false as const, message: "SKU or barcode not found." };
+  if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
+    return { ok: false as const, message: "Quantity must be positive." };
+  }
+
+  const row = state.inventory.find((item) => item.sku === sku);
+  if (!row) return { ok: false as const, message: "SKU not found." };
+
+  row.onHand += input.quantity;
+  row.quarantine = (row.quarantine ?? 0) + input.quantity;
+
+  const movement: StockMovement = {
+    id: `SM-${Date.now()}-${sku}`,
+    sku,
+    movement: "Inbound",
+    quantity: input.quantity,
+    location: input.location,
+    reference: input.reference,
+    createdAt: new Date().toISOString(),
+    createdBy: input.createdBy,
+  };
+  state.stockMovements.unshift(movement);
+
+  const existingBatch = state.purchaseBatches.find(
+    (batch) => batch.batchNo === input.reference && batch.sku === sku,
+  );
+  if (existingBatch) {
+    existingBatch.receivedQuantity = (existingBatch.receivedQuantity ?? 0) + input.quantity;
+    existingBatch.receivedDate = existingBatch.receivedDate ?? movement.createdAt.slice(0, 10);
+  } else {
+    state.purchaseBatches.unshift({
+      batchNo: input.reference,
+      sku,
+      receivedQuantity: input.quantity,
+      supplierName: "Warehouse receiving",
+      purchaseRef: input.reference,
+      receivedDate: movement.createdAt.slice(0, 10),
+    });
+  }
+
+  return {
+    ok: true as const,
+    inventory: getInventoryState().inventory,
+    movement,
+  };
+}
+
 export function submitOrder(
   input: CreateOrderInput,
   context: { createdBy?: string; priceResolver?: PriceResolver } = {},

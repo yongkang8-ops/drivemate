@@ -13,6 +13,11 @@ import type {
   UpdateProductMasterInput,
 } from "./catalogue";
 import type { WarehouseExpectedReceipt, WarehouseInboundSelection, WarehouseLabelTemplateId } from "./warehouseLabels";
+import type {
+  PreparedReceiptLine,
+  WarehouseReceiptMode,
+  WarehouseReceiptScope,
+} from "./warehouseReceiving";
 import type { ValidatedPackingListRevision } from "./prearrivalShipment";
 import type {
   ApproveTradeAccountApplicationResult,
@@ -95,6 +100,38 @@ export type WarehouseLabelPrintAuditResult =
 
 export type WarehouseExpectedReceiptResult =
   | { ok: true; receipt: WarehouseExpectedReceipt }
+  | { ok: false; message: string };
+
+export type WarehouseReceiptSessionStatus = "in_progress" | "confirmed" | "cancelled";
+
+export type WarehouseReceiptSession = {
+  id: string;
+  shipmentId: string;
+  scopeSnapshot: WarehouseReceiptScope;
+  mode: WarehouseReceiptMode;
+  status: WarehouseReceiptSessionStatus;
+  idempotencyKey: string;
+  createdBy?: string;
+  createdAt: string;
+  confirmedBy?: string;
+  confirmedAt?: string;
+  stagingLocation?: string;
+  lines: PreparedReceiptLine[];
+};
+
+export type CreateWarehouseReceiptSessionInput = {
+  scope: WarehouseReceiptScope;
+  mode: WarehouseReceiptMode;
+  lines: PreparedReceiptLine[];
+  idempotencyKey: string;
+};
+
+export type WarehouseReceiptSessionResult =
+  | { ok: true; session: WarehouseReceiptSession }
+  | { ok: false; message: string };
+
+export type WarehouseReceiptPrintGateResult =
+  | { ok: true }
   | { ok: false; message: string };
 
 export type PackingListRevisionStatus = "draft" | "confirmed" | "superseded";
@@ -350,6 +387,17 @@ export interface DrivemateRepository {
   getWarehouseExpectedReceipt(
     selection: WarehouseInboundSelection,
   ): Promise<WarehouseExpectedReceiptResult>;
+  checkWarehouseReceiptPrintGate(
+    scope: WarehouseReceiptScope,
+  ): Promise<WarehouseReceiptPrintGateResult>;
+  createWarehouseReceiptSession(
+    input: CreateWarehouseReceiptSessionInput,
+    context?: RepositoryWriteContext,
+  ): Promise<WarehouseReceiptSessionResult>;
+  confirmWarehouseReceipt(
+    sessionId: string,
+    context?: RepositoryWriteContext,
+  ): Promise<WarehouseReceiptSessionResult>;
   listPrearrivalShipments(): Promise<PrearrivalShipmentListResult>;
   getPrearrivalShipment(shipmentId: string): Promise<PrearrivalShipmentResult>;
   createPackingListRevision(

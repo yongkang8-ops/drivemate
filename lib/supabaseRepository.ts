@@ -35,7 +35,13 @@ import {
   type WarehouseLocationParts,
 } from "./warehouseLocation";
 import { filterWarehouseExpectedReceipt, type WarehouseInboundSelection, type WarehouseLabelTemplateId } from "./warehouseLabels";
+import type {
+  PreparedReceiptLine,
+  ReceiptDiscrepancy,
+  WarehouseReceiptScope,
+} from "./warehouseReceiving";
 import {
+  receiptFromPackingListRevision,
   validatePackingListRevision,
   type ValidatedPackingListRevision,
 } from "./prearrivalShipment";
@@ -72,6 +78,10 @@ import type {
   WarehouseLabelPrintJobResult,
   WarehouseLabelPrintJobStatus,
   WarehouseExpectedReceiptResult,
+  WarehouseReceiptPrintGateResult,
+  WarehouseReceiptSession,
+  WarehouseReceiptSessionResult,
+  CreateWarehouseReceiptSessionInput,
   PackingListRevision,
   PackingListRevisionResult,
   PrearrivalShipmentListResult,
@@ -275,6 +285,33 @@ type PackingListRevisionRecord = {
   confirmed_at?: string | null;
 };
 
+type WarehouseReceiptSessionRecord = {
+  id: string;
+  shipment_id: string;
+  scope_snapshot: WarehouseReceiptScope;
+  mode: WarehouseReceiptSession["mode"];
+  status: WarehouseReceiptSession["status"];
+  idempotency_key: string;
+  created_by?: string | null;
+  created_at: string;
+  confirmed_by?: string | null;
+  confirmed_at?: string | null;
+  staging_location?: string | null;
+};
+
+type WarehouseReceiptSessionLineRecord = {
+  id: string;
+  receipt_session_id: string;
+  sku: string;
+  product_barcode: string;
+  expected_quantity: number;
+  actual_quantity: number;
+  warehouse_receipt_discrepancies?: Array<{
+    discrepancy_type: ReceiptDiscrepancy["type"];
+    reason: string;
+  }> | null;
+};
+
 function toWarehouseLabelPrintJob(record: WarehouseLabelPrintJobRecord): WarehouseLabelPrintJob {
   return {
     id: record.id,
@@ -317,6 +354,35 @@ function toPackingListRevision(record: PackingListRevisionRecord): PackingListRe
     createdAt: record.created_at,
     confirmedBy: record.confirmed_by ?? undefined,
     confirmedAt: record.confirmed_at ?? undefined,
+  };
+}
+
+function toWarehouseReceiptSession(
+  session: WarehouseReceiptSessionRecord,
+  lines: WarehouseReceiptSessionLineRecord[],
+): WarehouseReceiptSession {
+  return {
+    id: session.id,
+    shipmentId: session.shipment_id,
+    scopeSnapshot: structuredClone(session.scope_snapshot),
+    mode: session.mode,
+    status: session.status,
+    idempotencyKey: session.idempotency_key,
+    createdBy: session.created_by ?? undefined,
+    createdAt: session.created_at,
+    confirmedBy: session.confirmed_by ?? undefined,
+    confirmedAt: session.confirmed_at ?? undefined,
+    stagingLocation: session.staging_location ?? undefined,
+    lines: lines.map((line) => {
+      const discrepancy = line.warehouse_receipt_discrepancies?.[0];
+      return {
+        sku: line.sku,
+        productBarcode: line.product_barcode,
+        expectedQuantity: line.expected_quantity,
+        actualQuantity: line.actual_quantity,
+        ...(discrepancy ? { discrepancy: { type: discrepancy.discrepancy_type, reason: discrepancy.reason } } : {}),
+      };
+    }),
   };
 }
 
@@ -588,6 +654,34 @@ export class SupabaseRepository implements DrivemateRepository {
 
   private client() {
     return createServiceSupabaseClient();
+  }
+
+  private async loadWarehouseReceiptSession(
+    sessionId: string,
+  ): Promise<WarehouseReceiptSessionResult> {
+    const supabase = this.client();
+    const { data: session, error: sessionError } = await supabase
+      .from("warehouse_receipt_sessions")
+      .select("id, shipment_id, scope_snapshot, mode, status, idempotency_key, created_by, created_at, confirmed_by, confirmed_at, staging_location")
+      .eq("id", sessionId)
+      .maybeSingle();
+    if (sessionError) throw sessionError;
+    if (!session) return { ok: false, message: "Warehouse receipt session was not found." };
+
+    const { data: lines, error: linesError } = await supabase
+      .from("warehouse_receipt_session_lines")
+      .select("id, receipt_session_id, sku, product_barcode, expected_quantity, actual_quantity, warehouse_receipt_discrepancies(discrepancy_type, reason)")
+      .eq("receipt_session_id", sessionId)
+      .order("created_at");
+    if (linesError) throw linesError;
+
+    return {
+      ok: true,
+      session: toWarehouseReceiptSession(
+        session as WarehouseReceiptSessionRecord,
+        (lines ?? []) as WarehouseReceiptSessionLineRecord[],
+      ),
+    };
   }
 
   private accountDocumentsBucket() {
@@ -2756,75 +2850,84 @@ export class SupabaseRepository implements DrivemateRepository {
   async getWarehouseExpectedReceipt(
     selection: WarehouseInboundSelection,
   ): Promise<WarehouseExpectedReceiptResult> {
-    const { data, error } = await this.client()
-      .from("shipments")
-      .select("id, shipment_pallets(pallet_number), shipment_cartons(carton_number, shipment_pallets(pallet_number), shipment_carton_lines(quantity, purchase_order_lines(products(sku))))")
-      .eq("id", selection.shipmentId)
+    const { data: confirmedRevision, error: confirmedRevisionError } = await this.client()
+      .from("shipment_packing_list_versions")
+      .select("id, shipment_id, version, status, payload_snapshot, created_by, created_at, confirmed_by, confirmed_at")
+      .eq("shipment_id", selection.shipmentId)
+      .eq("status", "confirmed")
+      .order("version", { ascending: false })
+      .limit(1)
       .maybeSingle();
-    if (error) throw error;
-    if (!data) return { ok: false, message: "Expected shipment was not found." };
+    if (confirmedRevisionError) throw confirmedRevisionError;
+    if (!confirmedRevision) {
+      return { ok: false, message: "Confirmed packing list was not found for this shipment." };
+    }
 
-    const shipment = data as {
-      id: string;
-      shipment_pallets?: Array<{ pallet_number?: string | null }>;
-      shipment_cartons?: Array<{
-        carton_number?: string | null;
-        shipment_pallets?: { pallet_number?: string | null } | Array<{ pallet_number?: string | null }> | null;
-        shipment_carton_lines?: Array<{
-          quantity?: number | null;
-          purchase_order_lines?: {
-            products?: { sku?: string | null } | Array<{ sku?: string | null }> | null;
-          } | Array<{
-            products?: { sku?: string | null } | Array<{ sku?: string | null }> | null;
-          }> | null;
-        }>;
-      }>;
-    };
-    const cartons = (shipment.shipment_cartons ?? []).flatMap((carton) => {
-      const sourceCartonNumber = carton.carton_number?.trim();
-      if (!sourceCartonNumber) return [];
-      const pallet = Array.isArray(carton.shipment_pallets)
-        ? carton.shipment_pallets[0]
-        : carton.shipment_pallets;
-      return [{ sourceCartonNumber, sourcePalletNumber: pallet?.pallet_number?.trim() || undefined }];
-    });
-    const lines = (shipment.shipment_cartons ?? []).flatMap((carton) => {
-      const sourceCartonNumber = carton.carton_number?.trim();
-      if (!sourceCartonNumber) return [];
-      const pallet = Array.isArray(carton.shipment_pallets)
-        ? carton.shipment_pallets[0]
-        : carton.shipment_pallets;
-      return (carton.shipment_carton_lines ?? []).flatMap((line) => {
-        const purchaseOrderLine = Array.isArray(line.purchase_order_lines)
-          ? line.purchase_order_lines[0]
-          : line.purchase_order_lines;
-        const product = Array.isArray(purchaseOrderLine?.products)
-          ? purchaseOrderLine?.products[0]
-          : purchaseOrderLine?.products;
-        if (!product?.sku || !line.quantity) return [];
-        return [{
-          sourcePalletNumber: pallet?.pallet_number?.trim() || undefined,
-          sourceCartonNumber,
-          sku: product.sku,
-          expectedQuantity: line.quantity,
-        }];
-      });
-    });
-
+    const revision = toPackingListRevision(confirmedRevision as PackingListRevisionRecord);
     return {
       ok: true,
       receipt: filterWarehouseExpectedReceipt(
-        {
-          shipmentId: shipment.id,
-          pallets: (shipment.shipment_pallets ?? []).flatMap((pallet) =>
-            pallet.pallet_number?.trim() ? [{ sourcePalletNumber: pallet.pallet_number.trim() }] : [],
-          ),
-          cartons,
-          lines,
-        },
+        receiptFromPackingListRevision(revision.payloadSnapshot),
         selection,
       ),
     };
+
+  }
+
+  async checkWarehouseReceiptPrintGate(
+    scope: WarehouseReceiptScope,
+  ): Promise<WarehouseReceiptPrintGateResult> {
+    const requiredQuantity = scope.lines.reduce(
+      (total, line) => total + line.expectedQuantity,
+      0,
+    );
+    const { data, error } = await this.client()
+      .from("warehouse_label_print_jobs")
+      .select("id")
+      .eq("template_id", "unit_product")
+      .eq("status", "printed")
+      .gte("requested_quantity", requiredQuantity)
+      .contains("payload_snapshot", scope)
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+
+    return data
+      ? { ok: true }
+      : {
+          ok: false,
+          message: "Confirmed Unit Product labels are required for the complete selected receipt scope before stock can be received.",
+        };
+  }
+
+  async createWarehouseReceiptSession(
+    input: CreateWarehouseReceiptSessionInput,
+    context: RepositoryWriteContext = {},
+  ): Promise<WarehouseReceiptSessionResult> {
+    const { data, error } = await this.client().rpc("dm_create_warehouse_receipt_session", {
+      p_shipment_id: input.scope.shipmentId,
+      p_scope_snapshot: input.scope,
+      p_mode: input.mode,
+      p_lines: input.lines,
+      p_idempotency_key: input.idempotencyKey,
+      p_actor_id: context.actorId ?? null,
+    });
+    if (error) return { ok: false, message: error.message };
+    if (!data) return { ok: false, message: "Warehouse receipt session could not be created." };
+    return this.loadWarehouseReceiptSession(data as string);
+  }
+
+  async confirmWarehouseReceipt(
+    sessionId: string,
+    context: RepositoryWriteContext = {},
+  ): Promise<WarehouseReceiptSessionResult> {
+    const { data, error } = await this.client().rpc("dm_confirm_warehouse_receipt_session", {
+      p_session_id: sessionId,
+      p_actor_id: context.actorId ?? null,
+    });
+    if (error) return { ok: false, message: error.message };
+    if (!data) return { ok: false, message: "Warehouse receipt session was not found." };
+    return this.loadWarehouseReceiptSession(data as string);
   }
 
   async appendWarehouseLabelPrintItems(

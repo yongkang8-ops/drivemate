@@ -1,3 +1,5 @@
+import type { WarehouseExpectedReceipt } from "./warehouseLabels";
+
 export type PackingListRevisionInput = {
   shipmentId: string;
   pallets: Array<{
@@ -26,6 +28,33 @@ export type PackingListRevisionValidationResult =
 export type PackingListRevisionValidationOptions = {
   knownSkus?: readonly string[];
 };
+
+export function receiptFromPackingListRevision(
+  revision: ValidatedPackingListRevision,
+): WarehouseExpectedReceipt {
+  return {
+    shipmentId: revision.shipmentId,
+    pallets: revision.pallets.map((pallet) => ({
+      sourcePalletNumber: pallet.sourcePalletNumber,
+    })),
+    cartons: revision.pallets.flatMap((pallet) =>
+      pallet.cartons.map((carton) => ({
+        sourceCartonNumber: carton.sourceCartonNumber,
+        sourcePalletNumber: pallet.sourcePalletNumber,
+      })),
+    ),
+    lines: revision.pallets.flatMap((pallet) =>
+      pallet.cartons.flatMap((carton) =>
+        carton.lines.map((line) => ({
+          sourcePalletNumber: pallet.sourcePalletNumber,
+          sourceCartonNumber: carton.sourceCartonNumber,
+          sku: line.sku,
+          expectedQuantity: line.expectedQuantity,
+        })),
+      ),
+    ),
+  };
+}
 
 function normalizeIdentifier(value: string): string {
   return value.trim().toUpperCase().replace(/\s+/g, " ");

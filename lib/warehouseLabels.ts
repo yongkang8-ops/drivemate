@@ -34,6 +34,10 @@ export type WarehouseLabelPrintScope = {
   lines: Array<{ sku: string; expectedQuantity: number; productBarcode: string }>;
 };
 
+export type WarehouseReceiptScopeInput = {
+  [sku: string]: string | undefined;
+};
+
 type WarehouseLabelVisibleField =
   | "brand"
   | "part_name"
@@ -178,15 +182,50 @@ export function buildWarehouseLabelPrintScope(
 ): WarehouseLabelPrintScope {
   if (templateId !== "unit_product") throw new Error("Only unit product label scope is supported in the first receiving workflow.");
 
+  const lines = new Map<string, { sku: string; expectedQuantity: number; productBarcode: string }>();
+  for (const line of receipt.lines) {
+    const product = findProductBySku(line.sku);
+    if (!product) throw new Error(`Expected receipt SKU ${line.sku} was not found.`);
+    const key = `${line.sku}\u0000${product.barcode.trim().toUpperCase()}`;
+    const existing = lines.get(key);
+    lines.set(key, {
+      sku: line.sku,
+      productBarcode: product.barcode,
+      expectedQuantity: (existing?.expectedQuantity ?? 0) + line.expectedQuantity,
+    });
+  }
+
   return {
     shipmentId: receipt.shipmentId,
     palletNumbers: receipt.pallets.map((pallet) => pallet.sourcePalletNumber),
     cartonNumbers: receipt.cartons.map((carton) => carton.sourceCartonNumber),
-    lines: receipt.lines.map((line) => {
-      const product = findProductBySku(line.sku);
-      if (!product) throw new Error(`Expected receipt SKU ${line.sku} was not found.`);
-      return { sku: line.sku, expectedQuantity: line.expectedQuantity, productBarcode: product.barcode };
-    }),
+    lines: [...lines.values()],
+  };
+}
+
+export function buildWarehouseReceiptScope(
+  receipt: WarehouseExpectedReceipt,
+  productBarcodes: WarehouseReceiptScopeInput,
+) {
+  const lines = new Map<string, { sku: string; expectedQuantity: number; productBarcode: string }>();
+  for (const line of receipt.lines) {
+    const productBarcode = productBarcodes[line.sku];
+    if (!productBarcode?.trim()) {
+      throw new Error(`Expected receipt SKU ${line.sku} does not have a product barcode.`);
+    }
+    const key = `${line.sku}\u0000${productBarcode.trim().toUpperCase()}`;
+    const existing = lines.get(key);
+    lines.set(key, {
+      sku: line.sku,
+      expectedQuantity: (existing?.expectedQuantity ?? 0) + line.expectedQuantity,
+      productBarcode,
+    });
+  }
+
+  return {
+    shipmentId: receipt.shipmentId,
+    cartonNumbers: receipt.cartons.map((carton) => carton.sourceCartonNumber),
+    lines: [...lines.values()],
   };
 }
 import { findProductBySku } from "./catalogue";

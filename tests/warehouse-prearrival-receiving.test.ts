@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { buildWarehouseLabelPrintScope } from "../lib/warehouseLabels";
+import { buildWarehouseLabelPrintScope, buildWarehouseReceiptScope } from "../lib/warehouseLabels";
 import { MemoryRepository } from "../lib/memoryRepository";
 
 describe("pre-arrival shipment receipt scope", () => {
@@ -42,6 +42,24 @@ describe("pre-arrival shipment receipt scope", () => {
       palletNumbers: ["P002"],
       cartonNumbers: ["C002"],
       lines: [{ sku: "DM-GWM-OF-001", expectedQuantity: 24, productBarcode: "DMPGWMOF001" }],
+    });
+  });
+
+  it("aggregates the same SKU across selected cartons for one receipt session", async () => {
+    const shipment = await repository.getPrearrivalShipment("shipment-test-1");
+    expect(shipment.ok).toBe(true);
+    if (!shipment.ok) return;
+
+    expect(buildWarehouseReceiptScope(shipment.shipment, shipment.shipment.productBarcodes)).toMatchObject({
+      shipmentId: "shipment-test-1",
+      cartonNumbers: ["C001", "C002"],
+      lines: expect.arrayContaining([
+        {
+          sku: "DM-GWM-OF-001",
+          productBarcode: "DMPGWMOF001",
+          expectedQuantity: 36,
+        },
+      ]),
     });
   });
 });

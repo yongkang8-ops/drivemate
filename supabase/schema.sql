@@ -149,6 +149,55 @@ on public.warehouse_label_print_jobs (created_at desc);
 create index warehouse_label_print_jobs_reprint_of_job_id_idx
 on public.warehouse_label_print_jobs (reprint_of_job_id);
 
+create table public.warehouse_receipt_sessions (
+  id uuid primary key default gen_random_uuid(),
+  shipment_id uuid not null references public.shipments(id),
+  scope_snapshot jsonb not null check (jsonb_typeof(scope_snapshot) = 'object'),
+  mode text not null check (mode in ('scan_each', 'counted_quantity')),
+  status text not null default 'in_progress' check (status in ('in_progress', 'confirmed', 'cancelled')),
+  staging_location text,
+  created_by uuid references auth.users(id),
+  created_at timestamptz not null default now(),
+  confirmed_by uuid references auth.users(id),
+  confirmed_at timestamptz,
+  idempotency_key text not null unique,
+  check (
+    (status = 'in_progress' and confirmed_by is null and confirmed_at is null and staging_location is null)
+    or (status = 'confirmed' and confirmed_at is not null and staging_location = 'BNE-RECEIVING-STAGING')
+    or (status = 'cancelled' and confirmed_at is null and staging_location is null)
+  )
+);
+
+create table public.warehouse_receipt_session_lines (
+  id uuid primary key default gen_random_uuid(),
+  receipt_session_id uuid not null references public.warehouse_receipt_sessions(id) on delete restrict,
+  product_id uuid not null references public.products(id),
+  sku text not null,
+  product_barcode text not null,
+  expected_quantity integer not null check (expected_quantity > 0),
+  actual_quantity integer not null check (actual_quantity >= 0),
+  created_at timestamptz not null default now(),
+  unique (receipt_session_id, product_id)
+);
+
+create table public.warehouse_receipt_discrepancies (
+  id uuid primary key default gen_random_uuid(),
+  receipt_session_line_id uuid not null references public.warehouse_receipt_session_lines(id) on delete restrict,
+  discrepancy_type text not null check (discrepancy_type in ('short_pack', 'over_received', 'damaged', 'wrong_item', 'unknown_barcode')),
+  reason text not null check (length(trim(reason)) >= 3),
+  created_at timestamptz not null default now(),
+  unique (receipt_session_line_id)
+);
+
+create index warehouse_receipt_sessions_shipment_created_idx
+on public.warehouse_receipt_sessions (shipment_id, created_at desc);
+create index warehouse_receipt_sessions_created_by_idx
+on public.warehouse_receipt_sessions (created_by);
+create index warehouse_receipt_sessions_confirmed_by_idx
+on public.warehouse_receipt_sessions (confirmed_by);
+create index warehouse_receipt_session_lines_product_idx
+on public.warehouse_receipt_session_lines (product_id);
+
 create table public.shipment_packing_list_versions (
   id uuid primary key default gen_random_uuid(),
   shipment_id uuid not null references public.shipments(id),

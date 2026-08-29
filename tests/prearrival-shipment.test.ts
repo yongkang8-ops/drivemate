@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MemoryRepository } from "../lib/memoryRepository";
 import {
+  receiptFromPackingListRevision,
   validatePackingListRevision,
   type PackingListRevisionInput,
 } from "../lib/prearrivalShipment";
@@ -23,6 +24,22 @@ const validInput: PackingListRevisionInput = {
 };
 
 describe("pre-arrival packing-list revisions", () => {
+  it("projects the confirmed packing-list snapshot into the receipt scope without reading mutable shipment rows", () => {
+    expect(receiptFromPackingListRevision(validInput)).toEqual({
+      shipmentId: "shipment-test-1",
+      pallets: [{ sourcePalletNumber: "P001" }],
+      cartons: [{ sourceCartonNumber: "C001", sourcePalletNumber: "P001" }],
+      lines: [
+        {
+          sourcePalletNumber: "P001",
+          sourceCartonNumber: "C001",
+          sku: "DM-GWM-OF-001",
+          expectedQuantity: 12,
+        },
+      ],
+    });
+  });
+
   it("accepts a canonical pallet, carton and SKU snapshot", () => {
     const result = validatePackingListRevision(validInput, {
       knownSkus: ["DM-GWM-OF-001"],

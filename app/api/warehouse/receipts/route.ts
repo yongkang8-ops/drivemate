@@ -1,22 +1,31 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { can } from "../../../../lib/auth";
+import { getRepository } from "../../../../lib/repository";
 import { mutationRequestAllowed } from "../../../../lib/requestSecurity";
 import { getRequestContext } from "../../../../lib/serverAuth";
-import { createServiceSupabaseClient } from "../../../../lib/supabaseClient";
+import { buildWarehouseReceiptScope, filterWarehouseExpectedReceipt } from "../../../../lib/warehouseLabels";
+import { RECEIPT_DISCREPANCY_TYPES, prepareWarehouseReceipt } from "../../../../lib/warehouseReceiving";
+
+const discrepancySchema = z.object({
+  type: z.enum(RECEIPT_DISCREPANCY_TYPES),
+  reason: z.string().trim().min(3).max(500),
+}).strict();
 
 const receiptSchema = z.object({
-  shipmentId: z.string().uuid(),
-  receiptNumber: z.string().trim().min(1).max(80),
-  locationId: z.string().uuid(),
-  idempotencyKey: z.string().trim().min(8).max(120),
-  lines: z.array(z.object({
-    sku: z.string().trim().min(1),
-    receivedQuantity: z.number().int().positive(),
-    damagedQuantity: z.number().int().nonnegative().default(0),
-    evidence: z.array(z.record(z.string(), z.unknown())).default([]),
-  })).min(1),
-});
+  selection: z.object({
+    shipmentId: z.string().uuid(),
+    cartonNumbers: z.array(z.string().trim().min(1).max(120)).min(1),
+  }).strict(),
+  mode: z.enum(["scan_each", "counted_quantity"]),
+  scannedProductBarcodes: z.array(z.string().trim().min(1).max(240)).default([]),
+  countedLines: z.array(z.object({
+    productBarcode: z.string().trim().min(1).max(240),
+    actualQuantity: z.number().int().nonnegative(),
+    discrepancy: discrepancySchema.optional(),
+  }).strict()).default([]),
+  idempotencyKey: z.string().uuid(),
+}).strict();
 
 export async function POST(request: Request) {
   if (!mutationRequestAllowed(request)) return NextResponse.json({ ok: false, message: "Request security validation failed." }, { status: 403 });
@@ -26,14 +35,57 @@ export async function POST(request: Request) {
   }
   const parsed = receiptSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ ok: false, error: parsed.error.flatten() }, { status: 400 });
-  const { data, error } = await createServiceSupabaseClient().rpc("dm_receive_goods", {
-    p_shipment_id: parsed.data.shipmentId,
-    p_receipt_number: parsed.data.receiptNumber,
-    p_lines: parsed.data.lines,
-    p_location_id: parsed.data.locationId,
-    p_idempotency_key: parsed.data.idempotencyKey,
-    p_actor_id: auth.userId ?? null,
+
+  const repository = getRepository();
+  const shipment = await repository.getPrearrivalShipment(parsed.data.selection.shipmentId);
+  if (!shipment.ok) return NextResponse.json(shipment, { status: 404 });
+
+  let scope;
+  try {
+    scope = buildWarehouseReceiptScope(
+      filterWarehouseExpectedReceipt(shipment.shipment, parsed.data.selection),
+      shipment.shipment.productBarcodes,
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { ok: false, message: error instanceof Error ? error.message : "Receipt scope could not be prepared." },
+      { status: 422 },
+    );
+  }
+
+  const prepared = parsed.data.mode === "scan_each"
+    ? prepareWarehouseReceipt({
+        expectedScope: scope,
+        mode: "scan_each",
+        scannedProductBarcodes: parsed.data.scannedProductBarcodes,
+      })
+    : prepareWarehouseReceipt({
+        expectedScope: scope,
+        mode: "counted_quantity",
+        scannedProductBarcodes: parsed.data.scannedProductBarcodes,
+        countedLines: parsed.data.countedLines,
+      });
+  if (!prepared.ok) return NextResponse.json(prepared, { status: 422 });
+
+  const printGate = await repository.checkWarehouseReceiptPrintGate(scope);
+  if (!printGate.ok) return NextResponse.json(printGate, { status: 422 });
+
+  const created = await repository.createWarehouseReceiptSession({
+    scope,
+    mode: parsed.data.mode,
+    lines: prepared.lines,
+    idempotencyKey: parsed.data.idempotencyKey,
+  }, { actorId: auth.userId });
+  if (!created.ok) return NextResponse.json(created, { status: 422 });
+
+  const confirmed = await repository.confirmWarehouseReceipt(created.session.id, {
+    actorId: auth.userId,
   });
-  if (error) return NextResponse.json({ ok: false, message: error.message }, { status: 422 });
-  return NextResponse.json({ ok: true, goodsReceiptId: data }, { status: 201 });
+  if (!confirmed.ok) return NextResponse.json(confirmed, { status: 422 });
+
+  return NextResponse.json({
+    ok: true,
+    stagingLocation: confirmed.session.stagingLocation,
+    session: confirmed.session,
+  }, { status: 201 });
 }

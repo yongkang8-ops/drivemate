@@ -39,6 +39,7 @@ import {
   ensureInventoryRow,
   getInventoryState,
   provisionTradeAccountLogin,
+  receiveQuarantinedStock,
   recordLookupRequest,
   resetStoreForTests,
   submitOrder,
@@ -63,12 +64,17 @@ import type {
   WarehouseLabelPrintJobResult,
   WarehouseLabelPrintJobStatus,
   WarehouseExpectedReceiptResult,
+  WarehouseReceiptPrintGateResult,
+  WarehouseReceiptSession,
+  WarehouseReceiptSessionResult,
+  CreateWarehouseReceiptSessionInput,
   PackingListRevision,
   PackingListRevisionResult,
   PrearrivalShipmentListResult,
   PrearrivalShipmentResult,
 } from "./repository";
-import { filterWarehouseExpectedReceipt, type WarehouseExpectedReceipt, type WarehouseInboundSelection } from "./warehouseLabels";
+import { filterWarehouseExpectedReceipt, type WarehouseExpectedReceipt, type WarehouseInboundSelection, type WarehouseLabelPrintScope } from "./warehouseLabels";
+import { RECEIVING_STAGING_LOCATION, type WarehouseReceiptScope } from "./warehouseReceiving";
 import { validatePackingListRevision, type ValidatedPackingListRevision } from "./prearrivalShipment";
 import type {
   TradeAccountApplicationInput,
@@ -110,6 +116,8 @@ let warehouseLabelJobSequence = 0;
 let warehouseLabelItemSequence = 0;
 let warehouseLabelPrintJobs: WarehouseLabelPrintJob[] = [];
 let warehouseLabelPrintItems: WarehouseLabelPrintItem[] = [];
+let warehouseReceiptSessionSequence = 0;
+let warehouseReceiptSessions: WarehouseReceiptSession[] = [];
 
 function clonePayload(payload: Record<string, unknown>) {
   return structuredClone(payload);
@@ -117,6 +125,37 @@ function clonePayload(payload: Record<string, unknown>) {
 
 function cloneWarehouseLabelPrintJob(job: WarehouseLabelPrintJob): WarehouseLabelPrintJob {
   return { ...job, payloadSnapshot: clonePayload(job.payloadSnapshot) };
+}
+
+function cloneWarehouseReceiptSession(session: WarehouseReceiptSession): WarehouseReceiptSession {
+  return structuredClone(session);
+}
+
+function scopeIsCoveredByPrintedUnitProductJob(
+  scope: WarehouseReceiptScope,
+  job: WarehouseLabelPrintJob,
+) {
+  if (job.templateId !== "unit_product" || job.status !== "printed") return false;
+  const requiredQuantity = scope.lines.reduce((total, line) => total + line.expectedQuantity, 0);
+  if (job.requestedQuantity < requiredQuantity) return false;
+
+  const payload = job.payloadSnapshot as Partial<WarehouseLabelPrintScope>;
+  if (payload.shipmentId !== scope.shipmentId || !Array.isArray(payload.cartonNumbers) || !Array.isArray(payload.lines)) {
+    return false;
+  }
+
+  const printedCartons = new Set(payload.cartonNumbers.map((carton) => carton.trim().toUpperCase()));
+  if (!scope.cartonNumbers.every((carton) => printedCartons.has(carton.trim().toUpperCase()))) {
+    return false;
+  }
+
+  return scope.lines.every((line) =>
+    payload.lines?.some((printedLine) =>
+      printedLine.sku === line.sku &&
+      printedLine.productBarcode?.trim().toUpperCase() === line.productBarcode.trim().toUpperCase() &&
+      printedLine.expectedQuantity === line.expectedQuantity,
+    ),
+  );
 }
 
 function cloneWarehouseLabelPrintItem(item: WarehouseLabelPrintItem): WarehouseLabelPrintItem {
@@ -406,6 +445,77 @@ export class MemoryRepository implements DrivemateRepository {
         selection,
       ),
     };
+  }
+
+  async checkWarehouseReceiptPrintGate(
+    scope: WarehouseReceiptScope,
+  ): Promise<WarehouseReceiptPrintGateResult> {
+    const covered = warehouseLabelPrintJobs.some((job) =>
+      scopeIsCoveredByPrintedUnitProductJob(scope, job),
+    );
+    return covered
+      ? { ok: true }
+      : {
+          ok: false,
+          message: "Confirmed Unit Product labels are required for the complete selected receipt scope before stock can be received.",
+        };
+  }
+
+  async createWarehouseReceiptSession(
+    input: CreateWarehouseReceiptSessionInput,
+    context: RepositoryWriteContext = {},
+  ): Promise<WarehouseReceiptSessionResult> {
+    const idempotencyKey = input.idempotencyKey.trim();
+    if (!idempotencyKey) return { ok: false, message: "Idempotency key is required." };
+    if (!input.lines.length) return { ok: false, message: "At least one receipt line is required." };
+
+    const existing = warehouseReceiptSessions.find((session) => session.idempotencyKey === idempotencyKey);
+    if (existing) return { ok: true, session: cloneWarehouseReceiptSession(existing) };
+
+    const session: WarehouseReceiptSession = {
+      id: `memory-receipt-session-${++warehouseReceiptSessionSequence}`,
+      shipmentId: input.scope.shipmentId,
+      scopeSnapshot: structuredClone(input.scope),
+      mode: input.mode,
+      status: "in_progress",
+      idempotencyKey,
+      createdBy: context.actorId,
+      createdAt: new Date().toISOString(),
+      lines: structuredClone(input.lines),
+    };
+    warehouseReceiptSessions.push(session);
+    return { ok: true, session: cloneWarehouseReceiptSession(session) };
+  }
+
+  async confirmWarehouseReceipt(
+    sessionId: string,
+    context: RepositoryWriteContext = {},
+  ): Promise<WarehouseReceiptSessionResult> {
+    const session = warehouseReceiptSessions.find((candidate) => candidate.id === sessionId);
+    if (!session) return { ok: false, message: "Warehouse receipt session was not found." };
+    if (session.status === "confirmed") return { ok: true, session: cloneWarehouseReceiptSession(session) };
+    if (session.status !== "in_progress") return { ok: false, message: "Only an in-progress warehouse receipt session can be confirmed." };
+
+    const printGate = await this.checkWarehouseReceiptPrintGate(session.scopeSnapshot);
+    if (!printGate.ok) return printGate;
+
+    for (const line of session.lines) {
+      if (line.actualQuantity === 0) continue;
+      const received = receiveQuarantinedStock({
+        sku: line.sku,
+        quantity: line.actualQuantity,
+        reference: session.id,
+        location: RECEIVING_STAGING_LOCATION,
+        createdBy: context.actorId,
+      });
+      if (!received.ok) return received;
+    }
+
+    session.status = "confirmed";
+    session.confirmedBy = context.actorId;
+    session.confirmedAt = new Date().toISOString();
+    session.stagingLocation = RECEIVING_STAGING_LOCATION;
+    return { ok: true, session: cloneWarehouseReceiptSession(session) };
   }
 
   async listPrearrivalShipments(): Promise<PrearrivalShipmentListResult> {
@@ -699,6 +809,8 @@ export class MemoryRepository implements DrivemateRepository {
     warehouseLabelItemSequence = 0;
     warehouseLabelPrintJobs = [];
     warehouseLabelPrintItems = [];
+    warehouseReceiptSessionSequence = 0;
+    warehouseReceiptSessions = [];
     packingListRevisionSequence = 1;
     packingListRevisions = [initialPackingListRevision()];
   }
