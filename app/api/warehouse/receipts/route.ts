@@ -12,9 +12,13 @@ const discrepancySchema = z.object({
   reason: z.string().trim().min(3).max(500),
 }).strict();
 
+const receiptShipmentIdSchema = process.env.DRIVEMATE_REPOSITORY === "memory"
+  ? z.string().trim().min(1).max(120)
+  : z.string().uuid();
+
 const receiptSchema = z.object({
   selection: z.object({
-    shipmentId: z.string().uuid(),
+    shipmentId: receiptShipmentIdSchema,
     cartonNumbers: z.array(z.string().trim().min(1).max(120)).min(1),
   }).strict(),
   mode: z.enum(["scan_each", "counted_quantity"]),

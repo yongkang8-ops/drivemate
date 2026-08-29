@@ -21,6 +21,8 @@
     "@supabase/ssr": "0.7.0",
     "@supabase/supabase-js": "2.112.3",
     "@tanstack/react-table": "8.21.3",
+    "@types/jsbarcode": "^3.11.4",
+    "jsbarcode": "^3.12.3",
     "motion": "12.23.24",
     "next": "16.3.2",
     "react": "19.2.8",
