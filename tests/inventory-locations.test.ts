@@ -44,6 +44,13 @@ describe("inventory location codes", () => {
     }
   });
 
+  it("rejects a bare carriage return inside a single location code", () => {
+    expect(parseInventoryLocationCode("BNE-A01-\r03")).toEqual({
+      ok: false,
+      message: "Location code must use the BNE-<segment>-<segment> format.",
+    });
+  });
+
   it("normalises a reviewed batch and keeps each canonical code once", () => {
     expect(parseLocationCodeBatch("\n bne-a01-01 \nBNE-A01-01\n bne-a-01-02\n")).toEqual({
       ok: true,
@@ -72,6 +79,27 @@ describe("inventory location codes", () => {
     expect(parseLocationCodeBatch("BNE-A01-01\nbne-a01-01\nAISLE-A")).toEqual({
       ok: false,
       message: "Line 3 must use a canonical BNE location code.",
+    });
+  });
+
+  it.each([
+    ["space", "BNE-A01-01\nBNE-A 01-02"],
+    ["tab", "BNE-A01-01\nBNE-A\t01-02"],
+    ["bare carriage return", "BNE-A01-01\nBNE-A01-\r02"],
+  ])("reports the original line number for a batch code containing an internal %s", (_kind, value) => {
+    expect(parseLocationCodeBatch(value)).toEqual({
+      ok: false,
+      message: "Line 2 must use a canonical BNE location code.",
+    });
+  });
+
+  it("keeps a CRLF-separated reviewed batch valid", () => {
+    expect(parseLocationCodeBatch("BNE-A01-01\r\nbne-a-01-02\r\n")).toMatchObject({
+      ok: true,
+      locations: [
+        { locationCode: "BNE-A01-01", barcode: "DMLOC:BNE-A01-01" },
+        { locationCode: "BNE-A-01-02", barcode: "DMLOC:BNE-A-01-02" },
+      ],
     });
   });
 });
