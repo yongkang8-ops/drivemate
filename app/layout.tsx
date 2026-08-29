@@ -20,6 +20,7 @@ const publicNavItems = [
 ];
 
 const internalNavItems = [
+  { href: "/partner", label: "Operations" },
   { href: "/warehouse", label: "Warehouse" },
   { href: "/admin", label: "Admin" },
 ];

@@ -16,6 +16,7 @@ export type WarehouseHistoryEvent = {
   palletNumbers?: string[];
   cartonNumbers?: string[];
   sku?: string;
+  quantity?: number;
   outcome: string;
 };
 

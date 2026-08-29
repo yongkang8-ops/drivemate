@@ -3111,14 +3111,14 @@ export class SupabaseRepository implements DrivemateRepository {
     }
     for (const session of sessions) {
       if (!session.confirmedAt) continue;
-      events.push({ id: `receipt-${session.id}`, createdAt: session.confirmedAt, action: "receipt_confirmed", actor: session.confirmedBy, reference: session.id, shipmentId: session.shipmentId, cartonNumbers: session.scopeSnapshot.cartonNumbers, outcome: `${session.lines.reduce((total, line) => total + line.actualQuantity, 0)} units staged` });
-      for (const line of session.lines) if (line.discrepancy) events.push({ id: `difference-${session.id}-${line.productBarcode}`, createdAt: session.confirmedAt, action: "discrepancy_recorded", actor: session.confirmedBy, reference: session.id, shipmentId: session.shipmentId, cartonNumbers: session.scopeSnapshot.cartonNumbers, sku: line.sku, outcome: `${line.discrepancy.type}: ${line.discrepancy.reason}` });
+      events.push({ id: `receipt-${session.id}`, createdAt: session.confirmedAt, action: "receipt_confirmed", actor: session.confirmedBy, reference: session.id, shipmentId: session.shipmentId, cartonNumbers: session.scopeSnapshot.cartonNumbers, quantity: session.lines.reduce((total, line) => total + line.actualQuantity, 0), outcome: `${session.lines.reduce((total, line) => total + line.actualQuantity, 0)} units staged` });
+      for (const line of session.lines) if (line.discrepancy) events.push({ id: `difference-${session.id}-${line.productBarcode}`, createdAt: session.confirmedAt, action: "discrepancy_recorded", actor: session.confirmedBy, reference: session.id, shipmentId: session.shipmentId, cartonNumbers: session.scopeSnapshot.cartonNumbers, sku: line.sku, quantity: Math.abs(line.actualQuantity - line.expectedQuantity), outcome: `${line.discrepancy.type}: ${line.discrepancy.reason}` });
     }
     for (const rawMovement of (movementRows ?? []) as MovementRecord[]) {
       const session = sessionById.get(rawMovement.reference_id);
       if (!session) continue;
       const movement = toStockMovement(rawMovement);
-      events.push({ id: rawMovement.id, createdAt: rawMovement.created_at, action: "putaway_confirmed", actor: rawMovement.created_by ?? undefined, reference: movement.location, shipmentId: session.shipmentId, cartonNumbers: session.scopeSnapshot.cartonNumbers, sku: movement.sku, outcome: `Moved ${movement.quantity} units from ${RECEIVING_STAGING_LOCATION}` });
+      events.push({ id: rawMovement.id, createdAt: rawMovement.created_at, action: "putaway_confirmed", actor: rawMovement.created_by ?? undefined, reference: movement.location, shipmentId: session.shipmentId, cartonNumbers: session.scopeSnapshot.cartonNumbers, sku: movement.sku, quantity: movement.quantity, outcome: `Moved ${movement.quantity} units from ${RECEIVING_STAGING_LOCATION}` });
     }
     return { ok: true, events: events.filter((event) => matchesWarehouseHistoryQuery(event, query)) };
   }

@@ -762,6 +762,7 @@ export class MemoryRepository implements DrivemateRepository {
         shipmentId: session.shipmentId,
         cartonNumbers: [...session.scopeSnapshot.cartonNumbers],
         sku: session.lines.length === 1 ? session.lines[0].sku : undefined,
+        quantity: session.lines.reduce((total, line) => total + line.actualQuantity, 0),
         outcome: `${session.lines.reduce((total, line) => total + line.actualQuantity, 0)} units staged`,
       });
       for (const line of session.lines) {
@@ -775,6 +776,7 @@ export class MemoryRepository implements DrivemateRepository {
           shipmentId: session.shipmentId,
           cartonNumbers: [...session.scopeSnapshot.cartonNumbers],
           sku: line.sku,
+          quantity: Math.abs(line.actualQuantity - line.expectedQuantity),
           outcome: `${line.discrepancy.type}: ${line.discrepancy.reason}`,
         });
       }
@@ -790,6 +792,7 @@ export class MemoryRepository implements DrivemateRepository {
         shipmentId: putaway.shipmentId,
         cartonNumbers: putaway.cartonNumbers,
         sku: putaway.sku,
+        quantity: putaway.quantity,
         outcome: `Moved ${putaway.quantity} units from ${RECEIVING_STAGING_LOCATION}`,
       });
     }
