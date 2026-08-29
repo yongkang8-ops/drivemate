@@ -13,6 +13,7 @@ import type {
   UpdateProductMasterInput,
 } from "./catalogue";
 import type { WarehouseExpectedReceipt, WarehouseInboundSelection, WarehouseLabelTemplateId } from "./warehouseLabels";
+import type { ValidatedPackingListRevision } from "./prearrivalShipment";
 import type {
   ApproveTradeAccountApplicationResult,
   ProvisionTradeAccountLoginResult,
@@ -94,6 +95,33 @@ export type WarehouseLabelPrintAuditResult =
 
 export type WarehouseExpectedReceiptResult =
   | { ok: true; receipt: WarehouseExpectedReceipt }
+  | { ok: false; message: string };
+
+export type PackingListRevisionStatus = "draft" | "confirmed" | "superseded";
+
+export type PackingListRevision = {
+  id: string;
+  shipmentId: string;
+  version: number;
+  status: PackingListRevisionStatus;
+  payloadSnapshot: ValidatedPackingListRevision;
+  totalExpectedQuantity: number;
+  createdBy?: string;
+  createdAt: string;
+  confirmedBy?: string;
+  confirmedAt?: string;
+};
+
+export type PackingListRevisionResult =
+  | { ok: true; revision: PackingListRevision }
+  | { ok: false; message: string };
+
+export type PrearrivalShipment = WarehouseExpectedReceipt & {
+  revisions: PackingListRevision[];
+};
+
+export type PrearrivalShipmentResult =
+  | { ok: true; shipment: PrearrivalShipment }
   | { ok: false; message: string };
 
 export type StockMovement = {
@@ -310,6 +338,15 @@ export interface DrivemateRepository {
   getWarehouseExpectedReceipt(
     selection: WarehouseInboundSelection,
   ): Promise<WarehouseExpectedReceiptResult>;
+  getPrearrivalShipment(shipmentId: string): Promise<PrearrivalShipmentResult>;
+  createPackingListRevision(
+    input: ValidatedPackingListRevision,
+    context?: RepositoryWriteContext,
+  ): Promise<PackingListRevisionResult>;
+  confirmPackingListRevision(
+    revisionId: string,
+    context?: RepositoryWriteContext,
+  ): Promise<PackingListRevisionResult>;
   createWarehouseLabelPrintJob(
     input: CreateWarehouseLabelPrintJobInput,
     context?: RepositoryWriteContext,

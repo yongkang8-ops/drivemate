@@ -127,6 +127,8 @@ git commit -m "feat: add unified partner warehouse role"
 
 ## Task 2: Add immutable pre-arrival packing-list revisions
 
+> **Execution note (2026-08-29):** Task 1 committed the local-only v13 role migration before Task 2 began. To preserve migration history, this task adds the versioned packing-list schema in a new local-only v14 migration instead of editing v13. Neither migration has been executed against Production.
+
 **Files:**
 - Create: `lib/prearrivalShipment.ts`
 - Modify: `lib/repository.ts`

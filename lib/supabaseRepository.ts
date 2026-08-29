@@ -35,6 +35,10 @@ import {
   type WarehouseLocationParts,
 } from "./warehouseLocation";
 import { filterWarehouseExpectedReceipt, type WarehouseInboundSelection, type WarehouseLabelTemplateId } from "./warehouseLabels";
+import {
+  validatePackingListRevision,
+  type ValidatedPackingListRevision,
+} from "./prearrivalShipment";
 import type {
   ApproveTradeAccountApplicationResult,
   ProvisionTradeAccountLoginResult,
@@ -68,6 +72,9 @@ import type {
   WarehouseLabelPrintJobResult,
   WarehouseLabelPrintJobStatus,
   WarehouseExpectedReceiptResult,
+  PackingListRevision,
+  PackingListRevisionResult,
+  PrearrivalShipmentResult,
 } from "./repository";
 import { createServiceSupabaseClient } from "./supabaseClient";
 
@@ -255,6 +262,18 @@ type WarehouseLabelPrintItemRecord = {
   created_at: string;
 };
 
+type PackingListRevisionRecord = {
+  id: string;
+  shipment_id: string;
+  version: number;
+  status: PackingListRevision["status"];
+  payload_snapshot: ValidatedPackingListRevision;
+  created_by?: string | null;
+  created_at: string;
+  confirmed_by?: string | null;
+  confirmed_at?: string | null;
+};
+
 function toWarehouseLabelPrintJob(record: WarehouseLabelPrintJobRecord): WarehouseLabelPrintJob {
   return {
     id: record.id,
@@ -278,6 +297,25 @@ function toWarehouseLabelPrintItem(record: WarehouseLabelPrintItemRecord): Wareh
     sequence: record.sequence,
     payloadSnapshot: structuredClone(record.payload_snapshot),
     createdAt: record.created_at,
+  };
+}
+
+function toPackingListRevision(record: PackingListRevisionRecord): PackingListRevision {
+  const validation = validatePackingListRevision(record.payload_snapshot);
+  if (!validation.ok) {
+    throw new Error(`Packing-list revision ${record.id} contains an invalid payload snapshot.`);
+  }
+  return {
+    id: record.id,
+    shipmentId: record.shipment_id,
+    version: record.version,
+    status: record.status,
+    payloadSnapshot: validation.revision,
+    totalExpectedQuantity: validation.totalExpectedQuantity,
+    createdBy: record.created_by ?? undefined,
+    createdAt: record.created_at,
+    confirmedBy: record.confirmed_by ?? undefined,
+    confirmedAt: record.confirmed_at ?? undefined,
   };
 }
 
@@ -2592,6 +2630,92 @@ export class SupabaseRepository implements DrivemateRepository {
       .single();
     if (error || !data) throw error ?? new Error("Warehouse label print job insert failed.");
     return { ok: true, job: toWarehouseLabelPrintJob(data as WarehouseLabelPrintJobRecord) };
+  }
+
+  async getPrearrivalShipment(shipmentId: string): Promise<PrearrivalShipmentResult> {
+    const expected = await this.getWarehouseExpectedReceipt({ shipmentId });
+    if (!expected.ok) return { ok: false, message: "Pre-arrival shipment was not found." };
+
+    const { data, error } = await this.client()
+      .from("shipment_packing_list_versions")
+      .select("id, shipment_id, version, status, payload_snapshot, created_by, created_at, confirmed_by, confirmed_at")
+      .eq("shipment_id", shipmentId)
+      .order("version", { ascending: true });
+    if (error) throw error;
+
+    return {
+      ok: true,
+      shipment: {
+        ...expected.receipt,
+        revisions: ((data ?? []) as PackingListRevisionRecord[]).map(toPackingListRevision),
+      },
+    };
+  }
+
+  async createPackingListRevision(
+    input: ValidatedPackingListRevision,
+    context: RepositoryWriteContext = {},
+  ): Promise<PackingListRevisionResult> {
+    const structuralValidation = validatePackingListRevision(input);
+    if (!structuralValidation.ok) return structuralValidation;
+
+    const supabase = this.client();
+    const requestedSkus = [
+      ...new Set(
+        input.pallets
+          .flatMap((pallet) => pallet.cartons)
+          .flatMap((carton) => carton.lines)
+          .map((line) => line.sku.trim().toUpperCase()),
+      ),
+    ];
+    const [{ data: shipment, error: shipmentError }, { data: products, error: productsError }] = await Promise.all([
+      supabase.from("shipments").select("id").eq("id", input.shipmentId).maybeSingle(),
+      supabase.from("products").select("sku").in("sku", requestedSkus),
+    ]);
+    if (shipmentError) throw shipmentError;
+    if (!shipment) return { ok: false, message: "Pre-arrival shipment was not found." };
+    if (productsError) throw productsError;
+
+    const validation = validatePackingListRevision(structuralValidation.revision, {
+      knownSkus: (products ?? []).map((product) => (product as { sku: string }).sku),
+    });
+    if (!validation.ok) return validation;
+
+    const { data: previous, error: previousError } = await supabase
+      .from("shipment_packing_list_versions")
+      .select("version")
+      .eq("shipment_id", validation.revision.shipmentId)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (previousError) throw previousError;
+
+    const { data, error } = await supabase
+      .from("shipment_packing_list_versions")
+      .insert({
+        shipment_id: validation.revision.shipmentId,
+        version: ((previous as { version?: number } | null)?.version ?? 0) + 1,
+        status: "draft",
+        payload_snapshot: validation.revision,
+        created_by: context.actorId ?? null,
+      })
+      .select("id, shipment_id, version, status, payload_snapshot, created_by, created_at, confirmed_by, confirmed_at")
+      .single();
+    if (error || !data) throw error ?? new Error("Packing-list revision insert failed.");
+    return { ok: true, revision: toPackingListRevision(data as PackingListRevisionRecord) };
+  }
+
+  async confirmPackingListRevision(
+    revisionId: string,
+    context: RepositoryWriteContext = {},
+  ): Promise<PackingListRevisionResult> {
+    const { data, error } = await this.client().rpc("dm_confirm_packing_list_revision", {
+      p_revision_id: revisionId,
+      p_actor_id: context.actorId ?? null,
+    });
+    if (error) throw error;
+    if (!data) return { ok: false, message: "Packing-list revision was not found." };
+    return { ok: true, revision: toPackingListRevision(data as PackingListRevisionRecord) };
   }
 
   async getWarehouseExpectedReceipt(

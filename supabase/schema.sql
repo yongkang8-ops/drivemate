@@ -149,6 +149,26 @@ on public.warehouse_label_print_jobs (created_at desc);
 create index warehouse_label_print_jobs_reprint_of_job_id_idx
 on public.warehouse_label_print_jobs (reprint_of_job_id);
 
+create table public.shipment_packing_list_versions (
+  id uuid primary key default gen_random_uuid(),
+  shipment_id uuid not null references public.shipments(id),
+  version integer not null check (version > 0),
+  status text not null check (status in ('draft', 'confirmed', 'superseded')),
+  payload_snapshot jsonb not null check (jsonb_typeof(payload_snapshot) = 'object'),
+  confirmed_by uuid references auth.users(id),
+  confirmed_at timestamptz,
+  created_by uuid references auth.users(id),
+  created_at timestamptz not null default now(),
+  unique (shipment_id, version),
+  check (
+    (status = 'draft' and confirmed_by is null and confirmed_at is null)
+    or (status in ('confirmed', 'superseded') and confirmed_by is not null and confirmed_at is not null)
+  )
+);
+
+create index shipment_packing_list_versions_shipment_idx
+on public.shipment_packing_list_versions (shipment_id, version desc);
+
 create table public.sales_orders (
   id uuid primary key default gen_random_uuid(),
   trade_account_id uuid not null references public.trade_accounts(id),

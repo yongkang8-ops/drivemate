@@ -9,6 +9,7 @@ import {
   createFitmentRuleData,
   createProductMasterData,
   fitmentRules,
+  findProductBySku,
   getCatalogueWithAvailability,
   resetProductMasterData,
   resolveSkuIdentifier,
@@ -62,8 +63,12 @@ import type {
   WarehouseLabelPrintJobResult,
   WarehouseLabelPrintJobStatus,
   WarehouseExpectedReceiptResult,
+  PackingListRevision,
+  PackingListRevisionResult,
+  PrearrivalShipmentResult,
 } from "./repository";
 import { filterWarehouseExpectedReceipt, type WarehouseExpectedReceipt, type WarehouseInboundSelection } from "./warehouseLabels";
+import { validatePackingListRevision, type ValidatedPackingListRevision } from "./prearrivalShipment";
 import type {
   TradeAccountApplicationInput,
   TradeAccountStatus,
@@ -121,19 +126,91 @@ function validRequestedQuantity(value: number) {
   return Number.isInteger(value) && value > 0;
 }
 
-const expectedTestShipment: WarehouseExpectedReceipt = {
-  shipmentId: "shipment-test-1",
-  pallets: [{ sourcePalletNumber: "P001" }, { sourcePalletNumber: "P002" }],
-  cartons: [
-    { sourceCartonNumber: "C001", sourcePalletNumber: "P001" },
-    { sourceCartonNumber: "C002", sourcePalletNumber: "P002" },
-  ],
-  lines: [
-    { sourcePalletNumber: "P001", sourceCartonNumber: "C001", sku: "DM-GWM-OF-001", expectedQuantity: 12 },
-    { sourcePalletNumber: "P001", sourceCartonNumber: "C001", sku: "DM-GWM-AF-002", expectedQuantity: 6 },
-    { sourcePalletNumber: "P002", sourceCartonNumber: "C002", sku: "DM-GWM-OF-001", expectedQuantity: 24 },
-  ],
-};
+function initialPackingListRevision(): PackingListRevision {
+  return {
+    id: "memory-packing-list-shipment-test-1-v1",
+    shipmentId: "shipment-test-1",
+    version: 1,
+    status: "confirmed",
+    payloadSnapshot: {
+      shipmentId: "shipment-test-1",
+      pallets: [
+        {
+          sourcePalletNumber: "P001",
+          cartons: [
+            {
+              sourceCartonNumber: "C001",
+              lines: [
+                { sku: "DM-GWM-OF-001", expectedQuantity: 12 },
+                { sku: "DM-GWM-AF-002", expectedQuantity: 6 },
+              ],
+            },
+          ],
+        },
+        {
+          sourcePalletNumber: "P002",
+          cartons: [
+            {
+              sourceCartonNumber: "C002",
+              lines: [{ sku: "DM-GWM-OF-001", expectedQuantity: 24 }],
+            },
+          ],
+        },
+      ],
+    },
+    totalExpectedQuantity: 42,
+    createdBy: "demo-partner-user",
+    createdAt: "2026-08-29T00:00:00.000Z",
+    confirmedBy: "demo-partner-user",
+    confirmedAt: "2026-08-29T00:00:00.000Z",
+  };
+}
+
+let packingListRevisionSequence = 1;
+let packingListRevisions: PackingListRevision[] = [initialPackingListRevision()];
+
+function clonePackingListRevision(revision: PackingListRevision): PackingListRevision {
+  return { ...revision, payloadSnapshot: structuredClone(revision.payloadSnapshot) };
+}
+
+function receiptFromPackingListRevision(revision: PackingListRevision): WarehouseExpectedReceipt {
+  return {
+    shipmentId: revision.shipmentId,
+    pallets: revision.payloadSnapshot.pallets.map((pallet) => ({
+      sourcePalletNumber: pallet.sourcePalletNumber,
+    })),
+    cartons: revision.payloadSnapshot.pallets.flatMap((pallet) =>
+      pallet.cartons.map((carton) => ({
+        sourceCartonNumber: carton.sourceCartonNumber,
+        sourcePalletNumber: pallet.sourcePalletNumber,
+      })),
+    ),
+    lines: revision.payloadSnapshot.pallets.flatMap((pallet) =>
+      pallet.cartons.flatMap((carton) =>
+        carton.lines.map((line) => ({
+          sourcePalletNumber: pallet.sourcePalletNumber,
+          sourceCartonNumber: carton.sourceCartonNumber,
+          sku: line.sku,
+          expectedQuantity: line.expectedQuantity,
+        })),
+      ),
+    ),
+  };
+}
+
+function latestConfirmedPackingListRevision(shipmentId: string): PackingListRevision | undefined {
+  return packingListRevisions
+    .filter((revision) => revision.shipmentId === shipmentId && revision.status === "confirmed")
+    .sort((left, right) => right.version - left.version)[0];
+}
+
+function knownSkusFor(input: ValidatedPackingListRevision): string[] {
+  return input.pallets
+    .flatMap((pallet) => pallet.cartons)
+    .flatMap((carton) => carton.lines)
+    .map((line) => line.sku.trim().toUpperCase())
+    .filter((sku) => Boolean(findProductBySku(sku)));
+}
 
 export class MemoryRepository implements DrivemateRepository {
   mode = "memory" as const;
@@ -308,10 +385,86 @@ export class MemoryRepository implements DrivemateRepository {
   async getWarehouseExpectedReceipt(
     selection: WarehouseInboundSelection,
   ): Promise<WarehouseExpectedReceiptResult> {
-    if (selection.shipmentId !== expectedTestShipment.shipmentId) {
+    const revision = latestConfirmedPackingListRevision(selection.shipmentId);
+    if (!revision) {
       return { ok: false, message: "Expected shipment was not found." };
     }
-    return { ok: true, receipt: filterWarehouseExpectedReceipt(structuredClone(expectedTestShipment), selection) };
+    return {
+      ok: true,
+      receipt: filterWarehouseExpectedReceipt(
+        receiptFromPackingListRevision(revision),
+        selection,
+      ),
+    };
+  }
+
+  async getPrearrivalShipment(shipmentId: string): Promise<PrearrivalShipmentResult> {
+    const revision = latestConfirmedPackingListRevision(shipmentId);
+    if (!revision) return { ok: false, message: "Pre-arrival shipment was not found." };
+    return {
+      ok: true,
+      shipment: {
+        ...receiptFromPackingListRevision(revision),
+        revisions: packingListRevisions
+          .filter((candidate) => candidate.shipmentId === shipmentId)
+          .sort((left, right) => left.version - right.version)
+          .map(clonePackingListRevision),
+      },
+    };
+  }
+
+  async createPackingListRevision(
+    input: ValidatedPackingListRevision,
+    context: RepositoryWriteContext = {},
+  ): Promise<PackingListRevisionResult> {
+    if (input.shipmentId !== "shipment-test-1") {
+      return { ok: false, message: "Pre-arrival shipment was not found." };
+    }
+    const validation = validatePackingListRevision(input, {
+      knownSkus: knownSkusFor(input),
+    });
+    if (!validation.ok) return validation;
+
+    const version = Math.max(
+      0,
+      ...packingListRevisions
+        .filter((candidate) => candidate.shipmentId === validation.revision.shipmentId)
+        .map((candidate) => candidate.version),
+    ) + 1;
+    const revision: PackingListRevision = {
+      id: `memory-packing-list-${validation.revision.shipmentId}-v${++packingListRevisionSequence}`,
+      shipmentId: validation.revision.shipmentId,
+      version,
+      status: "draft",
+      payloadSnapshot: structuredClone(validation.revision),
+      totalExpectedQuantity: validation.totalExpectedQuantity,
+      createdBy: context.actorId,
+      createdAt: new Date().toISOString(),
+    };
+    packingListRevisions.push(revision);
+    return { ok: true, revision: clonePackingListRevision(revision) };
+  }
+
+  async confirmPackingListRevision(
+    revisionId: string,
+    context: RepositoryWriteContext = {},
+  ): Promise<PackingListRevisionResult> {
+    const revision = packingListRevisions.find((candidate) => candidate.id === revisionId);
+    if (!revision) return { ok: false, message: "Packing-list revision was not found." };
+    if (revision.status !== "draft") {
+      return { ok: false, message: "Only a draft packing-list revision can be confirmed." };
+    }
+
+    const timestamp = new Date().toISOString();
+    for (const prior of packingListRevisions) {
+      if (prior.shipmentId === revision.shipmentId && prior.status === "confirmed") {
+        prior.status = "superseded";
+      }
+    }
+    revision.status = "confirmed";
+    revision.confirmedBy = context.actorId;
+    revision.confirmedAt = timestamp;
+    return { ok: true, revision: clonePackingListRevision(revision) };
   }
 
   async createWarehouseLabelPrintJob(
@@ -522,5 +675,7 @@ export class MemoryRepository implements DrivemateRepository {
     warehouseLabelItemSequence = 0;
     warehouseLabelPrintJobs = [];
     warehouseLabelPrintItems = [];
+    packingListRevisionSequence = 1;
+    packingListRevisions = [initialPackingListRevision()];
   }
 }
