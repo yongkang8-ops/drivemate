@@ -170,6 +170,74 @@ export type WarehousePutawayResult =
     }
   | { ok: false; message: string };
 
+export type InventoryLocationStatus = "active" | "disabled" | "archived";
+
+export type InventoryLocation = {
+  id: string;
+  locationCode: string;
+  barcode: string;
+  status: InventoryLocationStatus;
+  isPutawayDestination: boolean;
+  physicalDescription?: string | null;
+  notes?: string | null;
+  currentBalance: number;
+  createdAt: string;
+  createdBy?: string;
+  updatedAt: string;
+  updatedBy?: string;
+};
+
+export type InventoryLocationAuditAction = "created" | "updated" | "status_changed";
+
+export type InventoryLocationAudit = {
+  id: string;
+  locationId: string;
+  action: InventoryLocationAuditAction;
+  actorId?: string;
+  beforeValue: Record<string, unknown> | null;
+  afterValue: Record<string, unknown>;
+  createdAt: string;
+};
+
+export type InventoryLocationListQuery = {
+  search?: string;
+  status?: InventoryLocationStatus;
+  barcode?: string;
+};
+
+export type CreateInventoryLocationInput = {
+  locationCode: string;
+  physicalDescription?: string | null;
+  notes?: string | null;
+};
+
+export type CreateInventoryLocationBatchInput = {
+  locations: CreateInventoryLocationInput[];
+};
+
+export type CreateInventoryLocationBatchResult =
+  | { ok: true; locations: InventoryLocation[] }
+  | { ok: false; message: string };
+
+export type UpdateInventoryLocationNotesInput = {
+  id: string;
+  physicalDescription?: string | null;
+  notes?: string | null;
+};
+
+export type UpdateInventoryLocationNotesResult =
+  | { ok: true; location: InventoryLocation }
+  | { ok: false; message: string };
+
+export type SetInventoryLocationStatusInput = {
+  id: string;
+  status: InventoryLocationStatus;
+};
+
+export type SetInventoryLocationStatusResult =
+  | { ok: true; location: InventoryLocation }
+  | { ok: false; message: string };
+
 export type WarehouseHistoryQuery = {
   from?: string;
   to?: string;
@@ -436,6 +504,23 @@ export interface DrivemateRepository {
     input: InventoryMovementInput,
     context?: RepositoryWriteContext,
   ): Promise<InventoryMovementResult>;
+  listInventoryLocations(
+    query?: InventoryLocationListQuery,
+  ): Promise<InventoryLocation[]>;
+  createInventoryLocationBatch(
+    input: CreateInventoryLocationBatchInput,
+    context?: RepositoryWriteContext,
+  ): Promise<CreateInventoryLocationBatchResult>;
+  updateInventoryLocationNotes(
+    input: UpdateInventoryLocationNotesInput,
+    context?: RepositoryWriteContext,
+  ): Promise<UpdateInventoryLocationNotesResult>;
+  setInventoryLocationStatus(
+    input: SetInventoryLocationStatusInput,
+    context?: RepositoryWriteContext,
+  ): Promise<SetInventoryLocationStatusResult>;
+  resolveActivePhysicalDestination(barcode: string): Promise<InventoryLocation | null>;
+  listInventoryLocationAudit(locationId: string): Promise<InventoryLocationAudit[]>;
   getWarehouseExpectedReceipt(
     selection: WarehouseInboundSelection,
   ): Promise<WarehouseExpectedReceiptResult>;

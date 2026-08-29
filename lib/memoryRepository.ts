@@ -24,6 +24,7 @@ import {
   pilotPurchaseBatches,
   pilotRfqReviews,
 } from "./adminMasterData";
+import { parseInventoryLocationCode } from "./inventoryLocations";
 import { matchPartsForVehicle, type VehicleLookupInput } from "./fitment";
 import {
   validateDispatchScans,
@@ -80,6 +81,15 @@ import type {
   PackingListRevisionResult,
   PrearrivalShipmentListResult,
   PrearrivalShipmentResult,
+  InventoryLocation,
+  InventoryLocationAudit,
+  InventoryLocationListQuery,
+  CreateInventoryLocationBatchInput,
+  CreateInventoryLocationBatchResult,
+  UpdateInventoryLocationNotesInput,
+  UpdateInventoryLocationNotesResult,
+  SetInventoryLocationStatusInput,
+  SetInventoryLocationStatusResult,
 } from "./repository";
 import { filterWarehouseExpectedReceipt, type WarehouseExpectedReceipt, type WarehouseInboundSelection, type WarehouseLabelPrintScope } from "./warehouseLabels";
 import { RECEIVING_STAGING_LOCATION, type WarehouseReceiptScope } from "./warehouseReceiving";
@@ -141,6 +151,84 @@ let warehousePutaways: Array<{
   createdBy?: string;
   idempotencyKey: string;
 }> = [];
+
+type MemoryInventoryLocation = Omit<InventoryLocation, "currentBalance">;
+
+let inventoryLocationSequence = 0;
+let inventoryLocationAuditSequence = 0;
+let inventoryLocations: MemoryInventoryLocation[] = [];
+let inventoryLocationAudits: InventoryLocationAudit[] = [];
+
+function inventoryLocationAuditValue(location: MemoryInventoryLocation): Record<string, unknown> {
+  return {
+    id: location.id,
+    locationCode: location.locationCode,
+    barcode: location.barcode,
+    status: location.status,
+    isPutawayDestination: location.isPutawayDestination,
+    physicalDescription: location.physicalDescription ?? null,
+    notes: location.notes ?? null,
+  };
+}
+
+function currentInventoryLocationBalance(locationCode: string): number {
+  if (locationCode === RECEIVING_STAGING_LOCATION) {
+    return warehouseReceiptSessions
+      .filter((session) => session.status === "confirmed")
+      .reduce((total, session) => {
+        const receivedQuantity = session.lines.reduce(
+          (lineTotal, line) => lineTotal + line.actualQuantity,
+          0,
+        );
+        const putAwayQuantity = warehousePutaways
+          .filter((putaway) => putaway.receiptSessionId === session.id)
+          .reduce((putawayTotal, putaway) => putawayTotal + putaway.quantity, 0);
+        return total + Math.max(receivedQuantity - putAwayQuantity, 0);
+      }, 0);
+  }
+
+  return warehousePutaways
+    .filter((putaway) => putaway.destinationLocation.trim().toUpperCase() === locationCode)
+    .reduce((total, putaway) => total + putaway.quantity, 0);
+}
+
+function cloneInventoryLocation(location: MemoryInventoryLocation): InventoryLocation {
+  return {
+    ...location,
+    currentBalance: currentInventoryLocationBalance(location.locationCode),
+  };
+}
+
+function resetInventoryLocationMaster() {
+  const now = new Date().toISOString();
+  const stagingLocation: MemoryInventoryLocation = {
+    id: "memory-inventory-location-1",
+    locationCode: RECEIVING_STAGING_LOCATION,
+    barcode: `DMLOC:${RECEIVING_STAGING_LOCATION}`,
+    status: "active",
+    isPutawayDestination: false,
+    physicalDescription: "System receiving staging source",
+    notes: "Registered system source for confirmed warehouse receipts.",
+    createdAt: now,
+    createdBy: "system",
+    updatedAt: now,
+    updatedBy: "system",
+  };
+  inventoryLocationSequence = 1;
+  inventoryLocationAuditSequence = 1;
+  inventoryLocations = [stagingLocation];
+  inventoryLocationAudits = [{
+    id: "memory-inventory-location-audit-1",
+    locationId: stagingLocation.id,
+    action: "created",
+    actorId: "system",
+    beforeValue: null,
+    afterValue: inventoryLocationAuditValue(stagingLocation),
+    createdAt: now,
+  }];
+}
+
+resetInventoryLocationMaster();
 
 function clonePayload(payload: Record<string, unknown>) {
   return structuredClone(payload);
@@ -525,6 +613,180 @@ export class MemoryRepository implements DrivemateRepository {
     context: RepositoryWriteContext = {},
   ) {
     return applyInventoryMovement({ ...input, createdBy: context.actorId });
+  }
+
+  async listInventoryLocations(
+    query: InventoryLocationListQuery = {},
+  ): Promise<InventoryLocation[]> {
+    const search = query.search?.trim().toUpperCase();
+    const barcode = query.barcode?.trim().toUpperCase();
+    return inventoryLocations
+      .filter((location) => {
+        if (query.status && location.status !== query.status) return false;
+        if (barcode && location.barcode !== barcode) return false;
+        if (!search) return true;
+        return [
+          location.locationCode,
+          location.barcode,
+          location.physicalDescription,
+          location.notes,
+        ].some((value) => value?.toUpperCase().includes(search));
+      })
+      .map(cloneInventoryLocation)
+      .sort((left, right) => left.locationCode.localeCompare(right.locationCode));
+  }
+
+  async createInventoryLocationBatch(
+    input: CreateInventoryLocationBatchInput,
+    context: RepositoryWriteContext = {},
+  ): Promise<CreateInventoryLocationBatchResult> {
+    if (!input.locations.length) {
+      return { ok: false, message: "At least one inventory location is required." };
+    }
+
+    const parsedLocations = [] as Array<{
+      locationCode: string;
+      barcode: string;
+      physicalDescription?: string | null;
+      notes?: string | null;
+    }>;
+    const seen = new Set<string>();
+    for (const candidate of input.locations) {
+      const parsed = parseInventoryLocationCode(candidate.locationCode);
+      if (!parsed.ok) return { ok: false, message: parsed.message };
+      if (parsed.locationCode === RECEIVING_STAGING_LOCATION) {
+        return { ok: false, message: "BNE-RECEIVING-STAGING is registered as a system source." };
+      }
+      if (seen.has(parsed.locationCode) || inventoryLocations.some((location) => location.locationCode === parsed.locationCode)) {
+        return { ok: false, message: `Inventory location ${parsed.locationCode} already exists.` };
+      }
+      seen.add(parsed.locationCode);
+      parsedLocations.push({
+        locationCode: parsed.locationCode,
+        barcode: parsed.barcode,
+        physicalDescription: candidate.physicalDescription?.trim() || null,
+        notes: candidate.notes?.trim() || null,
+      });
+    }
+
+    const now = new Date().toISOString();
+    const actorId = context.actorId ?? "system";
+    const locations = parsedLocations.map((candidate) => {
+      const location: MemoryInventoryLocation = {
+        id: `memory-inventory-location-${++inventoryLocationSequence}`,
+        locationCode: candidate.locationCode,
+        barcode: candidate.barcode,
+        status: "active",
+        isPutawayDestination: true,
+        physicalDescription: candidate.physicalDescription,
+        notes: candidate.notes,
+        createdAt: now,
+        createdBy: actorId,
+        updatedAt: now,
+        updatedBy: actorId,
+      };
+      inventoryLocations.push(location);
+      inventoryLocationAudits.push({
+        id: `memory-inventory-location-audit-${++inventoryLocationAuditSequence}`,
+        locationId: location.id,
+        action: "created",
+        actorId,
+        beforeValue: null,
+        afterValue: inventoryLocationAuditValue(location),
+        createdAt: now,
+      });
+      return cloneInventoryLocation(location);
+    });
+
+    return { ok: true, locations };
+  }
+
+  async updateInventoryLocationNotes(
+    input: UpdateInventoryLocationNotesInput,
+    context: RepositoryWriteContext = {},
+  ): Promise<UpdateInventoryLocationNotesResult> {
+    const location = inventoryLocations.find((candidate) => candidate.id === input.id);
+    if (!location) return { ok: false, message: "Inventory location was not found." };
+    if (!("physicalDescription" in input) && !("notes" in input)) {
+      return { ok: false, message: "Physical description or notes are required." };
+    }
+
+    const beforeValue = inventoryLocationAuditValue(location);
+    const physicalDescription = "physicalDescription" in input
+      ? input.physicalDescription?.trim() || null
+      : location.physicalDescription;
+    const notes = "notes" in input ? input.notes?.trim() || null : location.notes;
+    if (physicalDescription === location.physicalDescription && notes === location.notes) {
+      return { ok: true, location: cloneInventoryLocation(location) };
+    }
+
+    const now = new Date().toISOString();
+    const actorId = context.actorId ?? "system";
+    location.physicalDescription = physicalDescription;
+    location.notes = notes;
+    location.updatedAt = now;
+    location.updatedBy = actorId;
+    inventoryLocationAudits.push({
+      id: `memory-inventory-location-audit-${++inventoryLocationAuditSequence}`,
+      locationId: location.id,
+      action: "updated",
+      actorId,
+      beforeValue,
+      afterValue: inventoryLocationAuditValue(location),
+      createdAt: now,
+    });
+    return { ok: true, location: cloneInventoryLocation(location) };
+  }
+
+  async setInventoryLocationStatus(
+    input: SetInventoryLocationStatusInput,
+    context: RepositoryWriteContext = {},
+  ): Promise<SetInventoryLocationStatusResult> {
+    const location = inventoryLocations.find((candidate) => candidate.id === input.id);
+    if (!location) return { ok: false, message: "Inventory location was not found." };
+    if (location.locationCode === RECEIVING_STAGING_LOCATION && input.status !== "active") {
+      return { ok: false, message: "BNE-RECEIVING-STAGING must remain active." };
+    }
+    if (input.status !== "active" && currentInventoryLocationBalance(location.locationCode) > 0) {
+      return {
+        ok: false,
+        message: "Locations with on-hand, reserved, or quarantine balance cannot be disabled or archived.",
+      };
+    }
+    if (location.status === input.status) return { ok: true, location: cloneInventoryLocation(location) };
+
+    const now = new Date().toISOString();
+    const actorId = context.actorId ?? "system";
+    const beforeValue = inventoryLocationAuditValue(location);
+    location.status = input.status;
+    location.updatedAt = now;
+    location.updatedBy = actorId;
+    inventoryLocationAudits.push({
+      id: `memory-inventory-location-audit-${++inventoryLocationAuditSequence}`,
+      locationId: location.id,
+      action: "status_changed",
+      actorId,
+      beforeValue,
+      afterValue: inventoryLocationAuditValue(location),
+      createdAt: now,
+    });
+    return { ok: true, location: cloneInventoryLocation(location) };
+  }
+
+  async resolveActivePhysicalDestination(barcode: string): Promise<InventoryLocation | null> {
+    const normalizedBarcode = barcode.trim().toUpperCase();
+    const location = inventoryLocations.find((candidate) =>
+      candidate.barcode === normalizedBarcode
+      && candidate.status === "active"
+      && candidate.isPutawayDestination,
+    );
+    return location ? cloneInventoryLocation(location) : null;
+  }
+
+  async listInventoryLocationAudit(locationId: string): Promise<InventoryLocationAudit[]> {
+    return inventoryLocationAudits
+      .filter((event) => event.locationId === locationId)
+      .map((event) => structuredClone(event));
   }
 
   async getWarehouseExpectedReceipt(
@@ -1095,6 +1357,7 @@ export class MemoryRepository implements DrivemateRepository {
     warehouseReceiptSessions = [];
     warehousePutawaySequence = 0;
     warehousePutaways = [];
+    resetInventoryLocationMaster();
     packingListRevisionSequence = 1;
     packingListRevisions = [initialPackingListRevision()];
   }

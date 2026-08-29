@@ -34,6 +34,7 @@ import {
   parseWarehouseLocation,
   type WarehouseLocationParts,
 } from "./warehouseLocation";
+import { parseInventoryLocationCode } from "./inventoryLocations";
 import { filterWarehouseExpectedReceipt, type WarehouseInboundSelection, type WarehouseLabelPrintScope, type WarehouseLabelTemplateId } from "./warehouseLabels";
 import {
   RECEIVING_STAGING_LOCATION,
@@ -96,6 +97,15 @@ import type {
   PackingListRevisionResult,
   PrearrivalShipmentListResult,
   PrearrivalShipmentResult,
+  InventoryLocation,
+  InventoryLocationAudit,
+  InventoryLocationListQuery,
+  CreateInventoryLocationBatchInput,
+  CreateInventoryLocationBatchResult,
+  UpdateInventoryLocationNotesInput,
+  UpdateInventoryLocationNotesResult,
+  SetInventoryLocationStatusInput,
+  SetInventoryLocationStatusResult,
 } from "./repository";
 import { createServiceSupabaseClient } from "./supabaseClient";
 
@@ -127,6 +137,30 @@ type LocationRecord = {
   warehouse: string;
   zone: string;
   bin_code: string;
+};
+
+type InventoryLocationMasterRecord = {
+  id: string;
+  location_code: string;
+  barcode: string;
+  status: InventoryLocation["status"];
+  is_putaway_destination: boolean;
+  physical_description?: string | null;
+  notes?: string | null;
+  created_at: string;
+  created_by?: string | null;
+  updated_at: string;
+  updated_by?: string | null;
+};
+
+type InventoryLocationAuditRecord = {
+  id: string;
+  entity_id: string;
+  action: "inventory_location_created" | "inventory_location_updated" | "inventory_location_status_changed";
+  actor_id?: string | null;
+  before_value?: Record<string, unknown> | null;
+  after_value: Record<string, unknown>;
+  created_at: string;
 };
 
 type FitmentRuleRecord = {
@@ -358,6 +392,45 @@ function matchesWarehouseHistoryQuery(
   if (query.actor && event.actor !== query.actor) return false;
   if (query.action && event.action !== query.action) return false;
   return true;
+}
+
+const inventoryLocationMasterSelect = "id, location_code, barcode, status, is_putaway_destination, physical_description, notes, created_at, created_by, updated_at, updated_by";
+
+function toInventoryLocation(
+  record: InventoryLocationMasterRecord,
+  currentBalance = 0,
+): InventoryLocation {
+  return {
+    id: record.id,
+    locationCode: record.location_code,
+    barcode: record.barcode,
+    status: record.status,
+    isPutawayDestination: record.is_putaway_destination,
+    physicalDescription: record.physical_description ?? null,
+    notes: record.notes ?? null,
+    currentBalance,
+    createdAt: record.created_at,
+    createdBy: record.created_by ?? undefined,
+    updatedAt: record.updated_at,
+    updatedBy: record.updated_by ?? undefined,
+  };
+}
+
+function toInventoryLocationAudit(record: InventoryLocationAuditRecord): InventoryLocationAudit {
+  const action = {
+    inventory_location_created: "created",
+    inventory_location_updated: "updated",
+    inventory_location_status_changed: "status_changed",
+  } as const;
+  return {
+    id: record.id,
+    locationId: record.entity_id,
+    action: action[record.action],
+    actorId: record.actor_id ?? undefined,
+    beforeValue: record.before_value ?? null,
+    afterValue: record.after_value,
+    createdAt: record.created_at,
+  };
 }
 
 function toWarehouseLabelPrintJob(record: WarehouseLabelPrintJobRecord): WarehouseLabelPrintJob {
@@ -702,6 +775,21 @@ export class SupabaseRepository implements DrivemateRepository {
 
   private client() {
     return createServiceSupabaseClient();
+  }
+
+  private async inventoryLocationBalances(locationIds: string[]): Promise<Map<string, number>> {
+    const balances = new Map<string, number>();
+    if (!locationIds.length) return balances;
+    const { data, error } = await this.client()
+      .from("inventory_balances")
+      .select("location_id, on_hand")
+      .in("location_id", locationIds);
+    if (error) throw error;
+    for (const balance of data ?? []) {
+      const record = balance as { location_id: string; on_hand: number };
+      balances.set(record.location_id, (balances.get(record.location_id) ?? 0) + record.on_hand);
+    }
+    return balances;
   }
 
   private async loadWarehouseReceiptSession(
@@ -2893,6 +2981,224 @@ export class SupabaseRepository implements DrivemateRepository {
     if (error) throw error;
     if (!data) return { ok: false, message: "Packing-list revision was not found." };
     return { ok: true, revision: toPackingListRevision(data as PackingListRevisionRecord) };
+  }
+
+  async listInventoryLocations(
+    query: InventoryLocationListQuery = {},
+  ): Promise<InventoryLocation[]> {
+    const supabase = this.client();
+    let locationsQuery = supabase
+      .from("inventory_locations")
+      .select(inventoryLocationMasterSelect)
+      .order("location_code");
+    if (query.status) locationsQuery = locationsQuery.eq("status", query.status);
+    if (query.barcode) locationsQuery = locationsQuery.eq("barcode", query.barcode.trim().toUpperCase());
+    const { data, error } = await locationsQuery;
+    if (error) throw error;
+
+    const search = query.search?.trim().toUpperCase();
+    const records = ((data ?? []) as InventoryLocationMasterRecord[]).filter((location) => {
+      if (!search) return true;
+      return [
+        location.location_code,
+        location.barcode,
+        location.physical_description,
+        location.notes,
+      ].some((value) => value?.toUpperCase().includes(search));
+    });
+    const balances = await this.inventoryLocationBalances(records.map((location) => location.id));
+    return records.map((location) => toInventoryLocation(location, balances.get(location.id) ?? 0));
+  }
+
+  async createInventoryLocationBatch(
+    input: CreateInventoryLocationBatchInput,
+    context: RepositoryWriteContext = {},
+  ): Promise<CreateInventoryLocationBatchResult> {
+    if (!input.locations.length) {
+      return { ok: false, message: "At least one inventory location is required." };
+    }
+
+    const seen = new Set<string>();
+    const parsedLocations = [] as Array<{
+      locationCode: string;
+      barcode: string;
+      warehouse: string;
+      zone: string;
+      binCode: string;
+      physicalDescription?: string | null;
+      notes?: string | null;
+    }>;
+    for (const candidate of input.locations) {
+      const parsed = parseInventoryLocationCode(candidate.locationCode);
+      if (!parsed.ok) return { ok: false, message: parsed.message };
+      if (parsed.locationCode === RECEIVING_STAGING_LOCATION) {
+        return { ok: false, message: "BNE-RECEIVING-STAGING is registered as a system source." };
+      }
+      if (seen.has(parsed.locationCode)) {
+        return { ok: false, message: `Inventory location ${parsed.locationCode} already exists.` };
+      }
+      seen.add(parsed.locationCode);
+      parsedLocations.push({
+        locationCode: parsed.locationCode,
+        barcode: parsed.barcode,
+        warehouse: parsed.warehouse,
+        zone: parsed.zone,
+        binCode: parsed.binCode,
+        physicalDescription: candidate.physicalDescription?.trim() || null,
+        notes: candidate.notes?.trim() || null,
+      });
+    }
+
+    const supabase = this.client();
+    const { data: existing, error: existingError } = await supabase
+      .from("inventory_locations")
+      .select("location_code")
+      .in("location_code", parsedLocations.map((location) => location.locationCode));
+    if (existingError) throw existingError;
+    if (existing?.length) {
+      return { ok: false, message: `Inventory location ${(existing[0] as { location_code: string }).location_code} already exists.` };
+    }
+
+    const actorFields = context.actorId
+      ? { created_by: context.actorId, updated_by: context.actorId }
+      : {};
+    const { data, error } = await supabase
+      .from("inventory_locations")
+      .insert(parsedLocations.map((location) => ({
+        warehouse: location.warehouse,
+        zone: location.zone,
+        bin_code: location.binCode,
+        location_code: location.locationCode,
+        barcode: location.barcode,
+        status: "active",
+        is_putaway_destination: true,
+        physical_description: location.physicalDescription,
+        notes: location.notes,
+        ...actorFields,
+      })))
+      .select(inventoryLocationMasterSelect);
+    if (error || !data) throw error ?? new Error("Inventory location insert failed.");
+
+    const byCode = new Map(
+      (data as InventoryLocationMasterRecord[]).map((location) => [location.location_code, location]),
+    );
+    return {
+      ok: true,
+      locations: parsedLocations.map((location) => {
+        const created = byCode.get(location.locationCode);
+        if (!created) throw new Error("Created inventory location could not be reloaded.");
+        return toInventoryLocation(created);
+      }),
+    };
+  }
+
+  async updateInventoryLocationNotes(
+    input: UpdateInventoryLocationNotesInput,
+    context: RepositoryWriteContext = {},
+  ): Promise<UpdateInventoryLocationNotesResult> {
+    if (!("physicalDescription" in input) && !("notes" in input)) {
+      return { ok: false, message: "Physical description or notes are required." };
+    }
+    const update: Record<string, string | null> = {};
+    if ("physicalDescription" in input) {
+      update.physical_description = input.physicalDescription?.trim() || null;
+    }
+    if ("notes" in input) update.notes = input.notes?.trim() || null;
+    if (context.actorId) update.updated_by = context.actorId;
+
+    const { data, error } = await this.client()
+      .from("inventory_locations")
+      .update(update)
+      .eq("id", input.id)
+      .select(inventoryLocationMasterSelect)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return { ok: false, message: "Inventory location was not found." };
+    const record = data as InventoryLocationMasterRecord;
+    const balances = await this.inventoryLocationBalances([record.id]);
+    return { ok: true, location: toInventoryLocation(record, balances.get(record.id) ?? 0) };
+  }
+
+  async setInventoryLocationStatus(
+    input: SetInventoryLocationStatusInput,
+    context: RepositoryWriteContext = {},
+  ): Promise<SetInventoryLocationStatusResult> {
+    const supabase = this.client();
+    const { data: existing, error: existingError } = await supabase
+      .from("inventory_locations")
+      .select(inventoryLocationMasterSelect)
+      .eq("id", input.id)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (!existing) return { ok: false, message: "Inventory location was not found." };
+    const current = existing as InventoryLocationMasterRecord;
+    if (current.location_code === RECEIVING_STAGING_LOCATION && input.status !== "active") {
+      return { ok: false, message: "BNE-RECEIVING-STAGING must remain active." };
+    }
+
+    if (input.status !== "active") {
+      const { data: balances, error: balanceError } = await supabase
+        .from("inventory_balances")
+        .select("on_hand, reserved, quarantine")
+        .eq("location_id", current.id);
+      if (balanceError) throw balanceError;
+      if ((balances ?? []).some((balance) => {
+        const record = balance as { on_hand: number; reserved: number; quarantine: number };
+        return record.on_hand > 0 || record.reserved > 0 || record.quarantine > 0;
+      })) {
+        return {
+          ok: false,
+          message: "Locations with on-hand, reserved, or quarantine balance cannot be disabled or archived.",
+        };
+      }
+    }
+
+    const update: Record<string, string> = { status: input.status };
+    if (context.actorId) update.updated_by = context.actorId;
+    const { data, error } = await supabase
+      .from("inventory_locations")
+      .update(update)
+      .eq("id", input.id)
+      .select(inventoryLocationMasterSelect)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return { ok: false, message: "Inventory location was not found." };
+    const record = data as InventoryLocationMasterRecord;
+    const balances = await this.inventoryLocationBalances([record.id]);
+    return { ok: true, location: toInventoryLocation(record, balances.get(record.id) ?? 0) };
+  }
+
+  async resolveActivePhysicalDestination(barcode: string): Promise<InventoryLocation | null> {
+    const normalizedBarcode = barcode.trim().toUpperCase();
+    if (!normalizedBarcode) return null;
+    const { data, error } = await this.client()
+      .from("inventory_locations")
+      .select(inventoryLocationMasterSelect)
+      .eq("barcode", normalizedBarcode)
+      .eq("status", "active")
+      .eq("is_putaway_destination", true)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    const record = data as InventoryLocationMasterRecord;
+    const balances = await this.inventoryLocationBalances([record.id]);
+    return toInventoryLocation(record, balances.get(record.id) ?? 0);
+  }
+
+  async listInventoryLocationAudit(locationId: string): Promise<InventoryLocationAudit[]> {
+    const { data, error } = await this.client()
+      .from("audit_events")
+      .select("id, entity_id, action, actor_id, before_value, after_value, created_at")
+      .eq("entity_type", "inventory_location")
+      .eq("entity_id", locationId)
+      .in("action", [
+        "inventory_location_created",
+        "inventory_location_updated",
+        "inventory_location_status_changed",
+      ])
+      .order("created_at");
+    if (error) throw error;
+    return (data ?? []).map((event) => toInventoryLocationAudit(event as InventoryLocationAuditRecord));
   }
 
   async getWarehouseExpectedReceipt(

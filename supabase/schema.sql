@@ -72,6 +72,16 @@ create table public.inventory_locations (
   warehouse text not null,
   zone text not null,
   bin_code text not null,
+  location_code text not null unique,
+  barcode text not null unique,
+  status text not null default 'active' check (status in ('active', 'disabled', 'archived')),
+  is_putaway_destination boolean not null default true,
+  physical_description text,
+  notes text,
+  created_by uuid references auth.users(id),
+  created_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id),
+  updated_at timestamptz not null default now(),
   unique (warehouse, zone, bin_code)
 );
 
@@ -96,6 +106,10 @@ create table public.inventory_balances (
   unique (product_id, location_id, batch_id)
 );
 
+create index inventory_balances_location_balance_lookup_idx
+on public.inventory_balances (location_id)
+include (on_hand, reserved, quarantine);
+
 create table public.stock_movements (
   id uuid primary key default gen_random_uuid(),
   product_id uuid not null references public.products(id),
@@ -111,6 +125,24 @@ create table public.stock_movements (
   created_by uuid references auth.users(id),
   created_at timestamptz not null default now()
 );
+
+create table public.audit_events (
+  id uuid primary key default gen_random_uuid(),
+  entity_type text not null,
+  entity_id text not null,
+  action text not null,
+  actor_id uuid references auth.users(id),
+  before_value jsonb,
+  after_value jsonb,
+  source_file text,
+  source_hash text,
+  source_row_number int,
+  idempotency_key text,
+  created_at timestamptz not null default now()
+);
+
+create index audit_events_entity_idx
+on public.audit_events (entity_type, entity_id, created_at desc);
 
 create table public.warehouse_label_print_jobs (
   id uuid primary key default gen_random_uuid(),
