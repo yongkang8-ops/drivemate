@@ -5,6 +5,7 @@ import {
   createLocationBarcode,
   parseWarehouseBarcode,
 } from "../lib/warehouseLabels";
+import { createLocationBarcode as createCanonicalLocationBarcode } from "../lib/inventoryLocations";
 
 describe("warehouse label templates", () => {
   it("defines the four approved fixed-size Code 128 templates", () => {
@@ -43,6 +44,7 @@ describe("warehouse label templates", () => {
 describe("warehouse barcode namespaces", () => {
   it("normalises a location identifier into the reserved location namespace", () => {
     expect(createLocationBarcode(" bne-a01-03 ")).toBe("DMLOC:BNE-A01-03");
+    expect(createLocationBarcode).toBe(createCanonicalLocationBarcode);
     expect(parseWarehouseBarcode("DMLOC:BNE-A01-03")).toEqual({
       ok: true,
       kind: "location",

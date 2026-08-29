@@ -23,9 +23,19 @@ export function parseWarehouseLocation(value?: string | null): WarehouseLocation
   const alias = locationAliases[normalized];
   if (alias) return alias;
 
-  const [warehouseCode, zone, binCode] = normalized.split(/[-/]/).filter(Boolean);
+  const [warehouseCode, ...locationSegments] = normalized.split(/[-/]/).filter(Boolean);
+  const warehouse = warehouseAliases[warehouseCode] ?? warehouseCode ?? "Brisbane";
+  if (warehouse === "Brisbane" && locationSegments.length >= 2) {
+    return {
+      warehouse,
+      zone: locationSegments.slice(0, -1).join("-"),
+      binCode: locationSegments.at(-1) as string,
+    };
+  }
+
+  const [zone, binCode] = locationSegments;
   return {
-    warehouse: warehouseAliases[warehouseCode] ?? warehouseCode ?? "Brisbane",
+    warehouse,
     zone: zone ?? "UNASSIGNED",
     binCode: binCode ?? "HOLD",
   };

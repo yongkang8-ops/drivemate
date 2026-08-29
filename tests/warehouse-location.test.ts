@@ -10,6 +10,14 @@ describe("warehouse location parsing", () => {
     });
   });
 
+  it("parses every middle segment of a Brisbane location as its zone", () => {
+    expect(parseWarehouseLocation("BNE-A-01-03")).toEqual({
+      warehouse: "Brisbane",
+      zone: "A-01",
+      binCode: "03",
+    });
+  });
+
   it("normalises operational location aliases", () => {
     expect(parseWarehouseLocation("BNE dispatch")).toEqual({
       warehouse: "Brisbane",

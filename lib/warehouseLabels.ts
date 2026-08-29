@@ -116,9 +116,7 @@ function createReservedBarcode(prefix: string, value: string, label: string): st
   return `${prefix}${identifier}`;
 }
 
-export function createLocationBarcode(locationCode: string): string {
-  return createReservedBarcode(LOCATION_BARCODE_PREFIX, locationCode, "Location");
-}
+export { createLocationBarcode } from "./inventoryLocations";
 
 export function createCartonBarcode(cartonId: string): string {
   return createReservedBarcode(CARTON_BARCODE_PREFIX, cartonId, "Carton");
