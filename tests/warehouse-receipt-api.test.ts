@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { POST as submitLabelJob } from "../app/api/warehouse/labels/route";
 import { POST as submitReceipt } from "../app/api/warehouse/receipts/route";
 import { MemoryRepository } from "../lib/memoryRepository";
-import { buildWarehouseLabelPrintScope } from "../lib/warehouseLabels";
 
 const shipmentId = "11111111-1111-4111-8111-111111111111";
 const idempotencyKey = "22222222-2222-4222-8222-222222222222";
@@ -60,6 +60,17 @@ function receiptRequest(body: Record<string, unknown>) {
   });
 }
 
+function labelRequest(body: Record<string, unknown>) {
+  return new Request("https://drivemateparts.com.au/api/warehouse/labels", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-drivemate-role": "partner",
+    },
+    body: JSON.stringify(body),
+  });
+}
+
 const validPayload = {
   selection: { shipmentId, cartonNumbers: ["C001"] },
   mode: "counted_quantity",
@@ -83,18 +94,19 @@ describe("warehouse receipt API", () => {
   });
 
   it("rejects a caller-supplied location and confirms the receipt only after the matching labels are printed", async () => {
-    const expected = await repository.getWarehouseExpectedReceipt(validPayload.selection);
-    expect(expected.ok).toBe(true);
-    if (!expected.ok) return;
-
-    const printJob = await repository.createWarehouseLabelPrintJob({
+    const printResponse = await submitLabelJob(labelRequest({
+      selection: validPayload.selection,
       templateId: "unit_product",
-      requestedQuantity: 18,
-      payloadSnapshot: buildWarehouseLabelPrintScope(expected.receipt, "unit_product"),
+    }));
+    expect(printResponse.status).toBe(201);
+    const printJob = await printResponse.json();
+    expect(printJob).toMatchObject({
+      ok: true,
+      job: { templateId: "unit_product", requestedQuantity: 18 },
+      items: Array.from({ length: 18 }, (_, index) => expect.objectContaining({ sequence: index + 1 })),
     });
-    expect(printJob.ok).toBe(true);
-    if (!printJob.ok) return;
-    await repository.recordWarehouseLabelPrintOutcome(printJob.job.id, "printed");
+    const outcome = await repository.recordWarehouseLabelPrintOutcome(printJob.job.id, "printed");
+    expect(outcome).toMatchObject({ ok: true, job: { status: "printed" } });
 
     const before = await repository.getAdminState();
 

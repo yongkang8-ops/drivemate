@@ -95,18 +95,13 @@ export async function POST(request: Request) {
     (total, line) => total + line.expectedQuantity,
     0,
   );
-  const created = await repository.createWarehouseLabelPrintJob({
+  const created = await repository.createWarehouseLabelPrintJobWithItems({
     templateId: parsed.data.templateId,
     payloadSnapshot: resolved.scope,
     requestedQuantity,
+    itemPayloadSnapshots: labelItemPayloads(resolved),
   }, { actorId: auth.userId });
   if (!created.ok) return NextResponse.json(created, { status: 422 });
 
-  const items = await repository.appendWarehouseLabelPrintItems(
-    created.job.id,
-    labelItemPayloads(resolved),
-  );
-  if (!items.ok) return NextResponse.json(items, { status: 422 });
-
-  return NextResponse.json({ ok: true, job: created.job, items: items.items }, { status: 201 });
+  return NextResponse.json({ ok: true, job: created.job, items: created.items }, { status: 201 });
 }

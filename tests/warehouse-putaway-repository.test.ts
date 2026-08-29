@@ -12,10 +12,11 @@ async function confirmReceipt(repository: MemoryRepository) {
   ]);
   if (!expected.ok || !shipment.ok) throw new Error("Test receipt scope was not available.");
 
-  const printJob = await repository.createWarehouseLabelPrintJob({
+  const printJob = await repository.createWarehouseLabelPrintJobWithItems({
     templateId: "unit_product",
     requestedQuantity: 18,
     payloadSnapshot: buildWarehouseLabelPrintScope(expected.receipt, "unit_product"),
+    itemPayloadSnapshots: Array.from({ length: 18 }, (_, index) => ({ copy: index + 1 })),
   });
   if (!printJob.ok) throw new Error(printJob.message);
   await repository.recordWarehouseLabelPrintOutcome(printJob.job.id, "printed");

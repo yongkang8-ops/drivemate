@@ -70,6 +70,7 @@ export type WarehouseLabelPrintJob = {
 export type WarehouseLabelPrintItem = {
   id: string;
   jobId: string;
+  sourceItemId?: string;
   sequence: number;
   payloadSnapshot: Record<string, unknown>;
   createdAt: string;
@@ -79,6 +80,13 @@ export type CreateWarehouseLabelPrintJobInput = {
   templateId: WarehouseLabelTemplateId;
   payloadSnapshot: Record<string, unknown>;
   requestedQuantity: number;
+};
+
+export type CreateWarehouseLabelPrintJobWithItemsInput = CreateWarehouseLabelPrintJobInput & {
+  itemPayloadSnapshots: Record<string, unknown>[];
+  reprintOfJobId?: string;
+  reprintReason?: string;
+  reprintSourceItemIds?: string[];
 };
 
 export type CreateWarehouseLabelReprintInput = {
@@ -93,6 +101,10 @@ export type WarehouseLabelPrintJobResult =
 
 export type WarehouseLabelPrintItemsResult =
   | { ok: true; items: WarehouseLabelPrintItem[] }
+  | { ok: false; message: string };
+
+export type WarehouseLabelPrintJobWithItemsResult =
+  | { ok: true; job: WarehouseLabelPrintJob; items: WarehouseLabelPrintItem[] }
   | { ok: false; message: string };
 
 export type WarehouseLabelPrintAuditResult =
@@ -559,6 +571,10 @@ export interface DrivemateRepository {
     input: CreateWarehouseLabelPrintJobInput,
     context?: RepositoryWriteContext,
   ): Promise<WarehouseLabelPrintJobResult>;
+  createWarehouseLabelPrintJobWithItems(
+    input: CreateWarehouseLabelPrintJobWithItemsInput,
+    context?: RepositoryWriteContext,
+  ): Promise<WarehouseLabelPrintJobWithItemsResult>;
   appendWarehouseLabelPrintItems(
     jobId: string,
     payloadSnapshots: Record<string, unknown>[],

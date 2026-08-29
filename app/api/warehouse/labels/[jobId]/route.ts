@@ -10,7 +10,16 @@ const actionSchema = z.object({
   outcome: z.enum(["printed", "cancelled"]).optional(),
   reason: z.string().trim().min(3).max(500).optional(),
   requestedQuantity: z.number().int().positive().optional(),
-}).strict();
+  itemIds: z.array(z.string().trim().min(1).max(240)).min(1).optional(),
+}).strict().superRefine((value, context) => {
+  if (value.itemIds && new Set(value.itemIds).size !== value.itemIds.length) {
+    context.addIssue({
+      code: "custom",
+      path: ["itemIds"],
+      message: "Reprint item ids must be unique.",
+    });
+  }
+});
 
 export async function GET(
   request: Request,
@@ -56,31 +65,65 @@ export async function POST(
     return NextResponse.json(result, { status: result.ok ? 200 : 422 });
   }
 
-  if (!parsed.data.reason || !parsed.data.requestedQuantity) {
+  if (!parsed.data.reason || (!parsed.data.itemIds && !parsed.data.requestedQuantity)) {
     return NextResponse.json(
-      { ok: false, message: "A reprint reason and requested quantity are required." },
+      { ok: false, message: "A reprint reason and either item ids or requested quantity are required." },
       { status: 400 },
     );
   }
   const original = await repository.getWarehouseLabelPrintJob(jobId);
   if (!original.ok) return NextResponse.json(original, { status: 404 });
-  if (parsed.data.requestedQuantity > original.items.length) {
+  if (original.items.length !== original.job.requestedQuantity) {
     return NextResponse.json(
-      { ok: false, message: "Requested reprint quantity exceeds the original audited label range." },
+      { ok: false, message: "Original warehouse label print job is incomplete and cannot be reprinted." },
       { status: 422 },
     );
   }
-  const reprint = await repository.createWarehouseLabelReprint({
+  let selectedItems;
+  if (parsed.data.itemIds) {
+    const itemsById = new Map(original.items.map((item) => [item.id, item]));
+    const unknownItemId = parsed.data.itemIds.find((itemId) => !itemsById.has(itemId));
+    if (unknownItemId) {
+      return NextResponse.json(
+        { ok: false, message: `Reprint item ${unknownItemId} does not belong to the original audited label job.` },
+        { status: 422 },
+      );
+    }
+    selectedItems = parsed.data.itemIds.map((itemId) => itemsById.get(itemId)!);
+  } else {
+    const requestedQuantity = parsed.data.requestedQuantity;
+    if (!requestedQuantity) {
+      return NextResponse.json(
+        { ok: false, message: "A requested reprint quantity is required when item ids are not supplied." },
+        { status: 400 },
+      );
+    }
+    if (requestedQuantity > original.items.length) {
+      return NextResponse.json(
+        { ok: false, message: "Requested reprint quantity exceeds the original audited label range." },
+        { status: 422 },
+      );
+    }
+    selectedItems = original.items.slice(0, requestedQuantity);
+  }
+
+  if (!selectedItems.length) {
+    return NextResponse.json(
+      { ok: false, message: "At least one original label item is required for a reprint." },
+      { status: 422 },
+    );
+  }
+
+  const reprint = await repository.createWarehouseLabelPrintJobWithItems({
+    templateId: original.job.templateId,
+    payloadSnapshot: original.job.payloadSnapshot,
+    requestedQuantity: selectedItems.length,
+    itemPayloadSnapshots: selectedItems.map((item) => item.payloadSnapshot),
     reprintOfJobId: jobId,
-    requestedQuantity: parsed.data.requestedQuantity,
-    reason: parsed.data.reason,
+    reprintReason: parsed.data.reason,
+    reprintSourceItemIds: selectedItems.map((item) => item.id),
   }, { actorId: auth.userId });
   if (!reprint.ok) return NextResponse.json(reprint, { status: 422 });
 
-  const items = await repository.appendWarehouseLabelPrintItems(
-    reprint.job.id,
-    original.items.slice(0, parsed.data.requestedQuantity).map((item) => item.payloadSnapshot),
-  );
-  if (!items.ok) return NextResponse.json(items, { status: 422 });
-  return NextResponse.json({ ok: true, job: reprint.job, items: items.items }, { status: 201 });
+  return NextResponse.json({ ok: true, job: reprint.job, items: reprint.items }, { status: 201 });
 }

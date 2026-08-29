@@ -1,0 +1,57 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { can } from "../../../../../../lib/auth";
+import { getRepository, type InventoryLocation } from "../../../../../../lib/repository";
+import { mutationRequestAllowed } from "../../../../../../lib/requestSecurity";
+import { getRequestContext } from "../../../../../../lib/serverAuth";
+
+const statusSchema = z.object({
+  status: z.enum(["active", "disabled", "archived"]),
+}).strict();
+
+function savedLocationMaster(location: InventoryLocation) {
+  return {
+    id: location.id,
+    locationCode: location.locationCode,
+    barcode: location.barcode,
+    status: location.status,
+    isPutawayDestination: location.isPutawayDestination,
+    physicalDescription: location.physicalDescription ?? null,
+    notes: location.notes ?? null,
+    createdAt: location.createdAt,
+    createdBy: location.createdBy,
+    updatedAt: location.updatedAt,
+    updatedBy: location.updatedBy,
+  };
+}
+
+export async function POST(
+  request: Request,
+  context: { params: Promise<{ locationId: string }> },
+) {
+  if (!mutationRequestAllowed(request)) {
+    return NextResponse.json({ ok: false, message: "Request security validation failed." }, { status: 403 });
+  }
+  const auth = await getRequestContext(request);
+  if (auth.mfaRequired || !can(auth.role, "inventory_write")) {
+    return NextResponse.json(
+      { ok: false, message: "Inventory location changes require Partner access with the required assurance level." },
+      { status: 403 },
+    );
+  }
+  const parsed = statusSchema.safeParse(await request.json());
+  if (!parsed.success) return NextResponse.json({ ok: false, error: parsed.error.flatten() }, { status: 400 });
+
+  const { locationId } = await context.params;
+  if (!locationId.trim()) {
+    return NextResponse.json({ ok: false, message: "Inventory location id is required." }, { status: 400 });
+  }
+  const updated = await getRepository().setInventoryLocationStatus(
+    { id: locationId, status: parsed.data.status },
+    { actorId: auth.userId },
+  );
+  return NextResponse.json(
+    updated.ok ? { ok: true, location: savedLocationMaster(updated.location) } : updated,
+    { status: updated.ok ? 200 : 422 },
+  );
+}

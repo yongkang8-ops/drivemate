@@ -75,12 +75,14 @@ import type {
   CreateProductMasterResult,
   CreateFitmentRuleResult,
   CreateWarehouseLabelPrintJobInput,
+  CreateWarehouseLabelPrintJobWithItemsInput,
   CreateWarehouseLabelReprintInput,
   WarehouseLabelPrintAuditResult,
   WarehouseLabelPrintItem,
   WarehouseLabelPrintItemsResult,
   WarehouseLabelPrintJob,
   WarehouseLabelPrintJobResult,
+  WarehouseLabelPrintJobWithItemsResult,
   WarehouseLabelPrintJobStatus,
   WarehouseExpectedReceiptResult,
   WarehouseReceiptPrintGateResult,
@@ -312,6 +314,7 @@ type WarehouseLabelPrintJobRecord = {
 type WarehouseLabelPrintItemRecord = {
   id: string;
   job_id: string;
+  source_item_id?: string | null;
   sequence: number;
   payload_snapshot: Record<string, unknown>;
   created_at: string;
@@ -453,6 +456,7 @@ function toWarehouseLabelPrintItem(record: WarehouseLabelPrintItemRecord): Wareh
   return {
     id: record.id,
     jobId: record.job_id,
+    sourceItemId: record.source_item_id ?? undefined,
     sequence: record.sequence,
     payloadSnapshot: structuredClone(record.payload_snapshot),
     createdAt: record.created_at,
@@ -509,6 +513,10 @@ function toWarehouseReceiptSession(
 
 function validRequestedLabelQuantity(value: number) {
   return Number.isInteger(value) && value > 0;
+}
+
+function isLabelPayloadSnapshot(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function productSku(
@@ -2863,6 +2871,51 @@ export class SupabaseRepository implements DrivemateRepository {
     return { ok: true, job: toWarehouseLabelPrintJob(data as WarehouseLabelPrintJobRecord) };
   }
 
+  async createWarehouseLabelPrintJobWithItems(
+    input: CreateWarehouseLabelPrintJobWithItemsInput,
+    context: RepositoryWriteContext = {},
+  ): Promise<WarehouseLabelPrintJobWithItemsResult> {
+    if (!validRequestedLabelQuantity(input.requestedQuantity)) {
+      return { ok: false, message: "Requested label quantity must be a positive integer." };
+    }
+    if (!isLabelPayloadSnapshot(input.payloadSnapshot)) {
+      return { ok: false, message: "Warehouse label payload snapshot must be an object." };
+    }
+    if (input.itemPayloadSnapshots.length !== input.requestedQuantity) {
+      return { ok: false, message: "Label item count must equal the requested quantity." };
+    }
+    if (!input.itemPayloadSnapshots.every(isLabelPayloadSnapshot)) {
+      return { ok: false, message: "Label item snapshots must be objects." };
+    }
+    const reprintOfJobId = input.reprintOfJobId?.trim() || null;
+    const reprintReason = input.reprintReason?.trim() || null;
+    if (Boolean(reprintOfJobId) !== Boolean(reprintReason)) {
+      return { ok: false, message: "A reprint source and reason are required together." };
+    }
+
+    const { data, error } = await this.client().rpc(
+      "dm_create_warehouse_label_print_job_with_items",
+      {
+        p_template_id: input.templateId,
+        p_payload_snapshot: input.payloadSnapshot,
+        p_requested_quantity: input.requestedQuantity,
+        p_item_payload_snapshots: input.itemPayloadSnapshots,
+        p_actor_id: context.actorId ?? null,
+        p_reprint_of_job_id: reprintOfJobId,
+        p_reprint_reason: reprintReason,
+        p_reprint_source_item_ids: input.reprintSourceItemIds ?? null,
+      },
+    );
+    if (error) return { ok: false, message: error.message };
+    if (!data) return { ok: false, message: "Warehouse label print job could not be created." };
+    const audit = await this.getWarehouseLabelPrintJob(data as string);
+    if (!audit.ok) return audit;
+    if (audit.items.length !== audit.job.requestedQuantity) {
+      return { ok: false, message: "Warehouse label print job was not created with a complete item audit." };
+    }
+    return { ok: true, job: audit.job, items: audit.items };
+  }
+
   async listPrearrivalShipments(): Promise<PrearrivalShipmentListResult> {
     const { data, error } = await this.client()
       .from("shipments")
@@ -3458,7 +3511,7 @@ export class SupabaseRepository implements DrivemateRepository {
         sequence: (existing?.length ?? 0) + index + 1,
         payload_snapshot: payloadSnapshot,
       })))
-      .select("id, job_id, sequence, payload_snapshot, created_at");
+      .select("id, job_id, source_item_id, sequence, payload_snapshot, created_at");
     if (error || !data) throw error ?? new Error("Warehouse label print item insert failed.");
     return { ok: true, items: (data as WarehouseLabelPrintItemRecord[]).map(toWarehouseLabelPrintItem) };
   }
@@ -3474,7 +3527,7 @@ export class SupabaseRepository implements DrivemateRepository {
     if (!job) return { ok: false, message: "Warehouse label print job was not found." };
     const { data: items, error: itemsError } = await supabase
       .from("warehouse_label_print_items")
-      .select("id, job_id, sequence, payload_snapshot, created_at")
+      .select("id, job_id, source_item_id, sequence, payload_snapshot, created_at")
       .eq("job_id", jobId)
       .order("sequence");
     if (itemsError) throw itemsError;
@@ -3489,17 +3542,20 @@ export class SupabaseRepository implements DrivemateRepository {
     jobId: string,
     outcome: Exclude<WarehouseLabelPrintJobStatus, "pending">,
   ): Promise<WarehouseLabelPrintJobResult> {
-    const timestampColumn = outcome === "printed" ? "printed_at" : "cancelled_at";
-    const { data, error } = await this.client()
-      .from("warehouse_label_print_jobs")
-      .update({ status: outcome, [timestampColumn]: new Date().toISOString() })
-      .eq("id", jobId)
-      .eq("status", "pending")
-      .select("id, template_id, payload_snapshot, requested_quantity, status, created_by, created_at, printed_at, cancelled_at, reprint_of_job_id, reprint_reason")
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) return { ok: false, message: "Warehouse label print job was not found or its outcome was already recorded." };
-    return { ok: true, job: toWarehouseLabelPrintJob(data as WarehouseLabelPrintJobRecord) };
+    const { data, error } = await this.client().rpc("dm_record_warehouse_label_print_outcome", {
+      p_job_id: jobId,
+      p_outcome: outcome,
+    });
+    if (error) return { ok: false, message: error.message };
+    if (!data) {
+      return {
+        ok: false,
+        message: "Warehouse label print job was not found, is incomplete, or its outcome was already recorded.",
+      };
+    }
+    const audit = await this.getWarehouseLabelPrintJob(data as string);
+    if (!audit.ok) return audit;
+    return { ok: true, job: audit.job };
   }
 
   async createWarehouseLabelReprint(
@@ -3511,29 +3567,15 @@ export class SupabaseRepository implements DrivemateRepository {
     if (!validRequestedLabelQuantity(input.requestedQuantity)) {
       return { ok: false, message: "Requested label quantity must be a positive integer." };
     }
-    const supabase = this.client();
-    const { data: original, error: originalError } = await supabase
-      .from("warehouse_label_print_jobs")
-      .select("id, template_id, payload_snapshot")
-      .eq("id", input.reprintOfJobId)
-      .maybeSingle();
-    if (originalError) throw originalError;
-    if (!original) return { ok: false, message: "Original warehouse label print job was not found." };
-
-    const { data, error } = await supabase
-      .from("warehouse_label_print_jobs")
-      .insert({
-        template_id: original.template_id,
-        payload_snapshot: original.payload_snapshot,
-        requested_quantity: input.requestedQuantity,
-        created_by: context.actorId ?? null,
-        reprint_of_job_id: input.reprintOfJobId,
-        reprint_reason: reason,
-      })
-      .select("id, template_id, payload_snapshot, requested_quantity, status, created_by, created_at, printed_at, cancelled_at, reprint_of_job_id, reprint_reason")
-      .single();
-    if (error || !data) throw error ?? new Error("Warehouse label reprint job insert failed.");
-    return { ok: true, job: toWarehouseLabelPrintJob(data as WarehouseLabelPrintJobRecord) };
+    const original = await this.getWarehouseLabelPrintJob(input.reprintOfJobId);
+    if (!original.ok) return { ok: false, message: "Original warehouse label print job was not found." };
+    if (original.items.length !== original.job.requestedQuantity) {
+      return { ok: false, message: "Original warehouse label print job is incomplete and cannot be reprinted." };
+    }
+    return {
+      ok: false,
+      message: "Atomic reprints require the original item snapshots.",
+    };
   }
 
   async resetForTests(): Promise<void> {
