@@ -18,6 +18,7 @@ import type {
   WarehouseReceiptMode,
   WarehouseReceiptScope,
 } from "./warehouseReceiving";
+import type { WarehouseHistoryAction, WarehouseHistoryEvent } from "./warehouseHistory";
 import type { ValidatedPackingListRevision } from "./prearrivalShipment";
 import type {
   ApproveTradeAccountApplicationResult,
@@ -133,6 +134,57 @@ export type WarehouseReceiptSessionResult =
 export type WarehouseReceiptPrintGateResult =
   | { ok: true }
   | { ok: false; message: string };
+
+export type WarehousePutawayScopeInput = {
+  shipmentId: string;
+  cartonNumbers: string[];
+};
+
+export type WarehousePutawayInput = WarehousePutawayScopeInput & {
+  productBarcode: string;
+  destinationLocation: string;
+  quantity: number;
+  idempotencyKey: string;
+};
+
+export type WarehousePutawayLine = {
+  receiptSessionId: string;
+  sku: string;
+  productBarcode: string;
+  actualQuantity: number;
+  remainingQuantity: number;
+};
+
+export type WarehousePutawayScopeResult =
+  | { ok: true; lines: WarehousePutawayLine[] }
+  | { ok: false; message: string };
+
+export type WarehousePutawayResult =
+  | {
+      ok: true;
+      receiptSessionId: string;
+      sourceLocation: string;
+      destinationLocation: string;
+      remainingQuantity: number;
+      movement: StockMovement;
+    }
+  | { ok: false; message: string };
+
+export type WarehouseHistoryQuery = {
+  from?: string;
+  to?: string;
+  shipmentId?: string;
+  palletNumber?: string;
+  cartonNumber?: string;
+  sku?: string;
+  actor?: string;
+  action?: WarehouseHistoryAction;
+};
+
+export type WarehouseHistoryResult = {
+  ok: true;
+  events: WarehouseHistoryEvent[];
+};
 
 export type PackingListRevisionStatus = "draft" | "confirmed" | "superseded";
 
@@ -398,6 +450,16 @@ export interface DrivemateRepository {
     sessionId: string,
     context?: RepositoryWriteContext,
   ): Promise<WarehouseReceiptSessionResult>;
+  getWarehousePutawayScope(
+    input: WarehousePutawayScopeInput,
+  ): Promise<WarehousePutawayScopeResult>;
+  putAwayWarehouseReceipt(
+    input: WarehousePutawayInput,
+    context?: RepositoryWriteContext,
+  ): Promise<WarehousePutawayResult>;
+  listWarehouseHistory(
+    query?: WarehouseHistoryQuery,
+  ): Promise<WarehouseHistoryResult>;
   listPrearrivalShipments(): Promise<PrearrivalShipmentListResult>;
   getPrearrivalShipment(shipmentId: string): Promise<PrearrivalShipmentResult>;
   createPackingListRevision(

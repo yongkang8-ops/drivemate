@@ -34,12 +34,16 @@ import {
   parseWarehouseLocation,
   type WarehouseLocationParts,
 } from "./warehouseLocation";
-import { filterWarehouseExpectedReceipt, type WarehouseInboundSelection, type WarehouseLabelTemplateId } from "./warehouseLabels";
+import { filterWarehouseExpectedReceipt, type WarehouseInboundSelection, type WarehouseLabelPrintScope, type WarehouseLabelTemplateId } from "./warehouseLabels";
+import {
+  RECEIVING_STAGING_LOCATION,
+} from "./warehouseReceiving";
 import type {
   PreparedReceiptLine,
   ReceiptDiscrepancy,
   WarehouseReceiptScope,
 } from "./warehouseReceiving";
+import type { WarehouseHistoryEvent } from "./warehouseHistory";
 import {
   receiptFromPackingListRevision,
   validatePackingListRevision,
@@ -82,6 +86,12 @@ import type {
   WarehouseReceiptSession,
   WarehouseReceiptSessionResult,
   CreateWarehouseReceiptSessionInput,
+  WarehousePutawayInput,
+  WarehousePutawayResult,
+  WarehousePutawayScopeInput,
+  WarehousePutawayScopeResult,
+  WarehouseHistoryQuery,
+  WarehouseHistoryResult,
   PackingListRevision,
   PackingListRevisionResult,
   PrearrivalShipmentListResult,
@@ -311,6 +321,44 @@ type WarehouseReceiptSessionLineRecord = {
     reason: string;
   }> | null;
 };
+
+function sameWarehouseReceiptScope(
+  session: WarehouseReceiptSession,
+  input: WarehousePutawayScopeInput,
+) {
+  if (session.shipmentId !== input.shipmentId) return false;
+  const sessionCartons = [...new Set(session.scopeSnapshot.cartonNumbers.map((value) => value.trim().toUpperCase()))].sort();
+  const inputCartons = [...new Set(input.cartonNumbers.map((value) => value.trim().toUpperCase()))].sort();
+  return sessionCartons.length === inputCartons.length
+    && sessionCartons.every((value, index) => value === inputCartons[index]);
+}
+
+function inboundLabelAuditScope(payload: Record<string, unknown>) {
+  const scope = payload as Partial<WarehouseLabelPrintScope>;
+  if (!scope.shipmentId || !Array.isArray(scope.cartonNumbers)) return undefined;
+  return {
+    shipmentId: scope.shipmentId,
+    palletNumbers: Array.isArray(scope.palletNumbers) ? scope.palletNumbers : [],
+    cartonNumbers: scope.cartonNumbers,
+    sku: scope.lines?.[0]?.sku,
+  };
+}
+
+function matchesWarehouseHistoryQuery(
+  event: WarehouseHistoryEvent,
+  query: WarehouseHistoryQuery = {},
+) {
+  const date = event.createdAt.slice(0, 10);
+  if (query.from && date < query.from) return false;
+  if (query.to && date > query.to) return false;
+  if (query.shipmentId && event.shipmentId !== query.shipmentId) return false;
+  if (query.palletNumber && !event.palletNumbers?.includes(query.palletNumber)) return false;
+  if (query.cartonNumber && !event.cartonNumbers?.includes(query.cartonNumber)) return false;
+  if (query.sku && event.sku !== query.sku) return false;
+  if (query.actor && event.actor !== query.actor) return false;
+  if (query.action && event.action !== query.action) return false;
+  return true;
+}
 
 function toWarehouseLabelPrintJob(record: WarehouseLabelPrintJobRecord): WarehouseLabelPrintJob {
   return {
@@ -2928,6 +2976,151 @@ export class SupabaseRepository implements DrivemateRepository {
     if (error) return { ok: false, message: error.message };
     if (!data) return { ok: false, message: "Warehouse receipt session was not found." };
     return this.loadWarehouseReceiptSession(data as string);
+  }
+
+  async getWarehousePutawayScope(
+    input: WarehousePutawayScopeInput,
+  ): Promise<WarehousePutawayScopeResult> {
+    const supabase = this.client();
+    const { data: sessionRows, error: sessionError } = await supabase
+      .from("warehouse_receipt_sessions")
+      .select("id")
+      .eq("shipment_id", input.shipmentId)
+      .eq("status", "confirmed")
+      .order("confirmed_at", { ascending: false });
+    if (sessionError) throw sessionError;
+
+    const sessions = (await Promise.all(
+      (sessionRows ?? []).map((row) => this.loadWarehouseReceiptSession((row as { id: string }).id)),
+    )).flatMap((result) => result.ok && sameWarehouseReceiptScope(result.session, input) ? [result.session] : []);
+    if (!sessions.length) return { ok: true, lines: [] };
+
+    const { data: movements, error: movementError } = await supabase
+      .from("stock_movements")
+      .select("reference_id, quantity, products(sku)")
+      .eq("movement_type", "putaway")
+      .eq("reference_type", "warehouse_receipt_putaway")
+      .in("reference_id", sessions.map((session) => session.id));
+    if (movementError) throw movementError;
+
+    return {
+      ok: true,
+      lines: sessions.flatMap((session) => session.lines.map((line) => {
+        const moved = (movements ?? [])
+          .filter((movement) => {
+            const record = movement as { reference_id: string; products?: { sku?: string } | null };
+            return record.reference_id === session.id && record.products?.sku === line.sku;
+          })
+          .reduce((total, movement) => total + (movement as { quantity: number }).quantity, 0);
+        return {
+          receiptSessionId: session.id,
+          sku: line.sku,
+          productBarcode: line.productBarcode,
+          actualQuantity: line.actualQuantity,
+          remainingQuantity: Math.max(line.actualQuantity - moved, 0),
+        };
+      }).filter((line) => line.remainingQuantity > 0)),
+    };
+  }
+
+  async putAwayWarehouseReceipt(
+    input: WarehousePutawayInput,
+    context: RepositoryWriteContext = {},
+  ): Promise<WarehousePutawayResult> {
+    const scope = await this.getWarehousePutawayScope(input);
+    if (!scope.ok) return scope;
+    const barcode = input.productBarcode.trim().toUpperCase();
+    const line = scope.lines.find((candidate) => candidate.productBarcode.trim().toUpperCase() === barcode);
+    if (!line) return { ok: false, message: "A confirmed receipt with staged stock is required before putaway." };
+    if (input.quantity > line.remainingQuantity) {
+      return { ok: false, message: "Putaway quantity exceeds the receipt's remaining staged quantity." };
+    }
+
+    const destination = parseWarehouseLocation(input.destinationLocation);
+    const { data, error } = await this.client().rpc("dm_putaway_warehouse_receipt", {
+      p_session_id: line.receiptSessionId,
+      p_product_barcode: barcode,
+      p_destination_warehouse: destination.warehouse,
+      p_destination_zone: destination.zone,
+      p_destination_bin: destination.binCode,
+      p_quantity: input.quantity,
+      p_idempotency_key: input.idempotencyKey,
+      p_actor_id: context.actorId ?? null,
+    });
+    if (error || !data) return { ok: false, message: error?.message ?? "Warehouse putaway could not be completed." };
+    const outcome = data as { movement_id?: string; remaining_quantity?: number };
+    if (!outcome.movement_id) return { ok: false, message: "Warehouse putaway did not return an audit movement." };
+
+    const { data: movement, error: movementError } = await this.client()
+      .from("stock_movements")
+      .select("id, movement_type, quantity, reference_type, reference_id, created_at, created_by, products(sku), from_location:inventory_locations!stock_movements_from_location_id_fkey(warehouse, zone, bin_code), to_location:inventory_locations!stock_movements_to_location_id_fkey(warehouse, zone, bin_code)")
+      .eq("id", outcome.movement_id)
+      .single();
+    if (movementError || !movement) throw movementError ?? new Error("Warehouse putaway movement was not found.");
+
+    return {
+      ok: true,
+      receiptSessionId: line.receiptSessionId,
+      sourceLocation: RECEIVING_STAGING_LOCATION,
+      destinationLocation: formatWarehouseLocation(destination),
+      remainingQuantity: outcome.remaining_quantity ?? Math.max(line.remainingQuantity - input.quantity, 0),
+      movement: toStockMovement(movement as MovementRecord),
+    };
+  }
+
+  async listWarehouseHistory(
+    query: WarehouseHistoryQuery = {},
+  ): Promise<WarehouseHistoryResult> {
+    const supabase = this.client();
+    let sessionsQuery = supabase
+      .from("warehouse_receipt_sessions")
+      .select("id")
+      .eq("status", "confirmed")
+      .order("confirmed_at", { ascending: false });
+    if (query.shipmentId) sessionsQuery = sessionsQuery.eq("shipment_id", query.shipmentId);
+    const [{ data: sessionRows, error: sessionError }, { data: jobRows, error: jobError }] = await Promise.all([
+      sessionsQuery,
+      supabase
+        .from("warehouse_label_print_jobs")
+        .select("id, template_id, payload_snapshot, requested_quantity, status, created_by, created_at, printed_at, cancelled_at, reprint_of_job_id, reprint_reason")
+        .order("created_at", { ascending: false }),
+    ]);
+    if (sessionError) throw sessionError;
+    if (jobError) throw jobError;
+
+    const sessions = (await Promise.all(
+      (sessionRows ?? []).map((row) => this.loadWarehouseReceiptSession((row as { id: string }).id)),
+    )).flatMap((result) => result.ok ? [result.session] : []);
+    const sessionById = new Map(sessions.map((session) => [session.id, session]));
+    const { data: movementRows, error: movementError } = await supabase
+      .from("stock_movements")
+      .select("id, movement_type, quantity, reference_type, reference_id, created_at, created_by, products(sku), from_location:inventory_locations!stock_movements_from_location_id_fkey(warehouse, zone, bin_code), to_location:inventory_locations!stock_movements_to_location_id_fkey(warehouse, zone, bin_code)")
+      .eq("movement_type", "putaway")
+      .eq("reference_type", "warehouse_receipt_putaway")
+      .order("created_at", { ascending: false });
+    if (movementError) throw movementError;
+
+    const events: WarehouseHistoryEvent[] = [];
+    for (const rawJob of (jobRows ?? []) as WarehouseLabelPrintJobRecord[]) {
+      const job = toWarehouseLabelPrintJob(rawJob);
+      const scope = inboundLabelAuditScope(job.payloadSnapshot);
+      if (!scope) continue;
+      if (job.reprintOfJobId && job.reprintReason) events.push({ id: `reprint-${job.id}`, createdAt: job.createdAt, action: "reprint", actor: job.createdBy, reference: job.id, shipmentId: scope.shipmentId, palletNumbers: scope.palletNumbers, cartonNumbers: scope.cartonNumbers, sku: scope.sku, outcome: job.reprintReason });
+      if (job.status === "printed" && job.printedAt) events.push({ id: `print-${job.id}`, createdAt: job.printedAt, action: "print_confirmed", actor: job.createdBy, reference: job.id, shipmentId: scope.shipmentId, palletNumbers: scope.palletNumbers, cartonNumbers: scope.cartonNumbers, sku: scope.sku, outcome: "Printed confirmation recorded" });
+      if (job.status === "cancelled" && job.cancelledAt) events.push({ id: `cancel-${job.id}`, createdAt: job.cancelledAt, action: "print_cancelled", actor: job.createdBy, reference: job.id, shipmentId: scope.shipmentId, palletNumbers: scope.palletNumbers, cartonNumbers: scope.cartonNumbers, sku: scope.sku, outcome: "Print cancelled" });
+    }
+    for (const session of sessions) {
+      if (!session.confirmedAt) continue;
+      events.push({ id: `receipt-${session.id}`, createdAt: session.confirmedAt, action: "receipt_confirmed", actor: session.confirmedBy, reference: session.id, shipmentId: session.shipmentId, cartonNumbers: session.scopeSnapshot.cartonNumbers, outcome: `${session.lines.reduce((total, line) => total + line.actualQuantity, 0)} units staged` });
+      for (const line of session.lines) if (line.discrepancy) events.push({ id: `difference-${session.id}-${line.productBarcode}`, createdAt: session.confirmedAt, action: "discrepancy_recorded", actor: session.confirmedBy, reference: session.id, shipmentId: session.shipmentId, cartonNumbers: session.scopeSnapshot.cartonNumbers, sku: line.sku, outcome: `${line.discrepancy.type}: ${line.discrepancy.reason}` });
+    }
+    for (const rawMovement of (movementRows ?? []) as MovementRecord[]) {
+      const session = sessionById.get(rawMovement.reference_id);
+      if (!session) continue;
+      const movement = toStockMovement(rawMovement);
+      events.push({ id: rawMovement.id, createdAt: rawMovement.created_at, action: "putaway_confirmed", actor: rawMovement.created_by ?? undefined, reference: movement.location, shipmentId: session.shipmentId, cartonNumbers: session.scopeSnapshot.cartonNumbers, sku: movement.sku, outcome: `Moved ${movement.quantity} units from ${RECEIVING_STAGING_LOCATION}` });
+    }
+    return { ok: true, events: events.filter((event) => matchesWarehouseHistoryQuery(event, query)) };
   }
 
   async appendWarehouseLabelPrintItems(

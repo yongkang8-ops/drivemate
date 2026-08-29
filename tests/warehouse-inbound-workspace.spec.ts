@@ -1,0 +1,45 @@
+import { expect, test, type Page } from "@playwright/test";
+
+test.beforeEach(async ({ request }) => {
+  await request.post("/api/test/reset");
+});
+
+async function confirmReceipt(page: Page) {
+  await page.goto("/warehouse");
+  await page.getByRole("button", { name: "Preview labels" }).click();
+  await page.getByRole("button", { name: "Print labels" }).click();
+  await page.getByRole("button", { name: "Confirm printed" }).click();
+  await page.getByRole("link", { name: "Receive stock" }).click();
+  await page.getByRole("button", { name: "Counted quantity" }).click();
+
+  await page.getByLabel("Scan product barcode").fill("DMPGWMOF001");
+  await page.getByLabel("Scan product barcode").press("Enter");
+  await page.getByLabel("Actual quantity for DM-GWM-OF-001").fill("12");
+  await page.getByRole("button", { name: "Add receipt line" }).click();
+  await page.getByLabel("Scan product barcode").fill("DMPGWMAF002");
+  await page.getByLabel("Scan product barcode").press("Enter");
+  await page.getByLabel("Actual quantity for DM-GWM-AF-002").fill("6");
+  await page.getByRole("button", { name: "Add receipt line" }).click();
+  await page.getByRole("button", { name: "Confirm receipt" }).click();
+  await expect(page.getByText("Receipt confirmed. Actual quantities are recorded in system staging.")).toBeVisible();
+}
+
+test("confirmed receipt unlocks scan-led putaway from the system staging location", async ({ page }) => {
+  await page.goto("/warehouse");
+  await expect(page.getByRole("link", { name: "Put away" })).toHaveAttribute("aria-disabled", "true");
+
+  await confirmReceipt(page);
+
+  await expect(page.getByRole("link", { name: "Put away" })).not.toHaveAttribute("aria-disabled", "true");
+  await page.getByRole("link", { name: "Put away" }).click();
+  await expect(page.getByRole("heading", { name: "Put away" })).toBeVisible();
+  await expect(page.getByText("BNE-RECEIVING-STAGING", { exact: true })).toBeVisible();
+
+  await page.getByLabel("Scan product barcode").fill("DMPGWMOF001");
+  await page.getByLabel("Scan destination location").fill("DMLOC:BNE-A01-03");
+  await page.getByLabel("Move quantity").fill("2");
+  await page.getByRole("button", { name: "Confirm put away" }).click();
+
+  await expect(page.getByText("Moved 2 units from BNE-RECEIVING-STAGING to BNE-A01-03.")).toBeVisible();
+  await expect(page.getByText("The system moves 2 units from internal staging to BNE-A01-03 and records an inventory movement.")).toBeVisible();
+});

@@ -15,8 +15,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { buildApiHeaders } from "../lib/clientAuth";
 import type { PrearrivalShipmentSummary, WarehouseLabelPrintJob } from "../lib/repository";
 import type { ReceiptDiscrepancyType, WarehouseReceiptScope } from "../lib/warehouseReceiving";
+import { WarehousePutawayPanel } from "./WarehousePutawayPanel";
+import { ReceiptHistoryPanel } from "./ReceiptHistoryPanel";
 
-type WorkspaceView = "label_print" | "receive_stock";
+type WorkspaceView = "label_print" | "receive_stock" | "put_away" | "receipt_history";
 type PrintPanelState = "select" | "preview" | "awaiting_outcome" | "confirmed" | "cancelled";
 
 type ScopePreview = {
@@ -41,6 +43,9 @@ type PrintJobResponse =
   | { ok: false; message?: string };
 type ReceiptResponse =
   | { ok: true; stagingLocation?: string; session: { id: string; status: string } }
+  | { ok: false; message?: string };
+type PutawayScopeResponse =
+  | { ok: true; lines: Array<{ remainingQuantity: number }> }
   | { ok: false; message?: string };
 
 function normalizeBarcode(value: string) {
@@ -92,6 +97,7 @@ export function PartnerInboundWorkspace() {
   const [selectedPallets, setSelectedPallets] = useState<string[]>([]);
   const [preview, setPreview] = useState<ScopePreview | null>(null);
   const [view, setView] = useState<WorkspaceView>("label_print");
+  const [putawayReady, setPutawayReady] = useState(false);
   const [printState, setPrintState] = useState<PrintPanelState>("select");
   const [printJob, setPrintJob] = useState<WarehouseLabelPrintJob | null>(null);
   const [message, setMessage] = useState("Loading inbound shipment data.");
@@ -105,6 +111,7 @@ export function PartnerInboundWorkspace() {
   const [discrepancyReasonByBarcode, setDiscrepancyReasonByBarcode] = useState<Record<string, string>>({});
   const [discrepancyTypeByBarcode, setDiscrepancyTypeByBarcode] = useState<Record<string, ReceiptDiscrepancyType>>({});
   const [receiptResult, setReceiptResult] = useState<{ sessionId: string; stagingLocation?: string } | null>(null);
+  const [putawayResult, setPutawayResult] = useState<{ quantity: number; destinationLocation: string } | null>(null);
   const [reprintReason, setReprintReason] = useState("");
 
   const receiptUnlocked = preview?.printGate.ok === true;
@@ -135,7 +142,20 @@ export function PartnerInboundWorkspace() {
     setDiscrepancyReasonByBarcode({});
     setDiscrepancyTypeByBarcode({});
     setReceiptResult(null);
+    setPutawayResult(null);
+    void loadPutawayAvailability(nextShipmentId, body.scope.cartonNumbers);
     setMessage(body.printGate.ok ? "Label print confirmed. Receipt unlocked for this scope." : "Select the label queue, then confirm the physical print result.");
+  }
+
+  async function loadPutawayAvailability(nextShipmentId: string, cartonNumbers: string[]) {
+    const params = new URLSearchParams({ shipmentId: nextShipmentId });
+    cartonNumbers.forEach((cartonNumber) => params.append("cartonNumber", cartonNumber));
+    const response = await fetch(`/api/warehouse/putaway?${params.toString()}`, {
+      cache: "no-store",
+      headers: await buildApiHeaders("partner"),
+    });
+    const body = (await response.json()) as PutawayScopeResponse;
+    setPutawayReady(response.ok && body.ok && body.lines.some((line) => line.remainingQuantity > 0));
   }
 
   async function loadWorkspace() {
@@ -175,6 +195,8 @@ export function PartnerInboundWorkspace() {
     setShipmentId(nextShipmentId);
     setPrintJob(null);
     setPrintState("select");
+    setPutawayReady(false);
+    setPutawayResult(null);
     void (async () => {
       const response = await fetch(makeScopeUrl(nextShipmentId, []), {
         cache: "no-store",
@@ -203,6 +225,8 @@ export function PartnerInboundWorkspace() {
     setSelectedPallets(nextPallets);
     setPrintJob(null);
     setPrintState("select");
+    setPutawayReady(false);
+    setPutawayResult(null);
     void loadScope(shipmentId, nextPallets);
   }
 
@@ -395,6 +419,7 @@ export function PartnerInboundWorkspace() {
         return;
       }
       setReceiptResult({ sessionId: body.session.id, stagingLocation: body.stagingLocation });
+      void loadPutawayAvailability(preview.scope.shipmentId, preview.scope.cartonNumbers);
       setMessage("Receipt confirmed. Actual quantities are recorded in system staging.");
     } finally {
       setBusy(false);
@@ -407,6 +432,18 @@ export function PartnerInboundWorkspace() {
 
   const sampleLine = preview.scope.lines[0];
   const receiptDifference = totalActual - expectedUnits;
+  const activeGateReady = view === "put_away" ? putawayReady : receiptUnlocked;
+  const activeGateTitle = view === "put_away"
+    ? putawayReady ? "Receipt confirmed" : "Confirmed receipt required"
+    : receiptUnlocked ? "Label print confirmed" : "Physical print confirmation required";
+  const activeGateCopy = view === "put_away"
+    ? putawayReady ? "Put away is unlocked. The source location is resolved by the system." : "Complete receipt confirmation before putaway begins."
+    : receiptUnlocked ? "Receipt is unlocked for the selected scope." : "Send product labels to the Windows print dialog, then confirm the physical result.";
+  const isHistoryView = view === "receipt_history";
+  const showPutawayResult = view === "put_away" && putawayResult;
+  const bottomLabel = isHistoryView ? "Pre-trade boundary" : showPutawayResult ? "Putaway result" : receiptResult ? "System result after confirmation" : "Print audit boundary";
+  const bottomTitle = isHistoryView ? "This history records warehouse operations only." : showPutawayResult ? `The system moves ${putawayResult.quantity} units from internal staging to ${putawayResult.destinationLocation} and records an inventory movement.` : receiptResult ? `Receipt ${receiptResult.sessionId} is recorded in ${receiptResult.stagingLocation ?? "system staging"}.` : "Printing creates an audited task only. Stock is unchanged until receipt confirmation.";
+  const bottomCopy = isHistoryView ? "It does not create customer orders, invoices, GST, payment or dispatch activity." : showPutawayResult ? "The staging source is resolved by the system. The movement remains in warehouse audit history." : receiptResult ? "No source-location scan. No public availability, sale, GST, payment or real dispatch is created." : "Preview → Windows print → Operator confirms Printed";
 
   return (
     <div className="inbound-app" id="inbound-operations">
@@ -421,12 +458,12 @@ export function PartnerInboundWorkspace() {
           <span>Current work</span>
           <a className={view === "label_print" ? "is-active" : ""} href="#label-print" onClick={(event) => { event.preventDefault(); setView("label_print"); }}>Label print</a>
           <a className={view === "receive_stock" ? "is-active" : ""} aria-disabled={!receiptUnlocked} href="#receive-stock" onClick={(event) => { event.preventDefault(); if (receiptUnlocked) setView("receive_stock"); }}>Receive stock</a>
-          <a aria-disabled="true" href="#put-away" onClick={(event) => event.preventDefault()}>Put away</a>
-          <a aria-disabled="true" href="#receipt-history" onClick={(event) => event.preventDefault()}>Receipt history</a>
+          <a className={view === "put_away" ? "is-active" : ""} aria-disabled={!putawayReady} href="#put-away" onClick={(event) => { event.preventDefault(); if (putawayReady) setView("put_away"); }}>Put away</a>
+          <a className={view === "receipt_history" ? "is-active" : ""} href="#receipt-history" onClick={(event) => { event.preventDefault(); setView("receipt_history"); }}>Receipt history</a>
         </nav>
         <div className="inbound-rules">
-          <span>{view === "label_print" ? "Print rule" : "Receipt mode"}</span>
-          {view === "label_print" ? <><p>Receipt stays locked</p><p className="is-amber">Reprint needs a reason</p></> : <><p>Product barcode required</p><p className="is-amber">Difference reason required</p></>}
+          <span>{view === "label_print" ? "Print rule" : view === "receive_stock" ? "Receipt mode" : view === "put_away" ? "Putaway rule" : "Audit rule"}</span>
+          {view === "label_print" ? <><p>Receipt stays locked</p><p className="is-amber">Reprint needs a reason</p></> : view === "receive_stock" ? <><p>Product barcode required</p><p className="is-amber">Difference reason required</p></> : view === "put_away" ? <><p>Product barcode required</p><p>DMLOC destination required</p><p>Source is system-only</p></> : <><p>Print outcome retained</p><p>Receipt reason retained</p><p>Movement reference retained</p></>}
         </div>
         <div className="inbound-phase-note"><span>Phase 1</span><p>Sample data only</p></div>
       </aside>
@@ -447,10 +484,10 @@ export function PartnerInboundWorkspace() {
             {preview.shipment.pallets.map((pallet) => <label key={pallet.sourcePalletNumber}><input aria-label={`Pallet ${pallet.sourcePalletNumber}`} checked={selectedPallets.includes(pallet.sourcePalletNumber)} onChange={(event) => togglePallet(pallet.sourcePalletNumber, event.target.checked)} type="checkbox" />Pallet {pallet.sourcePalletNumber}</label>)}
           </fieldset>
 
-          <section className={`inbound-gate ${receiptUnlocked ? "is-unlocked" : "is-locked"}`} role="status">
-            {receiptUnlocked ? <CheckCircle size={25} weight="fill" /> : <WarningCircle size={25} weight="fill" />}
-            <div><strong>{receiptUnlocked ? "Label print confirmed" : "Physical print confirmation required"}</strong><p>{receiptUnlocked ? "Receipt is unlocked for the selected scope." : "Send product labels to the Windows print dialog, then confirm the physical result."}</p></div>
-            <span>{receiptUnlocked ? "Receipt unlocked" : "Receipt locked"}</span>
+          <section className={`inbound-gate ${isHistoryView ? "is-neutral" : activeGateReady ? "is-unlocked" : "is-locked"}`} role="status">
+            {isHistoryView ? <ClipboardText size={25} weight="duotone" /> : activeGateReady ? <CheckCircle size={25} weight="fill" /> : <WarningCircle size={25} weight="fill" />}
+            <div><strong>{isHistoryView ? "Audit records for the selected inbound scope" : activeGateTitle}</strong><p>{isHistoryView ? "Filtering changes the view only. Historical records are retained as the event occurred." : activeGateCopy}</p></div>
+            <span>{isHistoryView ? "Read only" : view === "put_away" ? activeGateReady ? "Putaway ready" : "Putaway locked" : activeGateReady ? "Receipt unlocked" : "Receipt locked"}</span>
           </section>
 
           {view === "label_print" ? (
@@ -467,7 +504,7 @@ export function PartnerInboundWorkspace() {
               </section>
               <aside className="inbound-summary-panel"><h2>Product label preview</h2><p>70 × 50 mm product label</p>{sampleLine ? <div className="warehouse-label-print-sheet"><ProductLabel sku={sampleLine.sku} barcode={sampleLine.productBarcode} /></div> : null}<span className="inbound-section-label">Reprint control</span><div className="inbound-reprint-note"><strong>Need another copy?</strong><p>Select labels and record a reprint reason.</p></div><label className="inbound-reprint-input">Reprint reason<input aria-label="Reprint reason" value={reprintReason} onChange={(event) => setReprintReason(event.target.value)} placeholder="Reason is required" /></label>{printJob?.status === "printed" ? <button className="button button-secondary" type="button" disabled={busy} onClick={() => void createReprint()}>Reprint labels</button> : null}</aside>
             </div>
-          ) : (
+          ) : view === "receive_stock" ? (
             <div className="inbound-workgrid" id="receive-stock">
               <section className="inbound-work-panel">
                 <div className="inbound-work-heading"><div><h2>Receive stock</h2><p>Confirm actual incoming quantities against the selected packing-list scope.</p></div><ClipboardText size={27} weight="duotone" /></div>
@@ -479,10 +516,10 @@ export function PartnerInboundWorkspace() {
               </section>
               <aside className="inbound-summary-panel"><h2>{receiptMode === "counted_quantity" ? "Receipt review" : "Expected and audit"}</h2><p>{receiptMode === "counted_quantity" ? "Confirmation is available after each line is valid." : `Packing-list expectation for ${preview.scope.cartonNumbers.join(", ")}.`}</p>{receiptMode === "counted_quantity" ? <><span className="inbound-section-label">Current line</span><div className="inbound-current-line-summary"><strong>{activeReceiptLine?.sku ?? "No product scanned"}</strong><span>{activeReceiptLine ? `Expected ${activeReceiptLine.expectedQuantity}` : "Scan a product to begin"}</span><span>{activeReceiptLine ? `Actual ${activeReceiptLine.actualQuantity}` : ""}</span><b>{activeReceiptLine ? activeReceiptLine.actualQuantity !== activeReceiptLine.expectedQuantity ? activeLineHasDifferenceReason ? "Difference recorded" : "Difference reason required" : "Ready to record" : ""}</b></div></> : null}<div className="inbound-audit-table"><div><span>SKU</span><span>Expected</span><span>Actual</span></div>{receiptLines.map((line) => <div key={line.barcode}><code>{line.sku}</code><strong>{line.expectedQuantity}</strong><strong>{line.actualQuantity}</strong></div>)}</div><span className="inbound-section-label">Print audit</span><div className={`inbound-print-audit ${receiptUnlocked ? "is-confirmed" : ""}`}><strong>{printJob?.id ?? "No print job"}</strong><span>{receiptUnlocked ? "Printed confirmation recorded" : "Receipt remains locked"}</span><b>{receiptUnlocked ? "Confirmed" : "Locked"}</b></div><span className="inbound-section-label">Receipt destination</span><div className="inbound-staging-note"><strong>BNE-RECEIVING-STAGING</strong><p>System-only location. No source scan required.</p></div></aside>
             </div>
-          )}
+          ) : view === "put_away" ? <WarehousePutawayPanel selection={{ shipmentId: preview.scope.shipmentId, cartonNumbers: preview.scope.cartonNumbers }} onPutawayConfirmed={(outcome) => { setPutawayResult(outcome); void loadPutawayAvailability(preview.scope.shipmentId, preview.scope.cartonNumbers); }} /> : <ReceiptHistoryPanel selection={{ shipmentId: preview.scope.shipmentId, cartonNumbers: preview.scope.cartonNumbers }} />}
 
-          <section className="inbound-bottom-note"><div><span>{receiptResult ? "System result after confirmation" : "Print audit boundary"}</span><strong>{receiptResult ? `Receipt ${receiptResult.sessionId} is recorded in ${receiptResult.stagingLocation ?? "system staging"}.` : "Printing creates an audited task only. Stock is unchanged until receipt confirmation."}</strong><p>{receiptResult ? "No source-location scan. No public availability, sale, GST, payment or real dispatch is created." : "Preview → Windows print → Operator confirms Printed"}</p></div><button className="button button-secondary" type="button" disabled>View receipt history</button></section>
-          <p className="inbound-message" role="status">{message}</p>
+          <section className="inbound-bottom-note"><div><span>{bottomLabel}</span><strong>{bottomTitle}</strong><p>{bottomCopy}</p></div><button className="button button-secondary" type="button" onClick={() => setView("receipt_history")}>View receipt history</button></section>
+          <p className="inbound-message" role="status">{isHistoryView ? "Read-only audit view." : message}</p>
         </main>
       </section>
     </div>

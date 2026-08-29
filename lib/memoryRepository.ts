@@ -38,6 +38,7 @@ import {
   dispatchOrder,
   ensureInventoryRow,
   getInventoryState,
+  putAwayQuarantinedStock,
   provisionTradeAccountLogin,
   receiveQuarantinedStock,
   recordLookupRequest,
@@ -68,6 +69,13 @@ import type {
   WarehouseReceiptSession,
   WarehouseReceiptSessionResult,
   CreateWarehouseReceiptSessionInput,
+  WarehousePutawayInput,
+  WarehousePutawayResult,
+  WarehousePutawayScopeInput,
+  WarehousePutawayScopeResult,
+  WarehousePutawayLine,
+  WarehouseHistoryQuery,
+  WarehouseHistoryResult,
   PackingListRevision,
   PackingListRevisionResult,
   PrearrivalShipmentListResult,
@@ -75,6 +83,7 @@ import type {
 } from "./repository";
 import { filterWarehouseExpectedReceipt, type WarehouseExpectedReceipt, type WarehouseInboundSelection, type WarehouseLabelPrintScope } from "./warehouseLabels";
 import { RECEIVING_STAGING_LOCATION, type WarehouseReceiptScope } from "./warehouseReceiving";
+import { type WarehouseHistoryEvent } from "./warehouseHistory";
 import { validatePackingListRevision, type ValidatedPackingListRevision } from "./prearrivalShipment";
 import type {
   TradeAccountApplicationInput,
@@ -118,6 +127,20 @@ let warehouseLabelPrintJobs: WarehouseLabelPrintJob[] = [];
 let warehouseLabelPrintItems: WarehouseLabelPrintItem[] = [];
 let warehouseReceiptSessionSequence = 0;
 let warehouseReceiptSessions: WarehouseReceiptSession[] = [];
+let warehousePutawaySequence = 0;
+let warehousePutaways: Array<{
+  id: string;
+  receiptSessionId: string;
+  shipmentId: string;
+  cartonNumbers: string[];
+  sku: string;
+  productBarcode: string;
+  quantity: number;
+  destinationLocation: string;
+  createdAt: string;
+  createdBy?: string;
+  idempotencyKey: string;
+}> = [];
 
 function clonePayload(payload: Record<string, unknown>) {
   return structuredClone(payload);
@@ -129,6 +152,79 @@ function cloneWarehouseLabelPrintJob(job: WarehouseLabelPrintJob): WarehouseLabe
 
 function cloneWarehouseReceiptSession(session: WarehouseReceiptSession): WarehouseReceiptSession {
   return structuredClone(session);
+}
+
+function normalizedValues(values: string[]) {
+  return [...new Set(values.map((value) => value.trim().toUpperCase()).filter(Boolean))].sort();
+}
+
+function sameReceiptScope(
+  session: WarehouseReceiptSession,
+  input: WarehousePutawayScopeInput,
+) {
+  if (session.shipmentId !== input.shipmentId) return false;
+  const left = normalizedValues(session.scopeSnapshot.cartonNumbers);
+  const right = normalizedValues(input.cartonNumbers);
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function remainingReceiptQuantity(
+  session: WarehouseReceiptSession,
+  productBarcode: string,
+) {
+  const barcode = productBarcode.trim().toUpperCase();
+  const line = session.lines.find(
+    (candidate) => candidate.productBarcode.trim().toUpperCase() === barcode,
+  );
+  if (!line) return undefined;
+  const moved = warehousePutaways
+    .filter(
+      (putaway) =>
+        putaway.receiptSessionId === session.id
+        && putaway.productBarcode.trim().toUpperCase() === barcode,
+    )
+    .reduce((total, putaway) => total + putaway.quantity, 0);
+  return Math.max(line.actualQuantity - moved, 0);
+}
+
+function putawayLinesForScope(input: WarehousePutawayScopeInput): WarehousePutawayLine[] {
+  return warehouseReceiptSessions
+    .filter((session) => session.status === "confirmed" && sameReceiptScope(session, input))
+    .flatMap((session) => session.lines.map((line) => ({
+      receiptSessionId: session.id,
+      sku: line.sku,
+      productBarcode: line.productBarcode,
+      actualQuantity: line.actualQuantity,
+      remainingQuantity: remainingReceiptQuantity(session, line.productBarcode) ?? 0,
+    })))
+    .filter((line) => line.remainingQuantity > 0);
+}
+
+function labelAuditScope(payload: Record<string, unknown>) {
+  const snapshot = payload as Partial<WarehouseLabelPrintScope>;
+  if (!snapshot.shipmentId || !Array.isArray(snapshot.cartonNumbers)) return undefined;
+  return {
+    shipmentId: snapshot.shipmentId,
+    palletNumbers: Array.isArray(snapshot.palletNumbers) ? snapshot.palletNumbers : [],
+    cartonNumbers: snapshot.cartonNumbers,
+    sku: snapshot.lines?.[0]?.sku,
+  };
+}
+
+function matchesWarehouseHistoryQuery(
+  event: WarehouseHistoryEvent,
+  query: WarehouseHistoryQuery = {},
+) {
+  const eventDate = event.createdAt.slice(0, 10);
+  if (query.from && eventDate < query.from) return false;
+  if (query.to && eventDate > query.to) return false;
+  if (query.shipmentId && event.shipmentId !== query.shipmentId) return false;
+  if (query.palletNumber && !event.palletNumbers?.includes(query.palletNumber)) return false;
+  if (query.cartonNumber && !event.cartonNumbers?.includes(query.cartonNumber)) return false;
+  if (query.sku && event.sku !== query.sku) return false;
+  if (query.actor && event.actor !== query.actor) return false;
+  if (query.action && event.action !== query.action) return false;
+  return true;
 }
 
 function scopeIsCoveredByPrintedUnitProductJob(
@@ -518,6 +614,189 @@ export class MemoryRepository implements DrivemateRepository {
     return { ok: true, session: cloneWarehouseReceiptSession(session) };
   }
 
+  async getWarehousePutawayScope(
+    input: WarehousePutawayScopeInput,
+  ): Promise<WarehousePutawayScopeResult> {
+    return { ok: true, lines: putawayLinesForScope(input) };
+  }
+
+  async putAwayWarehouseReceipt(
+    input: WarehousePutawayInput,
+    context: RepositoryWriteContext = {},
+  ): Promise<WarehousePutawayResult> {
+    const idempotencyKey = input.idempotencyKey.trim();
+    const existing = warehousePutaways.find(
+      (candidate) => candidate.idempotencyKey === idempotencyKey,
+    );
+    if (existing) {
+      const session = warehouseReceiptSessions.find((candidate) => candidate.id === existing.receiptSessionId);
+      const movement = (await this.getAdminState()).stockMovements.find(
+        (candidate) => candidate.reference === existing.receiptSessionId
+          && candidate.sku === existing.sku
+          && candidate.createdAt === existing.createdAt,
+      );
+      if (!session || !movement) return { ok: false, message: "Putaway audit record was not found." };
+      return {
+        ok: true,
+        receiptSessionId: session.id,
+        sourceLocation: RECEIVING_STAGING_LOCATION,
+        destinationLocation: existing.destinationLocation,
+        remainingQuantity: remainingReceiptQuantity(session, existing.productBarcode) ?? 0,
+        movement,
+      };
+    }
+
+    const session = warehouseReceiptSessions.find(
+      (candidate) => candidate.status === "confirmed" && sameReceiptScope(candidate, input),
+    );
+    if (!session) {
+      return { ok: false, message: "A confirmed receipt with staged stock is required before putaway." };
+    }
+
+    const barcode = input.productBarcode.trim().toUpperCase();
+    const line = session.lines.find(
+      (candidate) => candidate.productBarcode.trim().toUpperCase() === barcode,
+    );
+    const remainingQuantity = remainingReceiptQuantity(session, barcode);
+    if (!line || remainingQuantity === undefined || remainingQuantity <= 0) {
+      return { ok: false, message: "This product has no remaining staged quantity in the selected receipt." };
+    }
+    if (input.quantity > remainingQuantity) {
+      return { ok: false, message: "Putaway quantity exceeds the receipt's remaining staged quantity." };
+    }
+
+    const recorded = putAwayQuarantinedStock({
+      sku: line.sku,
+      quantity: input.quantity,
+      reference: session.id,
+      destinationLocation: input.destinationLocation,
+      createdBy: context.actorId,
+    });
+    if (!recorded.ok) return recorded;
+
+    const audit = {
+      id: `memory-putaway-${++warehousePutawaySequence}`,
+      receiptSessionId: session.id,
+      shipmentId: session.shipmentId,
+      cartonNumbers: [...session.scopeSnapshot.cartonNumbers],
+      sku: line.sku,
+      productBarcode: barcode,
+      quantity: input.quantity,
+      destinationLocation: input.destinationLocation,
+      createdAt: recorded.movement.createdAt,
+      createdBy: context.actorId,
+      idempotencyKey,
+    };
+    warehousePutaways.push(audit);
+
+    return {
+      ok: true,
+      receiptSessionId: session.id,
+      sourceLocation: RECEIVING_STAGING_LOCATION,
+      destinationLocation: input.destinationLocation,
+      remainingQuantity: remainingQuantity - input.quantity,
+      movement: recorded.movement,
+    };
+  }
+
+  async listWarehouseHistory(
+    query: WarehouseHistoryQuery = {},
+  ): Promise<WarehouseHistoryResult> {
+    const events: WarehouseHistoryEvent[] = [];
+
+    for (const job of warehouseLabelPrintJobs) {
+      const scope = labelAuditScope(job.payloadSnapshot);
+      if (!scope) continue;
+      if (job.reprintOfJobId && job.reprintReason) {
+        events.push({
+          id: `reprint-${job.id}`,
+          createdAt: job.createdAt,
+          action: "reprint",
+          actor: job.createdBy,
+          reference: job.id,
+          shipmentId: scope.shipmentId,
+          palletNumbers: scope.palletNumbers,
+          cartonNumbers: scope.cartonNumbers,
+          sku: scope.sku,
+          outcome: job.reprintReason,
+        });
+      }
+      if (job.status === "printed" && job.printedAt) {
+        events.push({
+          id: `print-${job.id}`,
+          createdAt: job.printedAt,
+          action: "print_confirmed",
+          actor: job.createdBy,
+          reference: job.id,
+          shipmentId: scope.shipmentId,
+          palletNumbers: scope.palletNumbers,
+          cartonNumbers: scope.cartonNumbers,
+          sku: scope.sku,
+          outcome: "Printed confirmation recorded",
+        });
+      }
+      if (job.status === "cancelled" && job.cancelledAt) {
+        events.push({
+          id: `cancel-${job.id}`,
+          createdAt: job.cancelledAt,
+          action: "print_cancelled",
+          actor: job.createdBy,
+          reference: job.id,
+          shipmentId: scope.shipmentId,
+          palletNumbers: scope.palletNumbers,
+          cartonNumbers: scope.cartonNumbers,
+          sku: scope.sku,
+          outcome: "Print cancelled",
+        });
+      }
+    }
+
+    for (const session of warehouseReceiptSessions) {
+      if (session.status !== "confirmed" || !session.confirmedAt) continue;
+      events.push({
+        id: `receipt-${session.id}`,
+        createdAt: session.confirmedAt,
+        action: "receipt_confirmed",
+        actor: session.confirmedBy,
+        reference: session.id,
+        shipmentId: session.shipmentId,
+        cartonNumbers: [...session.scopeSnapshot.cartonNumbers],
+        sku: session.lines.length === 1 ? session.lines[0].sku : undefined,
+        outcome: `${session.lines.reduce((total, line) => total + line.actualQuantity, 0)} units staged`,
+      });
+      for (const line of session.lines) {
+        if (!line.discrepancy) continue;
+        events.push({
+          id: `difference-${session.id}-${line.productBarcode}`,
+          createdAt: session.confirmedAt,
+          action: "discrepancy_recorded",
+          actor: session.confirmedBy,
+          reference: session.id,
+          shipmentId: session.shipmentId,
+          cartonNumbers: [...session.scopeSnapshot.cartonNumbers],
+          sku: line.sku,
+          outcome: `${line.discrepancy.type}: ${line.discrepancy.reason}`,
+        });
+      }
+    }
+
+    for (const putaway of warehousePutaways) {
+      events.push({
+        id: putaway.id,
+        createdAt: putaway.createdAt,
+        action: "putaway_confirmed",
+        actor: putaway.createdBy,
+        reference: putaway.destinationLocation,
+        shipmentId: putaway.shipmentId,
+        cartonNumbers: putaway.cartonNumbers,
+        sku: putaway.sku,
+        outcome: `Moved ${putaway.quantity} units from ${RECEIVING_STAGING_LOCATION}`,
+      });
+    }
+
+    return { ok: true, events: events.filter((event) => matchesWarehouseHistoryQuery(event, query)) };
+  }
+
   async listPrearrivalShipments(): Promise<PrearrivalShipmentListResult> {
     return {
       ok: true,
@@ -811,6 +1090,8 @@ export class MemoryRepository implements DrivemateRepository {
     warehouseLabelPrintItems = [];
     warehouseReceiptSessionSequence = 0;
     warehouseReceiptSessions = [];
+    warehousePutawaySequence = 0;
+    warehousePutaways = [];
     packingListRevisionSequence = 1;
     packingListRevisions = [initialPackingListRevision()];
   }

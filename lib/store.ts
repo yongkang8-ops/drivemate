@@ -365,6 +365,45 @@ export function receiveQuarantinedStock(input: {
   };
 }
 
+export function putAwayQuarantinedStock(input: {
+  sku: string;
+  quantity: number;
+  reference: string;
+  destinationLocation: string;
+  createdBy?: string;
+}) {
+  const sku = resolveSkuIdentifier(input.sku);
+  if (!sku) return { ok: false as const, message: "SKU or barcode not found." };
+  if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
+    return { ok: false as const, message: "Quantity must be positive." };
+  }
+
+  const row = state.inventory.find((item) => item.sku === sku);
+  if (!row) return { ok: false as const, message: "SKU not found." };
+  if ((row.quarantine ?? 0) < input.quantity) {
+    return { ok: false as const, message: "Not enough quarantined stock in staging." };
+  }
+
+  row.quarantine = (row.quarantine ?? 0) - input.quantity;
+  const movement: StockMovement = {
+    id: `SM-${Date.now()}-${sku}-putaway`,
+    sku,
+    movement: "Putaway",
+    quantity: input.quantity,
+    location: input.destinationLocation,
+    reference: input.reference,
+    createdAt: new Date().toISOString(),
+    createdBy: input.createdBy,
+  };
+  state.stockMovements.unshift(movement);
+
+  return {
+    ok: true as const,
+    inventory: getInventoryState().inventory,
+    movement,
+  };
+}
+
 export function submitOrder(
   input: CreateOrderInput,
   context: { createdBy?: string; priceResolver?: PriceResolver } = {},
