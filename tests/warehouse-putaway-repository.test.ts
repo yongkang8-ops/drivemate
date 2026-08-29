@@ -46,6 +46,14 @@ async function confirmReceipt(repository: MemoryRepository) {
   if (!confirmed.ok) throw new Error(confirmed.message);
 }
 
+async function createActiveDestination(repository: MemoryRepository, locationCode = "BNE-A01-03") {
+  const created = await repository.createInventoryLocationBatch({
+    locations: [{ locationCode }],
+  }, { actorId: "demo-partner-user" });
+  if (!created.ok) throw new Error(created.message);
+  return created.locations[0];
+}
+
 describe("receipt-scoped warehouse putaway", () => {
   const repository = new MemoryRepository();
 
@@ -55,6 +63,7 @@ describe("receipt-scoped warehouse putaway", () => {
 
   it("moves only a confirmed receipt's staged quantity to the scanned destination", async () => {
     await confirmReceipt(repository);
+    await createActiveDestination(repository);
 
     const result = await repository.putAwayWarehouseReceipt({
       ...selection,
@@ -93,6 +102,7 @@ describe("receipt-scoped warehouse putaway", () => {
 
   it("does not move more than the receipt's remaining staging balance", async () => {
     await confirmReceipt(repository);
+    await createActiveDestination(repository);
 
     const result = await repository.putAwayWarehouseReceipt({
       ...selection,
@@ -105,6 +115,50 @@ describe("receipt-scoped warehouse putaway", () => {
     expect(result).toEqual({
       ok: false,
       message: "Putaway quantity exceeds the receipt's remaining staged quantity.",
+    });
+  });
+
+  it("rejects a syntactically valid but unregistered destination", async () => {
+    await confirmReceipt(repository);
+
+    await expect(repository.putAwayWarehouseReceipt({
+      ...selection,
+      productBarcode: "DMPGWMOF001",
+      destinationLocation: "BNE-A01-03",
+      quantity: 1,
+      idempotencyKey: "55555555-5555-4555-8555-555555555555",
+    })).resolves.toEqual({
+      ok: false,
+      message: "Destination location BNE-A01-03 is not an active registered putaway destination.",
+    });
+  });
+
+  it("rejects a disabled physical location and the registered staging source as putaway destinations", async () => {
+    await confirmReceipt(repository);
+    const destination = await createActiveDestination(repository);
+    const disabled = await repository.setInventoryLocationStatus({ id: destination.id, status: "disabled" });
+    expect(disabled).toMatchObject({ ok: true, location: { status: "disabled" } });
+
+    await expect(repository.putAwayWarehouseReceipt({
+      ...selection,
+      productBarcode: "DMPGWMOF001",
+      destinationLocation: "BNE-A01-03",
+      quantity: 1,
+      idempotencyKey: "66666666-6666-4666-8666-666666666666",
+    })).resolves.toEqual({
+      ok: false,
+      message: "Destination location BNE-A01-03 is not an active registered putaway destination.",
+    });
+
+    await expect(repository.putAwayWarehouseReceipt({
+      ...selection,
+      productBarcode: "DMPGWMOF001",
+      destinationLocation: "BNE-RECEIVING-STAGING",
+      quantity: 1,
+      idempotencyKey: "77777777-7777-4777-8777-777777777777",
+    })).resolves.toEqual({
+      ok: false,
+      message: "Destination location BNE-RECEIVING-STAGING is not an active registered putaway destination.",
     });
   });
 });

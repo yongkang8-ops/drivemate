@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET as getHistory } from "../app/api/warehouse/history/route";
 import { GET as getPutawayScope, POST as putAway } from "../app/api/warehouse/putaway/route";
+import { POST as createLocations } from "../app/api/inventory/locations/route";
+import { POST as createInventoryMovement } from "../app/api/inventory-movement/route";
 import { MemoryRepository } from "../lib/memoryRepository";
 import { buildWarehouseLabelPrintScope, buildWarehouseReceiptScope } from "../lib/warehouseLabels";
 import { prepareWarehouseReceipt } from "../lib/warehouseReceiving";
@@ -43,6 +45,15 @@ async function confirmReceipt() {
   await repository.confirmWarehouseReceipt(session.session.id, { actorId: "demo-partner-user" });
 }
 
+async function createActiveDestination(locationCode = "BNE-A01-03") {
+  const response = await createLocations(new Request("https://drivemateparts.com.au/api/inventory/locations", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-drivemate-role": "partner" },
+    body: JSON.stringify({ locationCodes: [locationCode] }),
+  }));
+  if (!response.ok) throw new Error(`Could not create ${locationCode}.`);
+}
+
 function putawayRequest(body: Record<string, unknown>) {
   return new Request("https://drivemateparts.com.au/api/warehouse/putaway", {
     method: "POST",
@@ -83,6 +94,7 @@ describe("warehouse putaway API", () => {
 
   it("returns remaining scoped staging quantity and records a confirmed putaway", async () => {
     await confirmReceipt();
+    await createActiveDestination();
 
     const scopeResponse = await getPutawayScope(new Request(
       "https://drivemateparts.com.au/api/warehouse/putaway?shipmentId=shipment-test-1&cartonNumber=C001",
@@ -125,6 +137,44 @@ describe("warehouse putaway API", () => {
           timeZone: "Australia/Brisbane",
         }),
       ]),
+    });
+  });
+
+  it("rejects an unknown DMLOC destination even after the receipt is confirmed", async () => {
+    await confirmReceipt();
+
+    const response = await putAway(putawayRequest({
+      selection,
+      productBarcode: "DMPGWMOF001",
+      destinationBarcode: "DMLOC:BNE-A01-03",
+      quantity: 1,
+      idempotencyKey: "44444444-4444-4444-8444-444444444444",
+    }));
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      message: "Destination location BNE-A01-03 is not an active registered putaway destination.",
+    });
+  });
+
+  it("requires the receipt-scoped workflow for generic putaway movements", async () => {
+    const response = await createInventoryMovement(new Request("https://drivemateparts.com.au/api/inventory-movement", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-drivemate-role": "partner" },
+      body: JSON.stringify({
+        type: "putaway",
+        sku: "DM-GWM-OF-001",
+        quantity: 1,
+        reference: "manual-putaway-bypass",
+        location: "BNE-A01-03",
+      }),
+    }));
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      message: "Putaway must use the receipt-scoped Warehouse Put away workflow.",
     });
   });
 });

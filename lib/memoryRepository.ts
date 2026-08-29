@@ -977,11 +977,22 @@ export class MemoryRepository implements DrivemateRepository {
       return { ok: false, message: "Putaway quantity exceeds the receipt's remaining staged quantity." };
     }
 
+    const parsedDestination = parseInventoryLocationCode(input.destinationLocation);
+    const destinationLocation = parsedDestination.ok
+      ? await this.resolveActivePhysicalDestination(parsedDestination.barcode)
+      : null;
+    if (!destinationLocation) {
+      return {
+        ok: false,
+        message: `Destination location ${input.destinationLocation.trim().toUpperCase()} is not an active registered putaway destination.`,
+      };
+    }
+
     const recorded = putAwayQuarantinedStock({
       sku: line.sku,
       quantity: input.quantity,
       reference: session.id,
-      destinationLocation: input.destinationLocation,
+      destinationLocation: destinationLocation.locationCode,
       createdBy: context.actorId,
     });
     if (!recorded.ok) return recorded;
@@ -994,7 +1005,7 @@ export class MemoryRepository implements DrivemateRepository {
       sku: line.sku,
       productBarcode: barcode,
       quantity: input.quantity,
-      destinationLocation: input.destinationLocation,
+      destinationLocation: destinationLocation.locationCode,
       createdAt: recorded.movement.createdAt,
       createdBy: context.actorId,
       idempotencyKey,
@@ -1005,7 +1016,7 @@ export class MemoryRepository implements DrivemateRepository {
       ok: true,
       receiptSessionId: session.id,
       sourceLocation: RECEIVING_STAGING_LOCATION,
-      destinationLocation: input.destinationLocation,
+      destinationLocation: destinationLocation.locationCode,
       remainingQuantity: remainingQuantity - input.quantity,
       movement: recorded.movement,
     };

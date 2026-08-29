@@ -25,6 +25,10 @@ type PutawayResponse =
     }
   | { ok: false; message?: string };
 
+type DestinationResolutionResponse =
+  | { ok: true; location: { locationCode: string; barcode: string } }
+  | { ok: false; message?: string };
+
 type WarehousePutawayPanelProps = {
   selection: { shipmentId: string; cartonNumbers: string[] };
   onPutawayConfirmed?: (outcome: { quantity: number; destinationLocation: string }) => void;
@@ -48,6 +52,8 @@ export function WarehousePutawayPanel({
   const [productBarcode, setProductBarcode] = useState("");
   const [destinationBarcode, setDestinationBarcode] = useState("");
   const [quantity, setQuantity] = useState("1");
+  const [destinationStatus, setDestinationStatus] = useState<"idle" | "checking" | "active" | "invalid">("idle");
+  const [resolvedDestinationCode, setResolvedDestinationCode] = useState<string | null>(null);
   const [message, setMessage] = useState("Loading confirmed staging stock.");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<PutawayResponse | null>(null);
@@ -71,12 +77,47 @@ export function WarehousePutawayPanel({
   useEffect(() => {
     setProductBarcode("");
     setDestinationBarcode("");
+    setDestinationStatus("idle");
+    setResolvedDestinationCode(null);
     setQuantity("1");
     setResult(null);
     void loadScope();
     // scopeKey represents the selection value, avoiding a rerun for an equivalent array instance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopeKey]);
+
+  useEffect(() => {
+    const barcode = normalize(destinationBarcode);
+    if (!barcode.startsWith("DMLOC:")) {
+      setDestinationStatus("idle");
+      setResolvedDestinationCode(null);
+      return;
+    }
+
+    let cancelled = false;
+    setDestinationStatus("checking");
+    setResolvedDestinationCode(null);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/inventory/locations/resolve?barcode=${encodeURIComponent(barcode)}`, {
+          cache: "no-store",
+          headers: await buildApiHeaders("partner"),
+        });
+        const body = await response.json() as DestinationResolutionResponse;
+        if (cancelled) return;
+        if (response.ok && body.ok) {
+          setDestinationStatus("active");
+          setResolvedDestinationCode(body.location.locationCode);
+          return;
+        }
+        setDestinationStatus("invalid");
+      } catch {
+        if (!cancelled) setDestinationStatus("invalid");
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [destinationBarcode]);
 
   const selectedLine = useMemo(
     () => lines.find((line) => normalize(line.productBarcode) === normalize(productBarcode)),
@@ -87,6 +128,7 @@ export function WarehousePutawayPanel({
   const canConfirm = Boolean(
     selectedLine
       && destinationLooksScanned
+      && destinationStatus === "active"
       && parsedQuantity > 0
       && parsedQuantity <= selectedLine.remainingQuantity
       && !busy,
@@ -121,6 +163,8 @@ export function WarehousePutawayPanel({
       setMessage(`Moved ${parsedQuantity} units from ${body.sourceLocation} to ${body.destinationLocation}.`);
       setProductBarcode("");
       setDestinationBarcode("");
+      setDestinationStatus("idle");
+      setResolvedDestinationCode(null);
       setQuantity("1");
       onPutawayConfirmed?.({ quantity: parsedQuantity, destinationLocation: body.destinationLocation });
     } finally {
@@ -142,7 +186,7 @@ export function WarehousePutawayPanel({
           </section>
           <section>
             <span>2</span>
-            <div><strong>Scan destination location</strong><p>Location labels use the DMLOC namespace.</p><input aria-label="Scan destination location" value={destinationBarcode} onChange={(event) => setDestinationBarcode(event.target.value)} placeholder="Scanner ready. Scan DMLOC location." />{destinationBarcode ? <b className={destinationLooksScanned ? "is-valid" : "is-invalid"}>{destinationLooksScanned ? "Valid location" : "DMLOC required"}</b> : null}</div>
+            <div><strong>Scan destination location</strong><p>Location labels use the DMLOC namespace.</p><input aria-label="Scan destination location" value={destinationBarcode} onChange={(event) => setDestinationBarcode(event.target.value)} placeholder="Scanner ready. Scan DMLOC location." />{destinationBarcode ? <b className={destinationStatus === "active" ? "is-valid" : "is-invalid"}>{!destinationLooksScanned ? "DMLOC required" : destinationStatus === "checking" ? "Checking saved active destination…" : destinationStatus === "active" ? `Registered active destination: ${resolvedDestinationCode}` : "Scanned destination is not an active physical putaway location."}</b> : null}</div>
           </section>
           <section>
             <span>3</span>
@@ -157,9 +201,9 @@ export function WarehousePutawayPanel({
         <h2>Move preview</h2><p>Validated before the inventory movement is recorded.</p>
         <span className="inbound-section-label">Product</span><strong className="inbound-mono-value">{selectedLine?.sku ?? "Awaiting product scan"}</strong>
         <span className="inbound-section-label">System source</span><strong>BNE-RECEIVING-STAGING</strong><p className="inbound-helper-copy">The source is resolved by the system and is not a scan field.</p>
-        <span className="inbound-section-label">Scanned destination</span><strong className="inbound-mono-value">{destinationLooksScanned ? normalize(destinationBarcode).slice("DMLOC:".length) : "Awaiting DMLOC scan"}</strong>
+        <span className="inbound-section-label">Scanned destination</span><strong className="inbound-mono-value">{destinationStatus === "active" ? resolvedDestinationCode : destinationLooksScanned ? "Checking saved destination" : "Awaiting DMLOC scan"}</strong>
         <span className="inbound-section-label">Movement quantity</span><strong className="inbound-putaway-quantity">{parsedQuantity > 0 ? `${parsedQuantity} units` : "Awaiting quantity"}</strong>
-        <div className={`inbound-putaway-ready ${canConfirm ? "is-ready" : ""}`}>{canConfirm ? <CheckCircle size={18} weight="fill" /> : <Scan size={18} weight="duotone" />}<strong>{canConfirm ? "Ready to move" : "Scan required fields"}</strong></div>
+        <div className={`inbound-putaway-ready ${canConfirm ? "is-ready" : ""}`}>{canConfirm ? <CheckCircle size={18} weight="fill" /> : <Scan size={18} weight="duotone" />}<strong>{canConfirm ? "Ready to move" : destinationStatus === "checking" ? "Checking destination" : "Scan required fields"}</strong></div>
         {result?.ok ? <p className="inbound-putaway-result">Putaway audit has been recorded.</p> : null}
       </aside>
       <p className="inbound-message" role="status">{message}</p>

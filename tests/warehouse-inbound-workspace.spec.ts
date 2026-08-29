@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
 test.beforeEach(async ({ request }) => {
   await request.post("/api/test/reset");
@@ -24,7 +24,16 @@ async function confirmReceipt(page: Page) {
   await expect(page.getByText("Receipt confirmed. Actual quantities are recorded in system staging.")).toBeVisible();
 }
 
-test("confirmed receipt unlocks scan-led putaway from the system staging location", async ({ page }) => {
+async function createActiveDestination(request: APIRequestContext) {
+  const response = await request.post("/api/inventory/locations", {
+    headers: { "x-drivemate-role": "partner" },
+    data: { locationCodes: ["BNE-A01-03"] },
+  });
+  expect(response.status()).toBe(201);
+}
+
+test("confirmed receipt unlocks scan-led putaway from the system staging location", async ({ page, request }) => {
+  await createActiveDestination(request);
   await page.goto("/warehouse");
   await expect(page.getByRole("link", { name: "Put away" })).toHaveAttribute("aria-disabled", "true");
 
@@ -42,4 +51,15 @@ test("confirmed receipt unlocks scan-led putaway from the system staging locatio
 
   await expect(page.getByText("Moved 2 units from BNE-RECEIVING-STAGING to BNE-A01-03.")).toBeVisible();
   await expect(page.getByText("The system moves 2 units from internal staging to BNE-A01-03 and records an inventory movement.")).toBeVisible();
+});
+
+test("putaway keeps confirmation disabled until the scanned DMLOC is a saved active physical destination", async ({ page }) => {
+  await confirmReceipt(page);
+  await page.getByRole("link", { name: "Put away" }).click();
+
+  await page.getByLabel("Scan product barcode").fill("DMPGWMOF001");
+  await page.getByLabel("Scan destination location").fill("DMLOC:BNE-Z99-01");
+
+  await expect(page.getByText("Scanned destination is not an active physical putaway location.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Confirm put away" })).toBeDisabled();
 });

@@ -3452,13 +3452,20 @@ export class SupabaseRepository implements DrivemateRepository {
       return { ok: false, message: "Putaway quantity exceeds the receipt's remaining staged quantity." };
     }
 
-    const destination = parseWarehouseLocation(input.destinationLocation);
+    const parsedDestination = parseInventoryLocationCode(input.destinationLocation);
+    const destination = parsedDestination.ok
+      ? await this.resolveActivePhysicalDestination(parsedDestination.barcode)
+      : null;
+    if (!destination) {
+      return {
+        ok: false,
+        message: `Destination location ${input.destinationLocation.trim().toUpperCase()} is not an active registered putaway destination.`,
+      };
+    }
     const { data, error } = await this.client().rpc("dm_putaway_warehouse_receipt", {
       p_session_id: line.receiptSessionId,
       p_product_barcode: barcode,
-      p_destination_warehouse: destination.warehouse,
-      p_destination_zone: destination.zone,
-      p_destination_bin: destination.binCode,
+      p_destination_location_code: destination.locationCode,
       p_quantity: input.quantity,
       p_idempotency_key: input.idempotencyKey,
       p_actor_id: context.actorId ?? null,
@@ -3478,7 +3485,7 @@ export class SupabaseRepository implements DrivemateRepository {
       ok: true,
       receiptSessionId: line.receiptSessionId,
       sourceLocation: RECEIVING_STAGING_LOCATION,
-      destinationLocation: formatWarehouseLocation(destination),
+      destinationLocation: destination.locationCode,
       remainingQuantity: outcome.remaining_quantity ?? Math.max(line.remainingQuantity - input.quantity, 0),
       movement: toStockMovement(movement as MovementRecord),
     };

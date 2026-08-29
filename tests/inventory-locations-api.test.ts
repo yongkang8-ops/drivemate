@@ -3,6 +3,7 @@ import { GET as getLocations, POST as createLocations } from "../app/api/invento
 import { PATCH as patchLocation } from "../app/api/inventory/locations/[locationId]/route";
 import { POST as setLocationStatus } from "../app/api/inventory/locations/[locationId]/status/route";
 import { POST as createLocationPrintJob } from "../app/api/inventory/locations/print/route";
+import { GET as resolveActiveDestination } from "../app/api/inventory/locations/resolve/route";
 import {
   GET as getLabelJob,
   POST as updateLabelJob,
@@ -76,6 +77,36 @@ describe("inventory locations API", () => {
     ));
 
     expect(response.status).toBe(403);
+  });
+
+  it("resolves only a saved active physical destination for the putaway scanner", async () => {
+    const physicalLocation = await createPhysicalLocation();
+
+    const resolved = await resolveActiveDestination(new Request(
+      "https://drivemateparts.com.au/api/inventory/locations/resolve?barcode=DMLOC%3ABNE-A01-03",
+      { headers: { "x-drivemate-role": "partner" } },
+    ));
+    expect(resolved.status).toBe(200);
+    await expect(resolved.json()).resolves.toMatchObject({
+      ok: true,
+      location: {
+        id: physicalLocation.id,
+        locationCode: "BNE-A01-03",
+        barcode: "DMLOC:BNE-A01-03",
+        status: "active",
+        isPutawayDestination: true,
+      },
+    });
+
+    const systemSource = await resolveActiveDestination(new Request(
+      "https://drivemateparts.com.au/api/inventory/locations/resolve?barcode=DMLOC%3ABNE-RECEIVING-STAGING",
+      { headers: { "x-drivemate-role": "partner" } },
+    ));
+    expect(systemSource.status).toBe(422);
+    await expect(systemSource.json()).resolves.toEqual({
+      ok: false,
+      message: "Scanned destination is not an active physical putaway location.",
+    });
   });
 
   it("lets a Partner create, search, list and edit only saved master fields", async () => {

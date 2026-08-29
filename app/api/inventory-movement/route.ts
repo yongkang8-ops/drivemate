@@ -27,6 +27,12 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  if (parsed.data.type === "putaway") {
+    return NextResponse.json(
+      { ok: false, message: "Putaway must use the receipt-scoped Warehouse Put away workflow." },
+      { status: 422 },
+    );
+  }
   if (process.env.DRIVEMATE_REPOSITORY === "supabase") {
     const dedicatedWorkflow = {
       inbound:
