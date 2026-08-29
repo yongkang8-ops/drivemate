@@ -37,7 +37,7 @@ export function createLocationBarcode(locationCode: string): string {
 }
 
 export function parseInventoryLocationCode(value: string): InventoryLocationCodeParseResult {
-  const locationCode = value.trim().toUpperCase().replace(/\s+/g, "");
+  const locationCode = value.trim().toUpperCase();
   const match = locationCode.match(locationCodePattern);
   if (!match) {
     return { ok: false, message: "Location code must use the BNE-<segment>-<segment> format." };

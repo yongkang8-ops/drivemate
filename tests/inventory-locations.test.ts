@@ -35,6 +35,15 @@ describe("inventory location codes", () => {
     });
   });
 
+  it("rejects internal whitespace while allowing only leading and trailing whitespace", () => {
+    for (const value of ["BNE-A 01-03", "BNE-A\t01-03", "BNE-A01-\n03"]) {
+      expect(parseInventoryLocationCode(value)).toEqual({
+        ok: false,
+        message: "Location code must use the BNE-<segment>-<segment> format.",
+      });
+    }
+  });
+
   it("normalises a reviewed batch and keeps each canonical code once", () => {
     expect(parseLocationCodeBatch("\n bne-a01-01 \nBNE-A01-01\n bne-a-01-02\n")).toEqual({
       ok: true,
