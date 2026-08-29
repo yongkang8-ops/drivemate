@@ -37,6 +37,7 @@ Every location record contains:
 | Location code | Unique, uppercase canonical code with two to four alphanumeric segments after `BNE`, such as `BNE-A01-03` or `BNE-A-01-03`; immutable and never reused after creation | Human-readable physical label identity |
 | Barcode | Derived once as `DMLOC:<location code>`; immutable | Scanner destination identity |
 | Status | `active`, `disabled`, or `archived` | Controls whether the code can receive a putaway |
+| Putaway destination | `true` for ordinary physical destinations; `false` only for system-source locations | Prevents a system source such as staging from being scanned as a destination |
 | Physical description | Editable short text | E.g. `Rear wall, rack 2, middle shelf` |
 | Notes | Editable operational note | Local placement or handling detail |
 | Created / changed audit | Actor, UTC timestamp and outcome | Real warehouse traceability |
@@ -50,9 +51,10 @@ Create -> Active -> Disabled -> Active
                   \-> Archived
 ```
 
-- **Active** locations are valid `DMLOC:` putaway destinations.
+- **Active** locations with Putaway destination set to `true` are valid `DMLOC:` putaway destinations.
 - **Disabled** and **archived** locations reject new putaway scans but retain all historical movements and print records.
 - A location with a current on-hand balance cannot be disabled or archived. The operator must move or reconcile its stock first.
+- `BNE-RECEIVING-STAGING` remains a registered system source, with Putaway destination set to `false`. It is never presented in the physical destination register and cannot be scanned as an upper-level destination.
 - Codes and barcodes are never edited in place. A physical relabelling error is corrected by creating a replacement code and retaining the historical original record.
 - Updating a physical description or note records a location audit event; it does not alter an existing printed-label snapshot.
 
@@ -99,7 +101,7 @@ Confirmed receipt in BNE-RECEIVING-STAGING
     -> record movement from staging to that location
 ```
 
-The putaway API must validate both barcode syntax and master-data status. A syntactically valid but unregistered, disabled or archived `DMLOC:` code is rejected with an actionable message. The source remains system-resolved; the operator never scans `BNE-RECEIVING-STAGING`.
+The putaway API must validate barcode syntax, master-data status and Putaway destination permission. A syntactically valid but unregistered, disabled, archived or system-source-only `DMLOC:` code is rejected with an actionable message. The source remains system-resolved; the operator never scans `BNE-RECEIVING-STAGING`.
 
 ## 8. Access and audit
 
@@ -143,7 +145,7 @@ The page is operationally complete without enforcing an unconfirmed physical lay
 1. A partner can create one or multiple real warehouse locations with unique canonical codes and generated `DMLOC:` values.
 2. The warehouse can print selected Bin / Location labels in one auditable batch, confirm printing, cancel, and reprint with a reason.
 3. Physical description and notes can be maintained after labels are placed without changing code or barcode identity.
-4. Putaway accepts only an active, registered location barcode and records the actual destination.
+4. Putaway accepts only an active, registered physical destination barcode and records the actual destination.
 5. A location carrying stock cannot be disabled or archived; historical movements and print snapshots remain visible.
 6. The workspace works for both Australia and China partner accounts using the same operational permissions and timezone display choice.
 7. The feature does not create any commercial or customer-facing transaction.

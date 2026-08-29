@@ -4,7 +4,7 @@
 
 **Goal:** Build a real, extensible Inventory and Locations workspace that creates, prints, maintains and validates active DMLOC warehouse destinations for DriveMate putaway.
 
-**Architecture:** Extend the existing inventory_locations record with an immutable location code, derived barcode, status, physical description and notes. A repository contract provides matching lifecycle rules in Memory and Supabase modes. Location-label printing reuses immutable warehouse print jobs; putaway keeps BNE-RECEIVING-STAGING as its server-only source and validates a registered active destination at every layer.
+**Architecture:** Extend the existing inventory_locations record with an immutable location code, derived barcode, status, physical description, notes and a system-only destination flag. A repository contract provides matching lifecycle rules in Memory and Supabase modes. Location-label printing reuses immutable warehouse print jobs; putaway keeps BNE-RECEIVING-STAGING as its registered server-only source and validates a registered active physical destination at every layer.
 
 **Tech Stack:** Next.js 16 App Router, React 19, TypeScript, Zod, Vitest, Playwright, existing Phosphor icons, existing warehouse print-job tables, existing inventory locations and one local-only Supabase migration.
 
@@ -132,6 +132,7 @@ git commit -m "feat: define canonical inventory locations"
 - Modify: lib/repository.ts
 - Modify: lib/memoryRepository.ts
 - Modify: lib/supabaseRepository.ts
+- Modify: supabase/schema.sql
 - Create: supabase/migrations/20260902_v17_inventory_location_master.sql
 - Modify: tests/inventory-locations.test.ts
 
@@ -170,6 +171,7 @@ export type InventoryLocation = {
   locationCode: string;
   barcode: string;
   status: InventoryLocationStatus;
+  isPutawayDestination: boolean;
   physicalDescription?: string;
   notes?: string;
   currentBalance: number;
@@ -211,7 +213,7 @@ resolveActiveInventoryLocation(barcode: string): Promise<
 
 Memory mode stores active, disabled and archived records plus audit entries in module state and clears them through resetForTests. Its current balance derives from confirmed putaway records.
 
-Supabase mode reads current balance with coalesce(sum(inventory_balances.on_hand), 0), groups by location and inserts an audit_events row for create, note edit and status change. A disabled or archived transition returns Locations with stock cannot be disabled or archived when current balance is non-zero.
+Supabase mode displays current balance with coalesce(sum(inventory_balances.on_hand), 0), groups by location and inserts an audit_events row for create, note edit and status change. A disabled or archived transition returns Locations with stock cannot be disabled or archived when any on_hand, reserved or quarantine balance exists.
 
 Create the local-only migration with this schema core:
 
@@ -221,6 +223,7 @@ alter table public.inventory_locations
   add column if not exists barcode text,
   add column if not exists status text not null default 'active'
     check (status in ('active', 'disabled', 'archived')),
+  add column if not exists is_putaway_destination boolean not null default true,
   add column if not exists physical_description text,
   add column if not exists notes text,
   add column if not exists created_by uuid references auth.users(id),
@@ -245,7 +248,7 @@ create unique index if not exists inventory_locations_barcode_unique
   on public.inventory_locations(barcode);
 ~~~
 
-Backfill BNE-RECEIVING-STAGING as disabled so it cannot be used as a scan destination.
+Backfill BNE-RECEIVING-STAGING as active with is_putaway_destination = false so it remains a valid system source but cannot be used as a scan destination. Add a database trigger that rejects updates to location_code, barcode, warehouse, zone and bin_code after creation. Update the v15 receipt-confirmation function in this migration to look up the pre-registered staging source instead of inserting it after identity columns become required. Synchronise the audit_events DDL snapshot in supabase/schema.sql.
 
 - [ ] **Step 5: Verify the lifecycle is GREEN**
 
@@ -256,7 +259,7 @@ Expected: PASS; active lookup works, descriptions do not alter identity and stoc
 - [ ] **Step 6: Commit**
 
 ~~~powershell
-git add lib/repository.ts lib/memoryRepository.ts lib/supabaseRepository.ts supabase/migrations/20260902_v17_inventory_location_master.sql tests/inventory-locations.test.ts
+git add lib/repository.ts lib/memoryRepository.ts lib/supabaseRepository.ts supabase/schema.sql supabase/migrations/20260902_v17_inventory_location_master.sql tests/inventory-locations.test.ts
 git diff --cached --check
 git commit -m "feat: add inventory location master"
 ~~~
@@ -435,6 +438,7 @@ git commit -m "feat: add inventory location workspace"
 
 **Files:**
 - Modify: app/api/warehouse/putaway/route.ts
+- Modify: app/api/inventory-movement/route.ts
 - Modify: components/WarehousePutawayPanel.tsx
 - Modify: lib/memoryRepository.ts
 - Modify: lib/supabaseRepository.ts
@@ -455,7 +459,7 @@ await expect(repository.putAwayWarehouseReceipt({
   idempotencyKey: "22222222-2222-4222-8222-222222222222",
 })).resolves.toEqual({
   ok: false,
-  message: "Destination location BNE-A01-03 is not an active registered location.",
+  message: "Destination location BNE-A01-03 is not an active registered putaway destination.",
 });
 ~~~
 
@@ -477,14 +481,16 @@ Replace the automatic destination insertion in the local-only dm_putaway_warehou
 select id into v_destination_location_id
 from public.inventory_locations
 where location_code = upper(trim(p_destination_location_code))
-  and status = 'active';
+  and status = 'active'
+  and is_putaway_destination = true
+for update;
 
 if v_destination_location_id is null then
-  raise exception 'Destination location is not an active registered location';
+  raise exception 'Destination location is not an active registered putaway destination';
 end if;
 ~~~
 
-Update the RPC signature and Supabase call to pass p_destination_location_code. Preserve receipt-session, source-location, quarantine, idempotency and audit checks.
+Update the RPC signature and Supabase call to pass p_destination_location_code. Preserve receipt-session, source-location, quarantine, idempotency and audit checks. Explicitly revoke public execution then grant execution to service_role. Prevent the legacy generic inventory-movement route from accepting type putaway, with an actionable response requiring the receipt-scoped Warehouse Put away workflow; this removes the v11 bypass that could otherwise auto-create an unregistered location.
 
 WarehousePutawayPanel performs a guarded resolution read after a DMLOC scan. Its primary button is enabled only after active status resolves; POST stays authoritative if a status changes between scan and submit.
 
@@ -492,12 +498,12 @@ WarehousePutawayPanel performs a guarded resolution read after a DMLOC scan. Its
 
 Run: npm test -- warehouse-putaway.test.ts warehouse-putaway-api.test.ts warehouse-putaway-repository.test.ts warehouse-receipt-api.test.ts
 
-Expected: PASS; active locations receive staged stock while unknown, disabled and archived locations never do.
+Expected: PASS; active physical destinations receive staged stock while unknown, disabled, archived and system-source-only locations never do.
 
 - [ ] **Step 5: Commit**
 
 ~~~powershell
-git add app/api/warehouse/putaway/route.ts components/WarehousePutawayPanel.tsx lib/memoryRepository.ts lib/supabaseRepository.ts supabase/migrations/20260902_v17_inventory_location_master.sql tests/warehouse-putaway.test.ts tests/warehouse-putaway-api.test.ts tests/warehouse-putaway-repository.test.ts tests/warehouse-inbound-workspace.spec.ts
+git add app/api/warehouse/putaway/route.ts app/api/inventory-movement/route.ts components/WarehousePutawayPanel.tsx lib/memoryRepository.ts lib/supabaseRepository.ts supabase/migrations/20260902_v17_inventory_location_master.sql supabase/schema.sql tests/warehouse-putaway.test.ts tests/warehouse-putaway-api.test.ts tests/warehouse-putaway-repository.test.ts tests/warehouse-inbound-workspace.spec.ts
 git diff --cached --check
 git commit -m "feat: validate active putaway locations"
 ~~~
