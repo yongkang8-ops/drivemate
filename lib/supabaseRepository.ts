@@ -101,6 +101,7 @@ import type {
   PrearrivalShipmentResult,
   InventoryLocation,
   InventoryLocationAudit,
+  InventoryLocationLabelJobsReadModel,
   InventoryLocationListQuery,
   CreateInventoryLocationBatchInput,
   CreateInventoryLocationBatchResult,
@@ -3061,6 +3062,62 @@ export class SupabaseRepository implements DrivemateRepository {
     });
     const balances = await this.inventoryLocationBalances(records.map((location) => location.id));
     return records.map((location) => toInventoryLocation(location, balances.get(location.id) ?? 0));
+  }
+
+  async listInventoryLocationLabelJobs(): Promise<InventoryLocationLabelJobsReadModel> {
+    const supabase = this.client();
+    const { data: rawJobs, error: jobsError } = await supabase
+      .from("warehouse_label_print_jobs")
+      .select("id, status, created_at, printed_at, cancelled_at, payload_snapshot")
+      .eq("template_id", "bin_location")
+      .order("created_at", { ascending: false });
+    if (jobsError) throw jobsError;
+
+    const jobs = (rawJobs ?? [])
+      .filter((job) => (job as { payload_snapshot?: Record<string, unknown> }).payload_snapshot?.scopeKind === "location")
+      .map((job) => job as {
+        id: string;
+        status: WarehouseLabelPrintJobStatus;
+        created_at: string;
+        printed_at?: string | null;
+        cancelled_at?: string | null;
+      });
+    if (!jobs.length) return { pendingLocationLabelPrintJobs: 0, latestByLocationId: {} };
+
+    const { data: rawItems, error: itemsError } = await supabase
+      .from("warehouse_label_print_items")
+      .select("job_id, payload_snapshot")
+      .in("job_id", jobs.map((job) => job.id));
+    if (itemsError) throw itemsError;
+
+    const locationIdsByJobId = new Map<string, string[]>();
+    for (const rawItem of rawItems ?? []) {
+      const item = rawItem as { job_id: string; payload_snapshot?: Record<string, unknown> };
+      const locationId = item.payload_snapshot?.locationId;
+      if (typeof locationId !== "string") continue;
+      const ids = locationIdsByJobId.get(item.job_id) ?? [];
+      if (!ids.includes(locationId)) ids.push(locationId);
+      locationIdsByJobId.set(item.job_id, ids);
+    }
+
+    const latestByLocationId: InventoryLocationLabelJobsReadModel["latestByLocationId"] = {};
+    let pendingLocationLabelPrintJobs = 0;
+    for (const job of jobs) {
+      const locationIds = locationIdsByJobId.get(job.id) ?? [];
+      if (!locationIds.length) continue;
+      if (job.status === "pending") pendingLocationLabelPrintJobs += 1;
+      for (const locationId of locationIds) {
+        if (latestByLocationId[locationId]) continue;
+        latestByLocationId[locationId] = {
+          jobId: job.id,
+          status: job.status,
+          createdAt: job.created_at,
+          printedAt: job.printed_at ?? undefined,
+          cancelledAt: job.cancelled_at ?? undefined,
+        };
+      }
+    }
+    return { pendingLocationLabelPrintJobs, latestByLocationId };
   }
 
   async createInventoryLocationBatch(

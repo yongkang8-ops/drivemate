@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { can } from "../../../../lib/auth";
 import { parseInventoryLocationCode, parseLocationCodeBatch } from "../../../../lib/inventoryLocations";
-import { getRepository, type CreateInventoryLocationInput, type InventoryLocation } from "../../../../lib/repository";
+import {
+  getRepository,
+  type CreateInventoryLocationInput,
+  type InventoryLocation,
+  type InventoryLocationLatestLabelJob,
+} from "../../../../lib/repository";
 import { mutationRequestAllowed } from "../../../../lib/requestSecurity";
 import { getRequestContext, requestCan } from "../../../../lib/serverAuth";
 
@@ -32,7 +37,7 @@ const listLocationsSchema = z.object({
   barcode: z.string().trim().min(1).max(240).optional(),
 }).strict();
 
-function savedLocationMaster(location: InventoryLocation) {
+function savedLocationMaster(location: InventoryLocation, latestLabelJob?: InventoryLocationLatestLabelJob) {
   return {
     id: location.id,
     locationCode: location.locationCode,
@@ -41,6 +46,8 @@ function savedLocationMaster(location: InventoryLocation) {
     isPutawayDestination: location.isPutawayDestination,
     physicalDescription: location.physicalDescription ?? null,
     notes: location.notes ?? null,
+    currentBalance: location.currentBalance,
+    latestLabelJob: latestLabelJob ?? null,
     createdAt: location.createdAt,
     createdBy: location.createdBy,
     updatedAt: location.updatedAt,
@@ -96,8 +103,23 @@ export async function GET(request: Request) {
   const parsed = listQueryFromRequest(request);
   if (!parsed.success) return NextResponse.json({ ok: false, error: parsed.error.flatten() }, { status: 400 });
 
-  const locations = await getRepository().listInventoryLocations(parsed.data);
-  return NextResponse.json({ ok: true, locations: locations.map(savedLocationMaster) });
+  const repository = getRepository();
+  const [locations, allLocations, labelJobs] = await Promise.all([
+    repository.listInventoryLocations(parsed.data),
+    repository.listInventoryLocations(),
+    repository.listInventoryLocationLabelJobs(),
+  ]);
+  const physicalLocations = allLocations.filter((location) => location.isPutawayDestination);
+  return NextResponse.json({
+    ok: true,
+    locations: locations.map((location) => savedLocationMaster(location, labelJobs.latestByLocationId[location.id])),
+    summary: {
+      activePhysicalLocations: physicalLocations.filter((location) => location.status === "active").length,
+      disabledOrArchivedLocations: physicalLocations.filter((location) => location.status !== "active").length,
+      locationsHoldingStock: allLocations.filter((location) => location.currentBalance > 0).length,
+      pendingLocationLabelPrintJobs: labelJobs.pendingLocationLabelPrintJobs,
+    },
+  });
 }
 
 export async function POST(request: Request) {
@@ -119,7 +141,7 @@ export async function POST(request: Request) {
 
   const created = await getRepository().createInventoryLocationBatch({ locations: input.locations }, { actorId: auth.userId });
   return NextResponse.json(
-    created.ok ? { ok: true, locations: created.locations.map(savedLocationMaster) } : created,
+    created.ok ? { ok: true, locations: created.locations.map((location) => savedLocationMaster(location)) } : created,
     { status: created.ok ? 201 : 422 },
   );
 }

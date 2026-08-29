@@ -85,6 +85,7 @@ import type {
   PrearrivalShipmentResult,
   InventoryLocation,
   InventoryLocationAudit,
+  InventoryLocationLabelJobsReadModel,
   InventoryLocationListQuery,
   CreateInventoryLocationBatchInput,
   CreateInventoryLocationBatchResult,
@@ -653,6 +654,36 @@ export class MemoryRepository implements DrivemateRepository {
       })
       .map(cloneInventoryLocation)
       .sort((left, right) => left.locationCode.localeCompare(right.locationCode));
+  }
+
+  async listInventoryLocationLabelJobs(): Promise<InventoryLocationLabelJobsReadModel> {
+    const latestByLocationId: Record<string, InventoryLocationLabelJobsReadModel["latestByLocationId"][string]> = {};
+    let pendingLocationLabelPrintJobs = 0;
+    const jobs = warehouseLabelPrintJobs
+      .filter((job) => job.templateId === "bin_location" && job.payloadSnapshot.scopeKind === "location")
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt) || right.id.localeCompare(left.id));
+
+    for (const job of jobs) {
+      const locationIds = [...new Set(
+        warehouseLabelPrintItems
+          .filter((item) => item.jobId === job.id)
+          .flatMap((item) => typeof item.payloadSnapshot.locationId === "string" ? [item.payloadSnapshot.locationId] : []),
+      )];
+      if (!locationIds.length) continue;
+      if (job.status === "pending") pendingLocationLabelPrintJobs += 1;
+      for (const locationId of locationIds) {
+        if (latestByLocationId[locationId]) continue;
+        latestByLocationId[locationId] = {
+          jobId: job.id,
+          status: job.status,
+          createdAt: job.createdAt,
+          printedAt: job.printedAt,
+          cancelledAt: job.cancelledAt,
+        };
+      }
+    }
+
+    return { pendingLocationLabelPrintJobs, latestByLocationId };
   }
 
   async createInventoryLocationBatch(

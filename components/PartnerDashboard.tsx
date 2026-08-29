@@ -129,6 +129,7 @@ export function PartnerDashboard() {
           <Link href="/prearrival">Pre-arrival shipments</Link>
           <Link href="/warehouse">Inbound operations</Link>
           <Link href="/warehouse">Put away &amp; history</Link>
+          <Link href="/inventory">Inventory &amp; locations</Link>
         </nav>
 
         <div className="partner-dashboard-boundary">

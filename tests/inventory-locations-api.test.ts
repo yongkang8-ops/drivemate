@@ -8,7 +8,8 @@ import {
   POST as updateLabelJob,
 } from "../app/api/warehouse/labels/[jobId]/route";
 import { MemoryRepository } from "../lib/memoryRepository";
-import { buildWarehouseReceiptScope } from "../lib/warehouseLabels";
+import { buildWarehouseLabelPrintScope, buildWarehouseReceiptScope } from "../lib/warehouseLabels";
+import { prepareWarehouseReceipt } from "../lib/warehouseReceiving";
 
 let repository: MemoryRepository;
 
@@ -102,7 +103,7 @@ describe("inventory locations API", () => {
       { headers: { "x-drivemate-role": "partner" } },
     ));
     expect(listResponse.status).toBe(200);
-    await expect(listResponse.json()).resolves.toEqual({
+    await expect(listResponse.json()).resolves.toMatchObject({
       ok: true,
       locations: [expect.objectContaining({
         id: created.locations[0].id,
@@ -144,6 +145,110 @@ describe("inventory locations API", () => {
         physicalDescription: "Aisle A01, shelf 03",
         notes: "Counted during setup",
       },
+    });
+  });
+
+  it("returns current balances, an unfiltered location summary, and the latest saved bin-label audit", async () => {
+    const first = await createPhysicalLocation("BNE-A01-03");
+    const second = await createPhysicalLocation("BNE-B02-01");
+
+    const printedResponse = await createLocationPrintJob(warehouseRequest(
+      "https://drivemateparts.com.au/api/inventory/locations/print",
+      { method: "POST", body: JSON.stringify({ locationIds: [first.id] }) },
+    ));
+    const printedJob = (await printedResponse.json()).job as { id: string };
+    await updateLabelJob(warehouseRequest(
+      `https://drivemateparts.com.au/api/warehouse/labels/${printedJob.id}`,
+      { method: "POST", body: JSON.stringify({ action: "outcome", outcome: "printed" }) },
+    ), labelJobContext(printedJob.id));
+
+    const pendingResponse = await createLocationPrintJob(warehouseRequest(
+      "https://drivemateparts.com.au/api/inventory/locations/print",
+      { method: "POST", body: JSON.stringify({ locationIds: [second.id] }) },
+    ));
+    const pendingJob = (await pendingResponse.json()).job as { id: string };
+
+    const response = await getLocations(new Request(
+      "https://drivemateparts.com.au/api/inventory/locations?search=A01&status=active",
+      { headers: { "x-drivemate-role": "partner" } },
+    ));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      locations: [{
+        id: first.id,
+        locationCode: "BNE-A01-03",
+        currentBalance: 0,
+        latestLabelJob: {
+          jobId: printedJob.id,
+          status: "printed",
+          createdAt: expect.any(String),
+          printedAt: expect.any(String),
+        },
+      }],
+      summary: {
+        activePhysicalLocations: 2,
+        disabledOrArchivedLocations: 0,
+        locationsHoldingStock: 0,
+        pendingLocationLabelPrintJobs: 1,
+      },
+    });
+
+    const readModel = await repository.listInventoryLocationLabelJobs();
+    expect(readModel).toMatchObject({
+      pendingLocationLabelPrintJobs: 1,
+      latestByLocationId: {
+        [first.id]: { jobId: printedJob.id, status: "printed" },
+        [second.id]: { jobId: pendingJob.id, status: "pending" },
+      },
+    });
+  });
+
+  it("counts stock held in the protected staging source without treating it as a physical destination", async () => {
+    const selection = { shipmentId: "shipment-test-1", cartonNumbers: ["C001"] };
+    const [expected, shipment] = await Promise.all([
+      repository.getWarehouseExpectedReceipt(selection),
+      repository.getPrearrivalShipment(selection.shipmentId),
+    ]);
+    if (!expected.ok || !shipment.ok) throw new Error("Test receipt scope was not available.");
+
+    const printJob = await repository.createWarehouseLabelPrintJobWithItems({
+      templateId: "unit_product",
+      requestedQuantity: 18,
+      payloadSnapshot: buildWarehouseLabelPrintScope(expected.receipt, "unit_product"),
+      itemPayloadSnapshots: Array.from({ length: 18 }, (_, index) => ({ copy: index + 1 })),
+    });
+    if (!printJob.ok) throw new Error(printJob.message);
+    await repository.recordWarehouseLabelPrintOutcome(printJob.job.id, "printed");
+
+    const scope = buildWarehouseReceiptScope(expected.receipt, shipment.shipment.productBarcodes);
+    const prepared = prepareWarehouseReceipt({
+      expectedScope: scope,
+      mode: "counted_quantity",
+      scannedProductBarcodes: ["DMPGWMOF001", "DMPGWMAF002"],
+      countedLines: [
+        { productBarcode: "DMPGWMOF001", actualQuantity: 12 },
+        { productBarcode: "DMPGWMAF002", actualQuantity: 6 },
+      ],
+    });
+    if (!prepared.ok) throw new Error(prepared.message);
+    const receipt = await repository.createWarehouseReceiptSession({
+      scope,
+      mode: "counted_quantity",
+      lines: prepared.lines,
+      idempotencyKey: "11111111-1111-4111-8111-111111111111",
+    });
+    if (!receipt.ok) throw new Error(receipt.message);
+    await repository.confirmWarehouseReceipt(receipt.session.id, { actorId: "demo-partner-user" });
+
+    const response = await getLocations(new Request(
+      "https://drivemateparts.com.au/api/inventory/locations?barcode=DMLOC%3ABNE-RECEIVING-STAGING",
+      { headers: { "x-drivemate-role": "partner" } },
+    ));
+    await expect(response.json()).resolves.toMatchObject({
+      locations: [{ locationCode: "BNE-RECEIVING-STAGING", currentBalance: 18, isPutawayDestination: false }],
+      summary: { activePhysicalLocations: 0, locationsHoldingStock: 1 },
     });
   });
 

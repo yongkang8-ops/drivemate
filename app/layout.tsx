@@ -22,6 +22,7 @@ const publicNavItems = [
 const internalNavItems = [
   { href: "/partner", label: "Operations" },
   { href: "/warehouse", label: "Warehouse" },
+  { href: "/inventory", label: "Inventory & locations" },
   { href: "/admin", label: "Admin" },
 ];
 

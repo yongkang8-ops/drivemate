@@ -217,6 +217,19 @@ export type InventoryLocationListQuery = {
   barcode?: string;
 };
 
+export type InventoryLocationLatestLabelJob = {
+  jobId: string;
+  status: WarehouseLabelPrintJobStatus;
+  createdAt: string;
+  printedAt?: string;
+  cancelledAt?: string;
+};
+
+export type InventoryLocationLabelJobsReadModel = {
+  pendingLocationLabelPrintJobs: number;
+  latestByLocationId: Record<string, InventoryLocationLatestLabelJob>;
+};
+
 export type CreateInventoryLocationInput = {
   locationCode: string;
   physicalDescription?: string | null;
@@ -519,6 +532,7 @@ export interface DrivemateRepository {
   listInventoryLocations(
     query?: InventoryLocationListQuery,
   ): Promise<InventoryLocation[]>;
+  listInventoryLocationLabelJobs(): Promise<InventoryLocationLabelJobsReadModel>;
   createInventoryLocationBatch(
     input: CreateInventoryLocationBatchInput,
     context?: RepositoryWriteContext,
