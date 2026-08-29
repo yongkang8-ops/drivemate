@@ -94,7 +94,7 @@ export type ParsedInventoryLocationCode = {
 const locationCodePattern = /^BNE-([A-Z0-9]+(?:-[A-Z0-9]+){0,2})-([A-Z0-9]+)$/;
 
 export function parseInventoryLocationCode(value: string) {
-  const locationCode = value.trim().toUpperCase().replace(/\s+/g, "");
+  const locationCode = value.trim().toUpperCase();
   const match = locationCode.match(locationCodePattern);
   if (!match) {
     return { ok: false as const, message: "Location code must use the BNE-<segment>-<segment> format." };
