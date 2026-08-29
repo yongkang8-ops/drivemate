@@ -74,6 +74,7 @@ import type {
   WarehouseExpectedReceiptResult,
   PackingListRevision,
   PackingListRevisionResult,
+  PrearrivalShipmentListResult,
   PrearrivalShipmentResult,
 } from "./repository";
 import { createServiceSupabaseClient } from "./supabaseClient";
@@ -2632,22 +2633,56 @@ export class SupabaseRepository implements DrivemateRepository {
     return { ok: true, job: toWarehouseLabelPrintJob(data as WarehouseLabelPrintJobRecord) };
   }
 
+  async listPrearrivalShipments(): Promise<PrearrivalShipmentListResult> {
+    const { data, error } = await this.client()
+      .from("shipments")
+      .select("id, shipment_reference, status")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return {
+      ok: true,
+      shipments: (data ?? []).map((shipment) => {
+        const record = shipment as {
+          id: string;
+          shipment_reference?: string | null;
+          status?: string | null;
+        };
+        return {
+          shipmentId: record.id,
+          shipmentReference: record.shipment_reference ?? undefined,
+          status: record.status ?? undefined,
+        };
+      }),
+    };
+  }
+
   async getPrearrivalShipment(shipmentId: string): Promise<PrearrivalShipmentResult> {
     const expected = await this.getWarehouseExpectedReceipt({ shipmentId });
     if (!expected.ok) return { ok: false, message: "Pre-arrival shipment was not found." };
 
-    const { data, error } = await this.client()
-      .from("shipment_packing_list_versions")
-      .select("id, shipment_id, version, status, payload_snapshot, created_by, created_at, confirmed_by, confirmed_at")
-      .eq("shipment_id", shipmentId)
-      .order("version", { ascending: true });
+    const skus = [...new Set(expected.receipt.lines.map((line) => line.sku))];
+    const [{ data, error }, { data: products, error: productsError }] = await Promise.all([
+      this.client()
+        .from("shipment_packing_list_versions")
+        .select("id, shipment_id, version, status, payload_snapshot, created_by, created_at, confirmed_by, confirmed_at")
+        .eq("shipment_id", shipmentId)
+        .order("version", { ascending: true }),
+      this.client().from("products").select("sku, barcode").in("sku", skus),
+    ]);
     if (error) throw error;
+    if (productsError) throw productsError;
 
     return {
       ok: true,
       shipment: {
         ...expected.receipt,
         revisions: ((data ?? []) as PackingListRevisionRecord[]).map(toPackingListRevision),
+        productBarcodes: Object.fromEntries(
+          (products ?? []).flatMap((product) => {
+            const record = product as Pick<ProductRecord, "sku" | "barcode">;
+            return record.barcode ? [[record.sku, record.barcode]] : [];
+          }),
+        ),
       },
     };
   }

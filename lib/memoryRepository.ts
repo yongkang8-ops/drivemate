@@ -65,6 +65,7 @@ import type {
   WarehouseExpectedReceiptResult,
   PackingListRevision,
   PackingListRevisionResult,
+  PrearrivalShipmentListResult,
   PrearrivalShipmentResult,
 } from "./repository";
 import { filterWarehouseExpectedReceipt, type WarehouseExpectedReceipt, type WarehouseInboundSelection } from "./warehouseLabels";
@@ -202,6 +203,15 @@ function latestConfirmedPackingListRevision(shipmentId: string): PackingListRevi
   return packingListRevisions
     .filter((revision) => revision.shipmentId === shipmentId && revision.status === "confirmed")
     .sort((left, right) => right.version - left.version)[0];
+}
+
+function productBarcodesFor(receipt: WarehouseExpectedReceipt): Record<string, string> {
+  return Object.fromEntries(
+    receipt.lines.flatMap((line) => {
+      const product = findProductBySku(line.sku);
+      return product?.barcode ? [[line.sku, product.barcode]] : [];
+    }),
+  );
 }
 
 function knownSkusFor(input: ValidatedPackingListRevision): string[] {
@@ -398,6 +408,19 @@ export class MemoryRepository implements DrivemateRepository {
     };
   }
 
+  async listPrearrivalShipments(): Promise<PrearrivalShipmentListResult> {
+    return {
+      ok: true,
+      shipments: [
+        {
+          shipmentId: "shipment-test-1",
+          shipmentReference: "BNE-TEST-001",
+          status: "planned",
+        },
+      ],
+    };
+  }
+
   async getPrearrivalShipment(shipmentId: string): Promise<PrearrivalShipmentResult> {
     const revision = latestConfirmedPackingListRevision(shipmentId);
     if (!revision) return { ok: false, message: "Pre-arrival shipment was not found." };
@@ -405,6 +428,7 @@ export class MemoryRepository implements DrivemateRepository {
       ok: true,
       shipment: {
         ...receiptFromPackingListRevision(revision),
+        productBarcodes: productBarcodesFor(receiptFromPackingListRevision(revision)),
         revisions: packingListRevisions
           .filter((candidate) => candidate.shipmentId === shipmentId)
           .sort((left, right) => left.version - right.version)

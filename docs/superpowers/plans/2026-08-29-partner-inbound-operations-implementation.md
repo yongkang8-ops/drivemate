@@ -230,6 +230,8 @@ git commit -m "feat: add versioned prearrival packing lists"
 
 ## Task 3: Build the Partner pre-arrival shipment workspace
 
+> **Execution note (2026-08-29):** Task 2 seeds `shipment-test-1` with an immutable `v1 confirmed` Packing List. The Task 3 browser flow therefore creates and confirms `v2`; it does not rewrite v1 in place.
+
 **Files:**
 - Create: `app/api/prearrival/shipments/route.ts`
 - Create: `app/api/prearrival/shipments/[shipmentId]/revisions/route.ts`

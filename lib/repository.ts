@@ -118,11 +118,23 @@ export type PackingListRevisionResult =
 
 export type PrearrivalShipment = WarehouseExpectedReceipt & {
   revisions: PackingListRevision[];
+  productBarcodes: Record<string, string>;
 };
 
 export type PrearrivalShipmentResult =
   | { ok: true; shipment: PrearrivalShipment }
   | { ok: false; message: string };
+
+export type PrearrivalShipmentSummary = {
+  shipmentId: string;
+  shipmentReference?: string;
+  status?: string;
+};
+
+export type PrearrivalShipmentListResult = {
+  ok: true;
+  shipments: PrearrivalShipmentSummary[];
+};
 
 export type StockMovement = {
   id: string;
@@ -338,6 +350,7 @@ export interface DrivemateRepository {
   getWarehouseExpectedReceipt(
     selection: WarehouseInboundSelection,
   ): Promise<WarehouseExpectedReceiptResult>;
+  listPrearrivalShipments(): Promise<PrearrivalShipmentListResult>;
   getPrearrivalShipment(shipmentId: string): Promise<PrearrivalShipmentResult>;
   createPackingListRevision(
     input: ValidatedPackingListRevision,
