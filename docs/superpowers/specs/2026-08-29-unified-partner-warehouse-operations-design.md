@@ -1,6 +1,6 @@
 # Unified Partner Warehouse Operations Design
 
-**Status:** Confirmed decision baseline, pending written-spec review and final Dashboard visual approval before implementation planning
+**Status:** Approved for phased implementation planning. Dashboard uses Option 2 as the provisional visual baseline.
 **Date:** 2026-08-29
 **Project:** DriveMate Parts
 **Business phase:** Pre-trade
@@ -250,14 +250,14 @@ The confirmed visual language is a compact desktop operational workspace: deep t
 
 ## 13. Design acceptance checklist
 
-- [ ] Unified Partner role has no country-based access split.
-- [ ] Administrator-only capabilities are system management, not historical-record mutation.
-- [ ] The dashboard is an inbound pipeline command board with an action queue and persisted-event timeline.
-- [ ] Pre-arrival shipment records preserve source pallet/carton structure and version history.
-- [ ] All four label families exist in the library with correct Phase 1 activation state.
-- [ ] Partners may create, edit, publish and archive versioned templates.
-- [ ] Print selection uses task scope, label family and approved template version.
-- [ ] Unit-product print confirmation gates receipt only for the matching scope.
-- [ ] Both receipt modes, staging, DMLOC putaway and exceptions are specified.
-- [ ] History includes date, time and selected display timezone.
-- [ ] No excluded Pre-trade function is presented as live or enabled.
+- [x] Unified Partner role has no country-based access split.
+- [x] Administrator-only capabilities are system management, not historical-record mutation.
+- [x] The dashboard is an inbound pipeline command board with an action queue and persisted-event timeline.
+- [x] Pre-arrival shipment records preserve source pallet/carton structure and version history.
+- [x] All four label families exist in the library with correct Phase 1 activation state.
+- [x] Partners may create, edit, publish and archive versioned templates.
+- [x] Print selection uses task scope, label family and approved template version.
+- [x] Unit-product print confirmation gates receipt only for the matching scope.
+- [x] Both receipt modes, staging, DMLOC putaway and exceptions are specified.
+- [x] History includes date, time and selected display timezone.
+- [x] No excluded Pre-trade function is presented as live or enabled.
