@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { rateLimitAllowed, requestClientKey, requestOriginAllowed } from "../../../../lib/requestSecurity";
-import { createServerAuthSupabaseClient } from "../../../../lib/supabaseClient";
+import { createCookieAuthSupabaseClient } from "../../../../lib/supabaseClient";
 
 const schema = z.object({ email: z.string().trim().email() });
 
@@ -15,8 +15,9 @@ export async function POST(request: Request) {
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ ok: true });
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") || new URL(request.url).origin;
-  await createServerAuthSupabaseClient().auth.resetPasswordForEmail(parsed.data.email, {
+  const response = NextResponse.json({ ok: true });
+  await createCookieAuthSupabaseClient(request, response).auth.resetPasswordForEmail(parsed.data.email, {
     redirectTo: `${siteUrl}/auth/confirm?next=/password-setup`,
   });
-  return NextResponse.json({ ok: true });
+  return response;
 }

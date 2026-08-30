@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
-import { requestSessionTokens } from "./sessionCookies";
+import { createServerClient } from "@supabase/ssr";
+import type { NextResponse } from "next/server";
+import { parseCookieHeader, requestSessionTokens } from "./sessionCookies";
 
 function supabaseUrl() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -16,6 +18,26 @@ export function createServerAuthSupabaseClient() {
       persistSession: false,
       autoRefreshToken: false,
       detectSessionInUrl: false,
+    },
+  });
+}
+
+export function supabaseRequestCookies(request: Request) {
+  return Object.entries(parseCookieHeader(request.headers.get("cookie"))).map(
+    ([name, value]) => ({ name, value }),
+  );
+}
+
+export function createCookieAuthSupabaseClient(request: Request, response: NextResponse) {
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!anonKey)
+    throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is not configured.");
+  return createServerClient(supabaseUrl(), anonKey, {
+    cookies: {
+      getAll: () => supabaseRequestCookies(request),
+      setAll: (cookies) => {
+        cookies.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+      },
     },
   });
 }

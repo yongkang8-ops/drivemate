@@ -137,6 +137,23 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
     }
   }
 
+  async function requestPasswordReset() {
+    if (!email.trim()) {
+      setMessage("Enter your email address first.");
+      return;
+    }
+    const response = await fetch("/api/auth/password-reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    setMessage(
+      response.ok
+        ? "If this is an approved account, a recovery email has been sent. Open it in this browser."
+        : "Password recovery could not be requested. Try again later.",
+    );
+  }
+
   async function signOut() {
     try {
       await fetch("/api/auth/logout", {
@@ -242,6 +259,9 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
             />
             <button className="primary-button" onClick={signIn} type="button">
               Sign in
+            </button>
+            <button className="secondary-button" onClick={() => void requestPasswordReset()} type="button">
+              Forgot password
             </button>
           </>
         ) : (

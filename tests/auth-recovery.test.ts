@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  recoveryCallback,
   recoveryAccessTokenFromHash,
   recoveryFragmentRelayHtml,
 } from "../lib/authRecovery";
@@ -24,5 +25,15 @@ describe("Supabase recovery-link compatibility", () => {
 
     expect(html).toContain("window.location.hash");
     expect(html).toContain("/password-setup");
+  });
+
+  it("recognises a PKCE recovery code and keeps the requested local destination", () => {
+    expect(
+      recoveryCallback(
+        new URL(
+          "https://drivemateparts.com.au/auth/confirm?code=recovery-code&next=%2Fpassword-setup",
+        ),
+      ),
+    ).toEqual({ kind: "pkce", code: "recovery-code", next: "/password-setup" });
   });
 });
