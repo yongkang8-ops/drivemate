@@ -57,6 +57,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <Link href="/terms">Website Terms</Link>
               <Link href="/trade-terms">Trade Terms</Link>
               <Link href="/delivery-returns-warranty">Delivery, Returns &amp; Warranty</Link>
+              <Link href="/admin">Staff login</Link>
             </nav>
           </footer>
         </div>

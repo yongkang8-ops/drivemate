@@ -114,9 +114,12 @@ input, select, textarea { width: 100%; min-height: 44px; border: 1px solid var(-
 input:hover, select:hover, textarea:hover { border-color: #9da9a5; }
 textarea { min-width: 220px; min-height: 88px; resize: vertical; }
 .inline-label { margin: 0; }
-.auth-panel { display: grid; grid-template-columns: minmax(210px, 1fr) minmax(320px, 1.2fr) auto; gap: 14px; align-items: end; }
+.auth-panel { display: grid; grid-template-columns: minmax(210px, .8fr) minmax(540px, 1.6fr); gap: 14px 24px; align-items: end; }
 .auth-panel h2, .auth-panel p { margin: 0; }
-.auth-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: end; }
+.auth-actions { display: grid; grid-template-columns: minmax(250px, 1.35fr) minmax(170px, 1fr) auto; gap: 8px; align-items: end; }
+.auth-actions .primary-button { min-width: 128px; }
+.auth-actions .secondary-button { justify-self: start; }
+.auth-status { grid-column: 2; justify-self: start; }
 .mfa-panel { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(220px, 1fr) auto; align-items: center; gap: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
 .mfa-panel > div:first-child { display: grid; grid-template-columns: auto 1fr; gap: 4px 9px; align-items: center; }
 .mfa-panel > div:first-child svg { grid-row: 1 / 3; color: var(--brand); }
@@ -195,6 +198,12 @@ tbody tr:hover { background: color-mix(in srgb, var(--brand-soft) 35%, transpare
 .password-form { display: grid; gap: 14px; margin-top: 26px; }
 .password-form > svg { color: var(--brand); }
 .password-form p { display: flex; gap: 7px; align-items: center; margin: 0; }
+.password-complete { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 16px; align-items: center; margin-top: 26px; }
+.password-complete-mark { display: grid; width: 52px; height: 52px; place-items: center; border-radius: 50%; background: var(--brand-soft); color: var(--brand); }
+.password-complete h1, .password-complete p { margin: 0; }
+.password-complete p:last-child { margin-top: 4px; color: var(--muted); }
+.page-main:has(.password-complete) > .eyebrow,
+.page-main:has(.password-complete) > h1 { display: none; }
 .legal-page { max-width: 880px; }
 .legal-intro { max-width: 760px; color: var(--ink-soft); font-size: 18px; }
 .legal-content { margin-top: 38px; padding-top: 8px; border-top: 1px solid var(--line); }
@@ -656,7 +665,9 @@ body:has(.partner-dashboard-app) .site-shell { min-height: 100vh; }
   .workflow-steps { grid-template-columns: 1fr 1fr; }
   .account-cta { width: 100%; border-radius: 0; padding: 42px 16px; flex-direction: column; align-items: flex-start; }
   .cta-actions { width: 100%; flex-direction: column; align-items: stretch; }
-  .two-column, .metric-grid, .card-grid, .form-grid, .auth-panel, .auth-actions { grid-template-columns: 1fr; }
+  .two-column, .metric-grid, .card-grid, .form-grid, .auth-panel, .auth-actions, .password-complete { grid-template-columns: 1fr; }
+  .auth-status { grid-column: auto; }
+  .password-complete .button { width: 100%; }
   .mfa-panel, .mfa-code { grid-template-columns: 1fr; }
   .mfa-enrollment { align-items: flex-start; flex-direction: column; }
   .operations-grid, .cost-grid { grid-template-columns: 1fr; }

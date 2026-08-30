@@ -274,7 +274,7 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
         )}
       </div>
 
-      <span className="badge" aria-live="polite">
+      <span className="badge auth-status" aria-live="polite">
         {message}
       </span>
       {profile && mfaRequired ? (
