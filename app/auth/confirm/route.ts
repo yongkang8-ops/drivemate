@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
+import { recoveryFragmentRelayHtml } from "../../../lib/authRecovery";
 import { createServerAuthSupabaseClient } from "../../../lib/supabaseClient";
 import {
   createCsrfToken,
@@ -16,7 +17,13 @@ export async function GET(request: Request) {
   const type = url.searchParams.get("type") as EmailOtpType | null;
   const next = url.searchParams.get("next") || "/password-setup";
   if (!tokenHash || !type || !next.startsWith("/")) {
-    return NextResponse.redirect(new URL("/password-setup?error=invalid-link", url.origin));
+    return new NextResponse(recoveryFragmentRelayHtml(), {
+      headers: {
+        "Cache-Control": "no-store",
+        "Content-Type": "text/html; charset=utf-8",
+        "Referrer-Policy": "no-referrer",
+      },
+    });
   }
   const { data, error } = await createServerAuthSupabaseClient().auth.verifyOtp({ token_hash: tokenHash, type });
   if (error || !data.session) {
