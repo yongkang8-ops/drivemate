@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { mutationRequestAllowed } from "../../../../lib/requestSecurity";
+import { passwordSetupRequestAllowed } from "../../../../lib/requestSecurity";
 import { getRequestContext } from "../../../../lib/serverAuth";
 import { createServiceSupabaseClient } from "../../../../lib/supabaseClient";
 
@@ -13,7 +13,7 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  if (!mutationRequestAllowed(request)) {
+  if (!passwordSetupRequestAllowed(request)) {
     return NextResponse.json({ ok: false, message: "Request security validation failed." }, { status: 403 });
   }
   const auth = await getRequestContext(request);

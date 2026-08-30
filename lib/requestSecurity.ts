@@ -33,6 +33,10 @@ export function mutationRequestAllowed(request: Request, options: { publicReques
   return options.publicRequest ? true : csrfValid(request);
 }
 
+export function passwordSetupRequestAllowed(request: Request) {
+  return requestOriginAllowed(request);
+}
+
 const rateLimits = new Map<string, number[]>();
 
 export function rateLimitAllowed(key: string, limit: number, windowMs: number) {
