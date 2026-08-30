@@ -16,8 +16,19 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ ok: true });
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") || new URL(request.url).origin;
   const response = NextResponse.json({ ok: true });
-  await createCookieAuthSupabaseClient(request, response).auth.resetPasswordForEmail(parsed.data.email, {
+  const { error } = await createCookieAuthSupabaseClient(request, response).auth.resetPasswordForEmail(parsed.data.email, {
     redirectTo: `${siteUrl}/auth/confirm?next=/password-setup`,
   });
+  if (error) {
+    const code = "code" in error && typeof error.code === "string" ? error.code : null;
+    console.error("Password recovery email request failed.", { status: error.status ?? null, code });
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "Password recovery is temporarily unavailable. Please try again later.",
+      },
+      { status: 503 },
+    );
+  }
   return response;
 }

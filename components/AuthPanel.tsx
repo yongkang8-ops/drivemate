@@ -142,16 +142,21 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
       setMessage("Enter your email address first.");
       return;
     }
-    const response = await fetch("/api/auth/password-reset", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    setMessage(
-      response.ok
-        ? "If this is an approved account, a recovery email has been sent. Open it in this browser."
-        : "Password recovery could not be requested. Try again later.",
-    );
+    try {
+      const response = await fetch("/api/auth/password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const body = (await response.json()) as { ok?: boolean; message?: string };
+      setMessage(
+        response.ok && body.ok
+          ? "If this is an approved account, a recovery email has been sent. Open it in this browser."
+          : body.message || "Password recovery could not be requested. Try again later.",
+      );
+    } catch {
+      setMessage("Password recovery could not be requested. Try again later.");
+    }
   }
 
   async function signOut() {
