@@ -14,11 +14,11 @@ export function packingListFieldKey(path: Array<string | number>): string {
 }
 
 export function mapPackingListServerErrors(
-  error: PackingListServerError,
+  error?: PackingListServerError,
 ): PackingListFieldErrors {
   const fieldErrors: PackingListFieldErrors = {};
 
-  for (const fieldError of error.fieldErrors ?? []) {
+  for (const fieldError of error?.fieldErrors ?? []) {
     fieldErrors[packingListFieldKey(fieldError.path)] = fieldError.message;
   }
 

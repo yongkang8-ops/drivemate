@@ -84,4 +84,9 @@ describe("pre-arrival Packing List draft validation", () => {
       "pallets.0.sourcePalletNumber",
     );
   });
+
+  it("returns no field errors when the server error payload or list is missing", () => {
+    expect(mapPackingListServerErrors()).toEqual({});
+    expect(mapPackingListServerErrors({ fieldErrors: [] })).toEqual({});
+  });
 });
