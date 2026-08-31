@@ -205,6 +205,28 @@ describe("pre-arrival packing-list revisions", () => {
     }
   });
 
+  it("canonicalizes revision SKUs without mutating the input snapshot", () => {
+    const rawInput = structuredClone(validInput);
+    rawInput.pallets[0].cartons[0].lines[0].sku = " dm-gwm-of-001 ";
+    const originalInput = structuredClone(rawInput);
+
+    const result = validatePackingListRevision(rawInput, {
+      knownSkus: ["DM-GWM-OF-001"],
+    });
+
+    expect(result).toMatchObject({ ok: true });
+    if (!result.ok) return;
+    expect(result.revision.pallets[0].cartons[0].lines[0].sku).toBe("DM-GWM-OF-001");
+    expect(result.revision.shipmentId).toBe(rawInput.shipmentId);
+    expect(result.revision.pallets[0].sourcePalletNumber).toBe(
+      rawInput.pallets[0].sourcePalletNumber,
+    );
+    expect(result.revision.pallets[0].cartons[0].sourceCartonNumber).toBe(
+      rawInput.pallets[0].cartons[0].sourceCartonNumber,
+    );
+    expect(rawInput).toEqual(originalInput);
+  });
+
   it("rejects an empty packing list", () => {
     expect(
       validatePackingListRevision(
@@ -335,7 +357,7 @@ describe("pre-arrival packing-list revisions", () => {
     });
   });
 
-  it("returns a product barcode keyed by the original lowercase and padded receipt SKU", async () => {
+  it("persists a canonical SKU from lowercase padded input and maps its product barcode", async () => {
     const repository = new MemoryRepository();
     await repository.resetForTests({ packingList: "empty" });
     const lowercaseInput = structuredClone(validInput);
@@ -355,9 +377,11 @@ describe("pre-arrival packing-list revisions", () => {
     await expect(repository.getPrearrivalShipment("shipment-test-1")).resolves.toMatchObject({
       ok: true,
       shipment: {
-        productBarcodes: { " dm-gwm-of-001 ": "DMPGWMOF001" },
+        lines: [expect.objectContaining({ sku: "DM-GWM-OF-001" })],
+        productBarcodes: { "DM-GWM-OF-001": "DMPGWMOF001" },
       },
     });
+    expect(lowercaseInput.pallets[0].cartons[0].lines[0].sku).toBe(" dm-gwm-of-001 ");
   });
 
   it("creates and confirms a revision containing the shipment purchase-order SKUs", async () => {

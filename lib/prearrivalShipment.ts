@@ -226,9 +226,16 @@ export function validatePackingListRevision(
     }
   }
 
+  const revision = structuredClone(input);
+  for (const pallet of revision.pallets) {
+    for (const carton of pallet.cartons) {
+      for (const line of carton.lines) line.sku = normalizeIdentifier(line.sku);
+    }
+  }
+
   return {
     ok: true,
-    revision: structuredClone(input),
+    revision,
     totalExpectedQuantity,
   };
 }
