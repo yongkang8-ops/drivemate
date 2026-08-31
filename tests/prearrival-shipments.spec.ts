@@ -24,6 +24,39 @@ test("test fixture exposes an existing shipment before its first packing list", 
       }),
     ],
   });
+
+  const secondShipment = await request.get(
+    "/api/prearrival/shipments?shipmentId=shipment-test-2",
+    { headers: partnerHeaders },
+  );
+  expect(secondShipment.status()).toBe(404);
+});
+
+test("opens the shipment requested in the query when the list order differs", async ({
+  page,
+  request,
+}) => {
+  const reset = await request.post("/api/test/reset?shipments=multiple");
+  expect(reset.ok()).toBeTruthy();
+
+  const list = await request.get("/api/prearrival/shipments", {
+    headers: partnerHeaders,
+  });
+  await expect(list.json()).resolves.toMatchObject({
+    ok: true,
+    shipments: [
+      expect.objectContaining({
+        shipmentId: "shipment-test-2",
+        shipmentReference: "TEST-FIXTURE-002",
+      }),
+      expect.objectContaining({ shipmentId: "shipment-test-1" }),
+    ],
+  });
+
+  await page.goto("/prearrival?shipmentId=shipment-test-1");
+
+  await expect(page.getByLabel("Shipment")).toHaveValue("shipment-test-1");
+  await expect(page.locator(".prearrival-shipment-bar strong")).toHaveText("BNE-TEST-001");
 });
 
 test("Partner initializes the first packing list and unlocks the Warehouse label queue", async ({

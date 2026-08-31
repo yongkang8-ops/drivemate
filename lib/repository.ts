@@ -321,6 +321,7 @@ export type PrearrivalShipmentSummary = {
 
 export type RepositoryTestResetOptions = {
   packingList?: "confirmed" | "empty";
+  shipments?: "single" | "multiple";
 };
 
 export type PrearrivalShipmentListResult = {

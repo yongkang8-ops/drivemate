@@ -417,6 +417,12 @@ function initialPackingListRevision(): PackingListRevision {
 
 let packingListRevisionSequence = 1;
 let packingListRevisions: PackingListRevision[] = [initialPackingListRevision()];
+let prearrivalTestShipmentIds = ["shipment-test-1"];
+
+const prearrivalTestShipmentReferences: Record<string, string> = {
+  "shipment-test-1": "BNE-TEST-001",
+  "shipment-test-2": "TEST-FIXTURE-002",
+};
 
 function clonePackingListRevision(revision: PackingListRevision): PackingListRevision {
   return { ...revision, payloadSnapshot: structuredClone(revision.payloadSnapshot) };
@@ -1129,22 +1135,21 @@ export class MemoryRepository implements DrivemateRepository {
   }
 
   async listPrearrivalShipments(): Promise<PrearrivalShipmentListResult> {
-    const readiness = summarizePackingListReadiness(packingListRevisions);
     return {
       ok: true,
-      shipments: [
-        {
-          shipmentId: "shipment-test-1",
-          shipmentReference: "BNE-TEST-001",
+      shipments: prearrivalTestShipmentIds.map((shipmentId) => ({
+          shipmentId,
+          shipmentReference: prearrivalTestShipmentReferences[shipmentId],
           status: "planned",
-          ...readiness,
-        },
-      ],
+          ...summarizePackingListReadiness(packingListRevisions.filter(
+            (revision) => revision.shipmentId === shipmentId,
+          )),
+        })),
     };
   }
 
   async getPrearrivalShipment(shipmentId: string): Promise<PrearrivalShipmentResult> {
-    if (shipmentId !== "shipment-test-1") {
+    if (!prearrivalTestShipmentIds.includes(shipmentId)) {
       return { ok: false, message: "Pre-arrival shipment was not found." };
     }
     const revisions = packingListRevisions
@@ -1527,5 +1532,8 @@ export class MemoryRepository implements DrivemateRepository {
     packingListRevisions = options.packingList === "empty"
       ? []
       : [initialPackingListRevision()];
+    prearrivalTestShipmentIds = options.shipments === "multiple"
+      ? ["shipment-test-2", "shipment-test-1"]
+      : ["shipment-test-1"];
   }
 }

@@ -7,9 +7,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message: "Not found." }, { status: 404 });
   }
 
-  const packingList = new URL(request.url).searchParams.get("packingList");
+  const searchParams = new URL(request.url).searchParams;
+  const packingList = searchParams.get("packingList");
   await getRepository().resetForTests({
     packingList: packingList === "empty" ? "empty" : "confirmed",
+    shipments: searchParams.get("shipments") === "multiple" ? "multiple" : "single",
   });
   return NextResponse.json({ ok: true });
 }

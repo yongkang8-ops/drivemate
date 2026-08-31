@@ -146,7 +146,11 @@ export function PrearrivalShipmentPanel() {
       return;
     }
     setShipments(body.shipments);
-    await loadShipment(body.shipments[0].shipmentId);
+    const requestedShipmentId = new URLSearchParams(window.location.search).get("shipmentId");
+    const initialShipment = body.shipments.find(
+      (candidate) => candidate.shipmentId === requestedShipmentId,
+    ) ?? body.shipments[0];
+    await loadShipment(initialShipment.shipmentId);
   }
 
   useEffect(() => {

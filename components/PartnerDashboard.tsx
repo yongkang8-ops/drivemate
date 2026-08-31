@@ -71,6 +71,25 @@ function StatusPill({ label, status }: { label: string; status: "printed" | "con
   return <span className={`partner-status partner-status-${status}`}>{label}</span>;
 }
 
+const labelStatusLabels = {
+  printed: "Labels printed",
+  pending: "Labels pending",
+  not_ready: "Labels blocked",
+} as const;
+
+const receiptStatusLabels = {
+  confirmed: "Receipt confirmed",
+  waiting: "Receipt waiting",
+  blocked: "Receipt blocked",
+} as const;
+
+const putawayStatusLabels = {
+  complete: "Putaway complete",
+  pending: "Putaway pending",
+  waiting: "Putaway waiting",
+  blocked: "Putaway blocked",
+} as const;
+
 export function PartnerDashboard() {
   const [displayTimeZone, setDisplayTimeZone] = useState<WarehouseHistoryTimeZone>("Australia/Brisbane");
   const [searchInput, setSearchInput] = useState("");
@@ -220,9 +239,9 @@ export function PartnerDashboard() {
                     <small>{shipment.expectedQuantity} expected units</small>
                   </div>
                   <div className="partner-shipment-statuses" aria-label={`Operation status for ${shipment.shipmentReference}`}>
-                    <StatusPill label={shipment.labelStatus === "printed" ? "Labels printed" : shipment.labelStatus === "pending" ? "Labels pending" : "Labels blocked"} status={shipment.labelStatus} />
-                    <StatusPill label={shipment.receiptStatus === "confirmed" ? "Receipt confirmed" : shipment.receiptStatus === "waiting" ? "Receipt waiting" : "Receipt blocked"} status={shipment.receiptStatus} />
-                    <StatusPill label={shipment.putawayStatus === "complete" ? "Putaway complete" : shipment.putawayStatus === "pending" ? "Putaway pending" : shipment.putawayStatus === "waiting" ? "Putaway waiting" : "Putaway blocked"} status={shipment.putawayStatus} />
+                    <StatusPill label={labelStatusLabels[shipment.labelStatus]} status={shipment.labelStatus} />
+                    <StatusPill label={receiptStatusLabels[shipment.receiptStatus]} status={shipment.receiptStatus} />
+                    <StatusPill label={putawayStatusLabels[shipment.putawayStatus]} status={shipment.putawayStatus} />
                   </div>
                   <Link className="partner-open-action" href={shipment.nextActionHref}>
                     {shipment.nextAction}<CaretRight size={15} weight="bold" />

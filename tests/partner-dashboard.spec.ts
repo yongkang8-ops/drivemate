@@ -57,6 +57,9 @@ test("an unconfirmed Packing List stays visible but blocked before label prepara
   await expect(page.getByText("Labels blocked", { exact: true })).toBeVisible();
   await expect(page.getByText("Receipt blocked", { exact: true })).toBeVisible();
   await expect(page.getByText("Putaway blocked", { exact: true })).toBeVisible();
+  await expect(
+    page.locator(".partner-attention-packing_list_required").getByRole("link", { name: "Review operation", exact: true }),
+  ).toHaveAttribute("href", "/prearrival?shipmentId=shipment-test-1");
   await expect(page.getByRole("link", { name: "Open pre-arrival", exact: true })).toHaveAttribute(
     "href",
     "/prearrival?shipmentId=shipment-test-1",

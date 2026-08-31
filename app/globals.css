@@ -625,7 +625,7 @@ body:has(.partner-dashboard-app) .site-shell { min-height: 100vh; }
 .partner-status-pending { background: #fff0d6; color: #8a5a0f; }
 .partner-status-waiting { background: #edf2f1; color: #678086; }
 .partner-status-not_ready,
-.partner-status-blocked { background: #f1f4f3; color: #697f83; }
+.partner-status-blocked { background: #f1f4f3; color: #5b7074; }
 .partner-open-action { display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px; color: #087173; font-size: 12px; font-weight: 740; text-align: right; text-decoration: none; white-space: nowrap; }
 .partner-attention-panel { background: #fbfdfc; }
 .partner-attention-item { display: grid; gap: 6px; margin-top: 14px; padding: 15px; border-left: 3px solid #c5d6d3; border-radius: 0 7px 7px 0; background: #f3f8f7; }
