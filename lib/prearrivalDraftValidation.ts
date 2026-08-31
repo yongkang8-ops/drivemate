@@ -24,7 +24,11 @@ export function mapPackingListServerErrors(
       || !path.length
       || !path.every((segment) => (
         typeof segment === "string"
-        || (typeof segment === "number" && Number.isSafeInteger(segment))
+        || (
+          typeof segment === "number"
+          && Number.isSafeInteger(segment)
+          && segment >= 0
+        )
       ))
       || typeof message !== "string"
     ) continue;
@@ -107,7 +111,7 @@ export function validatePackingListDraft(
           cartonSkus.add(normalizedSku);
         }
 
-        if (!Number.isInteger(line.expectedQuantity) || line.expectedQuantity <= 0) {
+        if (!Number.isSafeInteger(line.expectedQuantity) || line.expectedQuantity <= 0) {
           fieldErrors[
             packingListFieldKey([
               "pallets",

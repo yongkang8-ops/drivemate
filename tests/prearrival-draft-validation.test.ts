@@ -143,10 +143,42 @@ describe("pre-arrival Packing List draft validation", () => {
             path: ["pallets", Number.MAX_SAFE_INTEGER + 1, "sourcePalletNumber"],
             message: "Unsafe.",
           },
+          {
+            path: ["pallets", -1, "sourcePalletNumber"],
+            message: "Negative.",
+          },
         ],
       }),
     ).toEqual({
       "pallets.0.sourcePalletNumber": "First.",
+    });
+  });
+
+  it("rejects a positive integer quantity outside the safe integer range", () => {
+    const result = validatePackingListDraft(
+      {
+        shipmentId: "shipment-test-1",
+        pallets: [
+          {
+            sourcePalletNumber: "P001",
+            cartons: [
+              {
+                sourceCartonNumber: "C001",
+                lines: [{
+                  sku: "DM-GWM-OF-001",
+                  expectedQuantity: Number.MAX_SAFE_INTEGER + 1,
+                }],
+              },
+            ],
+          },
+        ],
+      },
+      ["DM-GWM-OF-001"],
+    );
+
+    expect(result.fieldErrors).toMatchObject({
+      "pallets.0.cartons.0.lines.0.expectedQuantity":
+        "Enter a positive whole quantity.",
     });
   });
 });

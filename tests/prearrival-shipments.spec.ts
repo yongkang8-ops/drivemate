@@ -1,6 +1,29 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 
 const partnerHeaders = { "x-drivemate-role": "partner" };
+
+async function invokeReactHandler(
+  locator: Locator,
+  handlerName: "onClick" | "onChange",
+  value?: string,
+) {
+  const invoked = await locator.evaluate((element, options) => {
+    const reactPropsKey = Object.keys(element).find((key) => key.startsWith("__reactProps$"));
+    const reactProps = reactPropsKey
+      ? (element as unknown as Record<
+        string,
+        Record<string, ((event?: { target: { value?: string } }) => void) | undefined>
+      >)[reactPropsKey]
+      : undefined;
+    const handler = reactProps?.[options.handlerName];
+    if (!handler) return false;
+    handler(options.handlerName === "onChange"
+      ? { target: { value: options.value } }
+      : undefined);
+    return true;
+  }, { handlerName, value });
+  expect(invoked).toBe(true);
+}
 
 test.beforeEach(async ({ request }) => {
   await request.post("/api/test/reset");
@@ -321,7 +344,7 @@ test("a saved draft retries confirmation without creating another revision", asy
   page,
   request,
 }) => {
-  await request.post("/api/test/reset?packingList=empty");
+  await request.post("/api/test/reset?shipments=multiple");
   let createPostCount = 0;
   let confirmPostCount = 0;
   let releaseCreate!: () => void;
@@ -348,6 +371,135 @@ test("a saved draft retries confirmation without creating another revision", asy
     await route.continue();
   });
 
+  await page.goto("/prearrival?shipmentId=shipment-test-1");
+  await page.getByRole("button", { name: "Create revision" }).click();
+  await page.getByLabel("Expected quantity", { exact: true }).fill("13");
+  await page.getByRole("button", { name: "Confirm Packing List" }).click();
+
+  await createStarted;
+  await expect(page.getByLabel("Shipment")).toBeDisabled();
+  releaseCreate();
+  await expect(page.getByText("Temporary confirmation failure.", { exact: true })).toBeVisible();
+  await expect(page.getByText(
+    "Packing List draft saved. Editing is locked until confirmation or reload.",
+    { exact: true },
+  )).toBeVisible();
+  await expect(page.getByRole("button", { name: "Confirm Packing List" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Reload shipment status" })).toBeEnabled();
+  await expect(page.getByLabel("Shipment")).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Create revision" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Add SKU line" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Add carton" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Add pallet" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Remove SKU line 2" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Remove carton" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Remove pallet" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Cancel working copy" })).toBeDisabled();
+  expect(await page.locator(".prearrival-editor input").evaluateAll(
+    (inputs) => inputs.every((input) => (input as HTMLInputElement).disabled),
+  )).toBe(true);
+
+  await invokeReactHandler(
+    page.getByLabel("Expected quantity", { exact: true }),
+    "onChange",
+    "99",
+  );
+  await invokeReactHandler(page.getByRole("button", { name: "Add SKU line" }), "onClick");
+  await invokeReactHandler(page.getByRole("button", { name: "Remove SKU line 2" }), "onClick");
+  await invokeReactHandler(page.getByRole("button", { name: "Create revision" }), "onClick");
+  await invokeReactHandler(page.getByRole("button", { name: "Cancel working copy" }), "onClick");
+  let shipmentDetailRequestCount = 0;
+  page.on("request", (pendingRequest) => {
+    if (
+      pendingRequest.method() === "GET"
+      && new URL(pendingRequest.url()).searchParams.get("shipmentId") === "shipment-test-2"
+    ) shipmentDetailRequestCount += 1;
+  });
+  await invokeReactHandler(page.getByLabel("Shipment"), "onChange", "shipment-test-2");
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
+
+  await expect(page.getByLabel("Expected quantity", { exact: true })).toHaveValue("13");
+  await expect(page.getByLabel("SKU 2")).toHaveValue("DM-GWM-AF-002");
+  await expect(page.getByLabel("SKU 3")).toHaveCount(0);
+  await expect(page.getByText(
+    "Packing List draft saved. Editing is locked until confirmation or reload.",
+    { exact: true },
+  )).toBeVisible();
+  await expect(page.getByLabel("Shipment")).toHaveValue("shipment-test-1");
+  expect(shipmentDetailRequestCount).toBe(0);
+
+  await page.getByRole("button", { name: "Confirm Packing List" }).click();
+  await expect(page.getByText("Packing List v2 confirmed", { exact: true })).toBeVisible();
+  await expect(page.getByText("13 Ready", { exact: true })).toBeVisible();
+  expect(createPostCount).toBe(1);
+  expect(confirmPostCount).toBe(2);
+});
+
+test("reload recovers a server-saved draft when the create response is lost", async ({
+  page,
+  request,
+}) => {
+  await request.post("/api/test/reset?packingList=empty");
+  let createPostCount = 0;
+  let confirmPostCount = 0;
+  await page.route(/\/api\/prearrival\/shipments\/[^/]+\/revisions$/, async (route) => {
+    createPostCount += 1;
+    await route.fetch();
+    await route.abort("failed");
+  });
+  await page.route(/\/api\/prearrival\/revisions\/[^/]+\/confirm$/, async (route) => {
+    confirmPostCount += 1;
+    await route.continue();
+  });
+
+  await page.goto("/prearrival");
+  await page.getByRole("button", { name: "Create first Packing List" }).click();
+  await page.getByLabel("Pallet number").fill("P001");
+  await page.getByLabel("Carton number").fill("C001");
+  await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
+  await page.getByLabel("Expected quantity", { exact: true }).fill("17");
+  await page.getByRole("button", { name: "Confirm Packing List" }).click();
+  await expect(page.getByRole("button", { name: "Reload shipment status" })).toBeEnabled();
+
+  await page.getByRole("button", { name: "Reload shipment status" }).click();
+  await expect(page.getByText(
+    "Packing List draft saved. Editing is locked until confirmation or reload.",
+    { exact: true },
+  )).toBeVisible();
+  await expect(page.getByLabel("Pallet number")).toHaveValue("P001");
+  await expect(page.getByLabel("Expected quantity", { exact: true })).toHaveValue("17");
+  await expect(page.getByLabel("Expected quantity", { exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Confirm Packing List" })).toBeEnabled();
+
+  await page.getByRole("button", { name: "Confirm Packing List" }).click();
+  await expect(page.getByText("Packing List v1 confirmed", { exact: true })).toBeVisible();
+  expect(createPostCount).toBe(1);
+  expect(confirmPostCount).toBe(1);
+});
+
+test("reload resolves an unknown confirm response from server truth", async ({
+  page,
+  request,
+}) => {
+  await request.post("/api/test/reset?packingList=empty");
+  let createPostCount = 0;
+  let confirmPostCount = 0;
+  page.on("request", (pendingRequest) => {
+    if (
+      pendingRequest.method() === "POST"
+      && /\/api\/prearrival\/shipments\/[^/]+\/revisions$/.test(
+        new URL(pendingRequest.url()).pathname,
+      )
+    ) createPostCount += 1;
+  });
+  await page.route(/\/api\/prearrival\/revisions\/[^/]+\/confirm$/, async (route) => {
+    confirmPostCount += 1;
+    await route.fetch();
+    await route.abort("failed");
+  });
+
   await page.goto("/prearrival");
   await page.getByRole("button", { name: "Create first Packing List" }).click();
   await page.getByLabel("Pallet number").fill("P001");
@@ -355,16 +507,18 @@ test("a saved draft retries confirmation without creating another revision", asy
   await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
   await page.getByRole("button", { name: "Confirm Packing List" }).click();
 
-  await createStarted;
-  await expect(page.getByLabel("Shipment")).toBeDisabled();
-  releaseCreate();
-  await expect(page.getByText("Temporary confirmation failure.", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Confirm Packing List" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Reload shipment status" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Confirm Packing List" })).toBeDisabled();
+  await page.getByRole("button", { name: "Reload shipment status" }).click();
 
-  await page.getByRole("button", { name: "Confirm Packing List" }).click();
-  await expect(page.getByText("Packing List v1 confirmed", { exact: true })).toBeVisible();
+  await expect(page.locator(".prearrival-version-row")).toContainText("v1 confirmed");
+  await expect(page.getByRole("link", { name: "Prepare AU labels" })).toBeVisible();
+  await expect(page.getByText(
+    "Packing List draft saved. Editing is locked until confirmation or reload.",
+    { exact: true },
+  )).toHaveCount(0);
   expect(createPostCount).toBe(1);
-  expect(confirmPostCount).toBe(2);
+  expect(confirmPostCount).toBe(1);
 });
 
 test("an unknown create result requires shipment reconciliation", async ({
@@ -395,13 +549,9 @@ test("an unknown create result requires shipment reconciliation", async ({
     (button) => {
       (button as HTMLButtonElement).disabled = false;
       (button as HTMLButtonElement).click();
-      const reactPropsKey = Object.keys(button).find((key) => key.startsWith("__reactProps$"));
-      const reactProps = reactPropsKey
-        ? (button as unknown as Record<string, { onClick?: () => void }>)[reactPropsKey]
-        : undefined;
-      reactProps?.onClick?.();
     },
   );
+  await invokeReactHandler(page.getByRole("button", { name: "Confirm Packing List" }), "onClick");
   await page.evaluate(() => new Promise<void>((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
   }));

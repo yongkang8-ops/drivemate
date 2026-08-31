@@ -53,6 +53,12 @@ function latestConfirmedRevision(shipment: PrearrivalShipment): PackingListRevis
     .sort((left, right) => right.version - left.version)[0];
 }
 
+function latestDraftRevision(shipment: PrearrivalShipment): PackingListRevision | undefined {
+  return shipment.revisions
+    .filter((revision) => revision.status === "draft")
+    .sort((left, right) => right.version - left.version)[0];
+}
+
 function payloadFromShipment(shipment: PrearrivalShipment): PackingListRevisionInput {
   const confirmed = latestConfirmedRevision(shipment);
   if (confirmed) return structuredClone(confirmed.payloadSnapshot);
@@ -138,6 +144,7 @@ export function PrearrivalShipmentPanel() {
   const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const loadRequestToken = useRef(0);
   const draftLineIdSequence = useRef(0);
+  const editorLocked = busy || pendingRevisionId !== null || reconciliationRequired;
 
   function createDraftLineId(): string {
     draftLineIdSequence.current += 1;
@@ -182,7 +189,7 @@ export function PrearrivalShipmentPanel() {
   }
 
   function cancelWorkingCopy() {
-    if (reconciliationRequired) return;
+    if (editorLocked) return;
     setDraftPayload(null);
     setDraftLineIds([]);
     clearDraftErrors();
@@ -205,12 +212,22 @@ export function PrearrivalShipmentPanel() {
         return;
       }
       setShipment(body.shipment);
-      setDraftPayload(null);
-      setDraftLineIds([]);
       clearDraftErrors();
-      clearRevisionProgress();
       setSelection({ palletIndex: 0, cartonIndex: 0 });
-      setMessage(shipmentStatusMessage(body.shipment));
+      const savedDraft = latestDraftRevision(body.shipment);
+      if (savedDraft) {
+        const savedPayload = structuredClone(savedDraft.payloadSnapshot);
+        setDraftPayload(savedPayload);
+        setDraftLineIds(lineIdsForPayload(savedPayload));
+        setPendingRevisionId(savedDraft.id);
+        setReconciliationRequired(false);
+        setMessage("A saved Packing List draft is awaiting confirmation.");
+      } else {
+        setDraftPayload(null);
+        setDraftLineIds([]);
+        clearRevisionProgress();
+        setMessage(shipmentStatusMessage(body.shipment));
+      }
     } catch {
       if (requestToken !== loadRequestToken.current) return;
       setMessage("Pre-arrival shipment could not be loaded. Try reloading shipment status.");
@@ -282,7 +299,7 @@ export function PrearrivalShipmentPanel() {
     : [];
 
   function startRevision() {
-    if (!shipment || reconciliationRequired) return;
+    if (!shipment || editorLocked) return;
     clearDraftErrors();
     clearRevisionProgress();
     const nextPayload = payloadFromShipment(shipment);
@@ -295,7 +312,7 @@ export function PrearrivalShipmentPanel() {
   }
 
   function addPallet() {
-    if (!draftPayload) return;
+    if (!draftPayload || editorLocked) return;
     clearDraftErrors();
     const nextPayload = structuredClone(draftPayload);
     const nextLineIds = structuredClone(draftLineIds);
@@ -307,7 +324,7 @@ export function PrearrivalShipmentPanel() {
   }
 
   function addCarton() {
-    if (!draftPayload) return;
+    if (!draftPayload || editorLocked) return;
     const nextPayload = structuredClone(draftPayload);
     const pallet = nextPayload.pallets[selection.palletIndex];
     if (!pallet) return;
@@ -323,7 +340,7 @@ export function PrearrivalShipmentPanel() {
   }
 
   function addSkuLine() {
-    if (!draftPayload) return;
+    if (!draftPayload || editorLocked) return;
     const nextPayload = structuredClone(draftPayload);
     const carton = nextPayload.pallets[selection.palletIndex]?.cartons[selection.cartonIndex];
     if (!carton) return;
@@ -338,7 +355,7 @@ export function PrearrivalShipmentPanel() {
   }
 
   function removeSkuLine(lineIndex: number) {
-    if (!draftPayload) return;
+    if (!draftPayload || editorLocked) return;
     const nextPayload = structuredClone(draftPayload);
     const carton = nextPayload.pallets[selection.palletIndex]?.cartons[selection.cartonIndex];
     if (!carton || carton.lines.length === 1) return;
@@ -353,7 +370,7 @@ export function PrearrivalShipmentPanel() {
   }
 
   function removeSelectedCarton() {
-    if (!draftPayload) return;
+    if (!draftPayload || editorLocked) return;
     const nextPayload = structuredClone(draftPayload);
     const pallet = nextPayload.pallets[selection.palletIndex];
     if (!pallet || pallet.cartons.length === 1) return;
@@ -372,7 +389,7 @@ export function PrearrivalShipmentPanel() {
   }
 
   function removeSelectedPallet() {
-    if (!draftPayload || draftPayload.pallets.length === 1) return;
+    if (!draftPayload || editorLocked || draftPayload.pallets.length === 1) return;
     const nextPayload = structuredClone(draftPayload);
     const nextLineIds = structuredClone(draftLineIds);
     if (!nextLineIds[selection.palletIndex]) return;
@@ -389,7 +406,7 @@ export function PrearrivalShipmentPanel() {
     value: string,
     lineIndex = 0,
   ) {
-    if (!draftPayload) return;
+    if (!draftPayload || editorLocked) return;
     const nextPayload = structuredClone(draftPayload);
     const pallet = nextPayload.pallets[selection.palletIndex];
     const carton = pallet?.cartons[selection.cartonIndex];
@@ -404,7 +421,7 @@ export function PrearrivalShipmentPanel() {
   }
 
   async function confirmRevision() {
-    if (!draftPayload || !shipment || reconciliationRequired) return;
+    if (!draftPayload || !shipment || busy || reconciliationRequired) return;
     const mutationShipmentId = shipment.shipmentId;
     if (!pendingRevisionId) {
       const validation = validatePackingListDraft(draftPayload, shipment.productMasterSkus);
@@ -472,8 +489,9 @@ export function PrearrivalShipmentPanel() {
     } catch {
       if (revisionId) {
         setPendingRevisionId(revisionId);
-        setErrorSummary("Packing List draft was saved, but confirmation could not be completed. Try Confirm Packing List again.");
-        setMessage("The confirmation request did not complete. Retry confirmation when ready.");
+        setReconciliationRequired(true);
+        setErrorSummary("The Packing List confirmation result is unknown. Reload shipment status before trying again.");
+        setMessage("Reload shipment status to reconcile the saved Packing List confirmation.");
       } else {
         setReconciliationRequired(true);
         setErrorSummary("The Packing List save result is unknown. Reload shipment status before trying again.");
@@ -565,9 +583,11 @@ export function PrearrivalShipmentPanel() {
               : `${shipment.packingListStatus === "draft" ? "Draft exists" : "Packing List not started"} / Warehouse locked until confirmation`}</p>
             <select
               aria-label="Shipment"
-              disabled={busy || reconciliationRequired}
+              disabled={editorLocked}
               value={shipment.shipmentId}
-              onChange={(event) => void loadShipment(event.target.value)}
+              onChange={(event) => {
+                if (!editorLocked) void loadShipment(event.target.value);
+              }}
             >
               {shipments.map((item) => (
                 <option key={item.shipmentId} value={item.shipmentId}>
@@ -640,10 +660,10 @@ export function PrearrivalShipmentPanel() {
               })}
               {draftPayload ? (
                 <div className="prearrival-structure-actions" aria-label="Packing List structure actions">
-                  <button className="secondary-button" type="button" onClick={addCarton}><Plus size={15} />Add carton</button>
-                  <button className="secondary-button" type="button" onClick={addPallet}><Plus size={15} />Add pallet</button>
-                  <button className="prearrival-remove-button" type="button" onClick={removeSelectedCarton} disabled={(selectedCarton?.draftPallet?.cartons.length ?? 0) <= 1}><Trash size={14} />Remove carton</button>
-                  <button className="prearrival-remove-button" type="button" onClick={removeSelectedPallet} disabled={draftPayload.pallets.length <= 1}><Trash size={14} />Remove pallet</button>
+                  <button className="secondary-button" type="button" onClick={addCarton} disabled={editorLocked}><Plus size={15} />Add carton</button>
+                  <button className="secondary-button" type="button" onClick={addPallet} disabled={editorLocked}><Plus size={15} />Add pallet</button>
+                  <button className="prearrival-remove-button" type="button" onClick={removeSelectedCarton} disabled={editorLocked || (selectedCarton?.draftPallet?.cartons.length ?? 0) <= 1}><Trash size={14} />Remove carton</button>
+                  <button className="prearrival-remove-button" type="button" onClick={removeSelectedPallet} disabled={editorLocked || draftPayload.pallets.length <= 1}><Trash size={14} />Remove pallet</button>
                 </div>
               ) : null}
               <div className="prearrival-phase-copy"><span>Export label position</span><p>No DriveMate label is required in China. Australian printing is prepared from this data.</p></div>
@@ -669,9 +689,9 @@ export function PrearrivalShipmentPanel() {
                     ? `Draft v${shipment.latestPackingListVersion ?? 1} exists. Warehouse remains locked until a revision is confirmed.`
                     : "No confirmed version. Warehouse remains locked."}</strong></div>
                 {packingListConfirmed
-                  ? <button className="secondary-button" type="button" onClick={startRevision} disabled={busy}>Create revision</button>
+                  ? <button className="secondary-button" type="button" onClick={startRevision} disabled={editorLocked}>Create revision</button>
                   : !draftPayload
-                    ? <button className="secondary-button" type="button" onClick={startRevision} disabled={busy}>Open working copy</button>
+                    ? <button className="secondary-button" type="button" onClick={startRevision} disabled={editorLocked}>Open working copy</button>
                     : null}
               </div>
 
@@ -682,10 +702,11 @@ export function PrearrivalShipmentPanel() {
                     ? "Confirming this copy creates a new immutable version. The existing confirmed record remains unchanged."
                     : "Build the complete export structure here. Confirmation creates immutable Packing List v1 and unlocks Warehouse."}</p>
                   {errorSummary ? <div className="prearrival-error-summary" role="alert">{errorSummary}</div> : null}
-                  {reconciliationRequired ? <button className="secondary-button prearrival-reconcile" type="button" onClick={() => void loadShipment(shipment.shipmentId)} disabled={busy}>Reload shipment status</button> : null}
+                  {pendingRevisionId ? <p className="prearrival-message">Packing List draft saved. Editing is locked until confirmation or reload.</p> : null}
+                  {pendingRevisionId || reconciliationRequired ? <button className="secondary-button prearrival-reconcile" type="button" onClick={() => void loadShipment(shipment.shipmentId)} disabled={busy}>Reload shipment status</button> : null}
                   <div className="prearrival-editor-grid">
-                    <div className="prearrival-field"><label htmlFor={fieldId(palletField)}>Pallet number</label><input id={fieldId(palletField)} ref={(element) => { fieldRefs.current[palletField] = element; }} aria-invalid={Boolean(fieldErrors[palletField])} aria-describedby={fieldErrors[palletField] ? errorId(palletField) : undefined} value={selectedCarton.draftPallet.sourcePalletNumber} onChange={(event) => { clearFieldError(palletField); updateSelectedCarton("pallet", event.target.value); }} />{fieldErrors[palletField] ? <span className="prearrival-field-error" id={errorId(palletField)}>{fieldErrors[palletField]}</span> : null}</div>
-                    <div className="prearrival-field"><label htmlFor={fieldId(cartonField)}>Carton number</label><input id={fieldId(cartonField)} ref={(element) => { fieldRefs.current[cartonField] = element; }} aria-invalid={Boolean(fieldErrors[cartonField])} aria-describedby={fieldErrors[cartonField] ? errorId(cartonField) : undefined} value={selectedCarton.draftCarton.sourceCartonNumber} onChange={(event) => { clearFieldError(cartonField); updateSelectedCarton("carton", event.target.value); }} />{fieldErrors[cartonField] ? <span className="prearrival-field-error" id={errorId(cartonField)}>{fieldErrors[cartonField]}</span> : null}</div>
+                    <div className="prearrival-field"><label htmlFor={fieldId(palletField)}>Pallet number</label><input id={fieldId(palletField)} ref={(element) => { fieldRefs.current[palletField] = element; }} aria-invalid={Boolean(fieldErrors[palletField])} aria-describedby={fieldErrors[palletField] ? errorId(palletField) : undefined} disabled={editorLocked} value={selectedCarton.draftPallet.sourcePalletNumber} onChange={(event) => { clearFieldError(palletField); updateSelectedCarton("pallet", event.target.value); }} />{fieldErrors[palletField] ? <span className="prearrival-field-error" id={errorId(palletField)}>{fieldErrors[palletField]}</span> : null}</div>
+                    <div className="prearrival-field"><label htmlFor={fieldId(cartonField)}>Carton number</label><input id={fieldId(cartonField)} ref={(element) => { fieldRefs.current[cartonField] = element; }} aria-invalid={Boolean(fieldErrors[cartonField])} aria-describedby={fieldErrors[cartonField] ? errorId(cartonField) : undefined} disabled={editorLocked} value={selectedCarton.draftCarton.sourceCartonNumber} onChange={(event) => { clearFieldError(cartonField); updateSelectedCarton("carton", event.target.value); }} />{fieldErrors[cartonField] ? <span className="prearrival-field-error" id={errorId(cartonField)}>{fieldErrors[cartonField]}</span> : null}</div>
                     {selectedCarton.draftCarton.lines.map((line, lineIndex) => {
                       const skuField = packingListFieldKey(["pallets", selection.palletIndex, "cartons", selection.cartonIndex, "lines", lineIndex, "sku"]);
                       const quantityField = packingListFieldKey(["pallets", selection.palletIndex, "cartons", selection.cartonIndex, "lines", lineIndex, "expectedQuantity"]);
@@ -693,15 +714,15 @@ export function PrearrivalShipmentPanel() {
                       if (!lineClientId) return null;
                       return (
                         <div className="prearrival-line-editor" key={lineClientId}>
-                          <div className="prearrival-field"><label htmlFor={fieldId(skuField)}>{lineIndex === 0 ? "SKU" : `SKU ${lineIndex + 1}`}</label><input id={fieldId(skuField)} ref={(element) => { fieldRefs.current[skuField] = element; }} aria-invalid={Boolean(fieldErrors[skuField])} aria-describedby={fieldErrors[skuField] ? errorId(skuField) : undefined} value={line.sku} onChange={(event) => { clearFieldError(skuField); updateSelectedCarton("sku", event.target.value, lineIndex); }} />{fieldErrors[skuField] ? <span className="prearrival-field-error" id={errorId(skuField)}>{fieldErrors[skuField]}</span> : null}</div>
-                          <div className="prearrival-field"><label htmlFor={fieldId(quantityField)}>{lineIndex === 0 ? "Expected quantity" : `Expected quantity ${lineIndex + 1}`}</label><input id={fieldId(quantityField)} ref={(element) => { fieldRefs.current[quantityField] = element; }} aria-invalid={Boolean(fieldErrors[quantityField])} aria-describedby={fieldErrors[quantityField] ? errorId(quantityField) : undefined} min="1" type="number" value={line.expectedQuantity} onChange={(event) => { clearFieldError(quantityField); updateSelectedCarton("quantity", event.target.value, lineIndex); }} />{fieldErrors[quantityField] ? <span className="prearrival-field-error" id={errorId(quantityField)}>{fieldErrors[quantityField]}</span> : null}</div>
-                          {lineIndex > 0 ? <button className="prearrival-remove-button" type="button" aria-label={`Remove SKU line ${lineIndex + 1}`} onClick={() => removeSkuLine(lineIndex)}><Trash size={14} />Remove line</button> : null}
+                          <div className="prearrival-field"><label htmlFor={fieldId(skuField)}>{lineIndex === 0 ? "SKU" : `SKU ${lineIndex + 1}`}</label><input id={fieldId(skuField)} ref={(element) => { fieldRefs.current[skuField] = element; }} aria-invalid={Boolean(fieldErrors[skuField])} aria-describedby={fieldErrors[skuField] ? errorId(skuField) : undefined} disabled={editorLocked} value={line.sku} onChange={(event) => { clearFieldError(skuField); updateSelectedCarton("sku", event.target.value, lineIndex); }} />{fieldErrors[skuField] ? <span className="prearrival-field-error" id={errorId(skuField)}>{fieldErrors[skuField]}</span> : null}</div>
+                          <div className="prearrival-field"><label htmlFor={fieldId(quantityField)}>{lineIndex === 0 ? "Expected quantity" : `Expected quantity ${lineIndex + 1}`}</label><input id={fieldId(quantityField)} ref={(element) => { fieldRefs.current[quantityField] = element; }} aria-invalid={Boolean(fieldErrors[quantityField])} aria-describedby={fieldErrors[quantityField] ? errorId(quantityField) : undefined} disabled={editorLocked} min="1" type="number" value={line.expectedQuantity} onChange={(event) => { clearFieldError(quantityField); updateSelectedCarton("quantity", event.target.value, lineIndex); }} />{fieldErrors[quantityField] ? <span className="prearrival-field-error" id={errorId(quantityField)}>{fieldErrors[quantityField]}</span> : null}</div>
+                          {lineIndex > 0 ? <button className="prearrival-remove-button" type="button" aria-label={`Remove SKU line ${lineIndex + 1}`} onClick={() => removeSkuLine(lineIndex)} disabled={editorLocked}><Trash size={14} />Remove line</button> : null}
                         </div>
                       );
                     })}
                   </div>
-                  <button className="secondary-button prearrival-add-line" type="button" onClick={addSkuLine}><Plus size={15} />Add SKU line</button>
-                  <div className="prearrival-editor-actions"><button className="button button-primary" type="button" onClick={() => void confirmRevision()} disabled={busy || reconciliationRequired}>{busy ? "Confirming..." : "Confirm Packing List"}</button><button className="button button-secondary" type="button" onClick={cancelWorkingCopy} disabled={busy || reconciliationRequired}>Cancel working copy</button></div>
+                  <button className="secondary-button prearrival-add-line" type="button" onClick={addSkuLine} disabled={editorLocked}><Plus size={15} />Add SKU line</button>
+                  <div className="prearrival-editor-actions"><button className="button button-primary" type="button" onClick={() => void confirmRevision()} disabled={busy || reconciliationRequired}>{busy ? "Confirming..." : "Confirm Packing List"}</button><button className="button button-secondary" type="button" onClick={cancelWorkingCopy} disabled={editorLocked}>Cancel working copy</button></div>
                 </section>
               ) : null}
 
