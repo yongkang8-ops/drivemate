@@ -598,6 +598,66 @@ test("Partner creates and confirms a pre-arrival packing-list revision", async (
   );
 });
 
+test("a stale draft older than the latest confirmation does not lock the editor", async ({
+  page,
+  request,
+}) => {
+  const payload = (expectedQuantity: number) => ({
+    shipmentId: "shipment-test-1",
+    pallets: [
+      {
+        sourcePalletNumber: "P001",
+        cartons: [
+          {
+            sourceCartonNumber: "C001",
+            lines: [{ sku: "DM-GWM-OF-001", expectedQuantity }],
+          },
+        ],
+      },
+    ],
+  });
+  const createV2 = await request.post(
+    "/api/prearrival/shipments/shipment-test-1/revisions",
+    { headers: partnerHeaders, data: payload(13) },
+  );
+  expect(createV2.status()).toBe(201);
+  const v2 = await createV2.json();
+  const createV3 = await request.post(
+    "/api/prearrival/shipments/shipment-test-1/revisions",
+    { headers: partnerHeaders, data: payload(14) },
+  );
+  expect(createV3.status()).toBe(201);
+  const v3 = await createV3.json();
+  const confirmV3 = await request.post(
+    `/api/prearrival/revisions/${v3.revision.id}/confirm`,
+    { headers: partnerHeaders },
+  );
+  expect(confirmV3.ok()).toBeTruthy();
+
+  const serverTruth = await request.get(
+    "/api/prearrival/shipments?shipmentId=shipment-test-1",
+    { headers: partnerHeaders },
+  );
+  await expect(serverTruth.json()).resolves.toMatchObject({
+    ok: true,
+    shipment: {
+      revisions: expect.arrayContaining([
+        expect.objectContaining({ id: v2.revision.id, version: 2, status: "draft" }),
+        expect.objectContaining({ id: v3.revision.id, version: 3, status: "confirmed" }),
+      ]),
+    },
+  });
+
+  await page.goto("/prearrival");
+  await expect(page.locator(".prearrival-version-row")).toContainText("v3 confirmed");
+  await expect(page.getByRole("button", { name: "Create revision" })).toBeEnabled();
+  await expect(page.getByText(
+    "A saved Packing List draft is awaiting confirmation.",
+    { exact: true },
+  )).toHaveCount(0);
+  await expect(page.getByLabel("Packing list revision editor")).toHaveCount(0);
+});
+
 test("pre-arrival APIs require Partner access and retain a confirmed revision", async ({
   request,
 }) => {

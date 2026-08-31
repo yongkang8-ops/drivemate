@@ -54,8 +54,12 @@ function latestConfirmedRevision(shipment: PrearrivalShipment): PackingListRevis
 }
 
 function latestDraftRevision(shipment: PrearrivalShipment): PackingListRevision | undefined {
+  const confirmed = latestConfirmedRevision(shipment);
   return shipment.revisions
-    .filter((revision) => revision.status === "draft")
+    .filter((revision) => (
+      revision.status === "draft"
+      && (!confirmed || revision.version > confirmed.version)
+    ))
     .sort((left, right) => right.version - left.version)[0];
 }
 
