@@ -41,10 +41,11 @@ type PartnerDashboardData = {
   shipments: Array<PartnerDashboardShipmentSource & {
     stage: string;
     stageLabel: string;
-    labelStatus: "printed" | "pending";
-    receiptStatus: "confirmed" | "waiting";
-    putawayStatus: "complete" | "pending" | "waiting";
+    labelStatus: "printed" | "pending" | "not_ready";
+    receiptStatus: "confirmed" | "waiting" | "blocked";
+    putawayStatus: "complete" | "pending" | "waiting" | "blocked";
     nextAction: string;
+    nextActionHref: string;
   }>;
   exceptions: PartnerDashboardAttention[];
   attention: PartnerDashboardAttention[];
@@ -66,7 +67,7 @@ function formatTimestamp(value: string, timeZone: WarehouseHistoryTimeZone) {
   }).format(new Date(value));
 }
 
-function StatusPill({ label, status }: { label: string; status: "printed" | "confirmed" | "complete" | "pending" | "waiting" }) {
+function StatusPill({ label, status }: { label: string; status: "printed" | "confirmed" | "complete" | "pending" | "waiting" | "not_ready" | "blocked" }) {
   return <span className={`partner-status partner-status-${status}`}>{label}</span>;
 }
 
@@ -196,7 +197,7 @@ export function PartnerDashboard() {
                   <span>Saved inbound worklist</span>
                   <h2>Inbound shipment board</h2>
                 </div>
-                <Link href="/prearrival">Open pre-arrival <CaretRight size={15} weight="bold" /></Link>
+                <Link href="/prearrival" aria-label="Open all pre-arrival shipments">Open pre-arrival <CaretRight size={15} weight="bold" /></Link>
               </div>
 
               {isLoading ? <p className="partner-dashboard-empty">Loading saved shipment records…</p> : null}
@@ -205,18 +206,25 @@ export function PartnerDashboard() {
                 <div className="partner-shipment-row" key={shipment.shipmentId}>
                   <div className="partner-shipment-reference">
                     <strong>{shipment.shipmentReference}</strong>
-                    <span>Packing List v{shipment.packingListVersion} · {shipment.palletCount} pallets · {shipment.cartonCount} cartons</span>
+                    <span>
+                      <span>
+                        {shipment.packingListConfirmed
+                          ? `Packing List v${shipment.packingListVersion}`
+                          : "Packing List not confirmed"}
+                      </span>
+                      {` · ${shipment.palletCount} pallets · ${shipment.cartonCount} cartons`}
+                    </span>
                   </div>
                   <div className="partner-shipment-stage">
                     <span className={`partner-stage partner-stage-${shipment.stage}`}>{shipment.stageLabel}</span>
                     <small>{shipment.expectedQuantity} expected units</small>
                   </div>
                   <div className="partner-shipment-statuses" aria-label={`Operation status for ${shipment.shipmentReference}`}>
-                    <StatusPill label={shipment.labelStatus === "printed" ? "Labels printed" : "Labels pending"} status={shipment.labelStatus} />
-                    <StatusPill label={shipment.receiptStatus === "confirmed" ? "Receipt confirmed" : "Receipt waiting"} status={shipment.receiptStatus} />
-                    <StatusPill label={shipment.putawayStatus === "complete" ? "Putaway complete" : shipment.putawayStatus === "pending" ? "Putaway pending" : "Putaway waiting"} status={shipment.putawayStatus} />
+                    <StatusPill label={shipment.labelStatus === "printed" ? "Labels printed" : shipment.labelStatus === "pending" ? "Labels pending" : "Labels blocked"} status={shipment.labelStatus} />
+                    <StatusPill label={shipment.receiptStatus === "confirmed" ? "Receipt confirmed" : shipment.receiptStatus === "waiting" ? "Receipt waiting" : "Receipt blocked"} status={shipment.receiptStatus} />
+                    <StatusPill label={shipment.putawayStatus === "complete" ? "Putaway complete" : shipment.putawayStatus === "pending" ? "Putaway pending" : shipment.putawayStatus === "waiting" ? "Putaway waiting" : "Putaway blocked"} status={shipment.putawayStatus} />
                   </div>
-                  <Link className="partner-open-action" href={shipment.nextAction === "Prepare labels" ? `/warehouse?shipmentId=${encodeURIComponent(shipment.shipmentId)}` : "/warehouse"}>
+                  <Link className="partner-open-action" href={shipment.nextActionHref}>
                     {shipment.nextAction}<CaretRight size={15} weight="bold" />
                   </Link>
                 </div>
@@ -238,7 +246,7 @@ export function PartnerDashboard() {
                   <strong>{item.title}</strong>
                   <code>{item.reference}</code>
                   <p>{item.detail}</p>
-                  <Link href="/warehouse">Review operation <CaretRight size={14} weight="bold" /></Link>
+                  <Link href={item.href}>Review operation <CaretRight size={14} weight="bold" /></Link>
                 </div>
               ))}
             </aside>
@@ -269,7 +277,7 @@ export function PartnerDashboard() {
               <h2>Warehouse positions</h2>
               <div><Package size={21} weight="duotone" /><strong>{dashboard?.pipeline.stagingUnits ?? "–"}</strong><p>Units awaiting a location scan</p></div>
               <div><Warehouse size={21} weight="duotone" /><strong>{dashboard?.pipeline.locatedUnits ?? "–"}</strong><p>Units recorded as put away</p></div>
-              <div><ClipboardText size={21} weight="duotone" /><strong>{dashboard?.pipeline.activeShipments ?? "–"}</strong><p>Inbound shipment records in view</p></div>
+              <div><ClipboardText size={21} weight="duotone" /><strong>{dashboard?.pipeline.activeShipments ?? "–"}</strong><p>Confirmed Packing Lists in view</p></div>
               <p className="partner-posture-note"><Printer size={16} weight="duotone" /> The dashboard is a read-only projection of saved operations records.</p>
             </aside>
           </section>

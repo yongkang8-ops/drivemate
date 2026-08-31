@@ -618,17 +618,21 @@ body:has(.partner-dashboard-app) .site-shell { min-height: 100vh; }
 .partner-stage-located { background: #def1ea; color: #087173; }
 .partner-stage-ready_to_receive { background: #e0f4f1; color: #047477; }
 .partner-stage-label_required { background: #edf1f1; color: #567176; }
+.partner-stage-packing_list_required { background: #fff3dc; color: #835817; }
 .partner-shipment-statuses { display: grid; gap: 5px; }
 .partner-status { width: max-content; padding: 4px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; }
 .partner-status-printed, .partner-status-confirmed, .partner-status-complete { background: #e3f3ec; color: #1d6c5a; }
 .partner-status-pending { background: #fff0d6; color: #8a5a0f; }
 .partner-status-waiting { background: #edf2f1; color: #678086; }
+.partner-status-not_ready,
+.partner-status-blocked { background: #f1f4f3; color: #697f83; }
 .partner-open-action { display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px; color: #087173; font-size: 12px; font-weight: 740; text-align: right; text-decoration: none; white-space: nowrap; }
 .partner-attention-panel { background: #fbfdfc; }
 .partner-attention-item { display: grid; gap: 6px; margin-top: 14px; padding: 15px; border-left: 3px solid #c5d6d3; border-radius: 0 7px 7px 0; background: #f3f8f7; }
 .partner-attention-receipt_difference { border-left-color: #d18a20; background: #fff8eb; }
 .partner-attention-print_gate { border-left-color: #1c8582; }
 .partner-attention-staging_pending { border-left-color: #c58a30; }
+.partner-attention-packing_list_required { border-left-color: #bd7b18; background: #fff8eb; }
 .partner-attention-item strong { color: #345258; font-size: 13px; }
 .partner-attention-item code, .partner-activity-row code { overflow-wrap: anywhere; color: #235056; font: 650 11px var(--font-geist-mono), Consolas, monospace; }
 .partner-attention-item p { margin: 0; color: #617b80; font-size: 12px; line-height: 1.45; }

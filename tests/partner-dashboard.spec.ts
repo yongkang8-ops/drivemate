@@ -44,3 +44,25 @@ test("the dashboard reflects a label-confirmed receipt that remains in system st
   await expect(operationStatus.getByText("Putaway pending", { exact: true })).toBeVisible();
   await expect(page.locator(".partner-metric-grid article").nth(2).getByText("18", { exact: true })).toBeVisible();
 });
+
+test("an unconfirmed Packing List stays visible but blocked before label preparation", async ({
+  page,
+  request,
+}) => {
+  await request.post("/api/test/reset?packingList=empty");
+  await page.goto("/partner");
+
+  await expect(page.getByText("Packing List required", { exact: true })).toBeVisible();
+  await expect(page.getByText("Packing List not confirmed", { exact: true })).toBeVisible();
+  await expect(page.getByText("Labels blocked", { exact: true })).toBeVisible();
+  await expect(page.getByText("Receipt blocked", { exact: true })).toBeVisible();
+  await expect(page.getByText("Putaway blocked", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open pre-arrival", exact: true })).toHaveAttribute(
+    "href",
+    "/prearrival?shipmentId=shipment-test-1",
+  );
+  await expect(page.getByText("Prepare labels", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/ready for label preparation/i)).toHaveCount(0);
+  await expect(page.locator(".partner-metric-grid article").nth(0).getByText("0", { exact: true })).toBeVisible();
+  await expect(page.locator(".partner-metric-grid article").nth(1).getByText("0", { exact: true })).toBeVisible();
+});
