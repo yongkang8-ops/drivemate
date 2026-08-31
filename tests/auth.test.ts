@@ -19,6 +19,7 @@ describe("role capability model", () => {
     expect(parseRole("trade")).toBe("trade");
     expect(parseRole("partner")).toBe("partner");
     expect(parseRole("warehouse")).toBe("public");
+    expect(parseRole("warehouse_staff")).toBe("warehouse_staff");
   });
 
   it("allows each role only its intended V1 capabilities", () => {
@@ -26,18 +27,49 @@ describe("role capability model", () => {
     expect(can("trade", "vehicle_lookup")).toBe(true);
     expect(can("trade", "trade_read")).toBe(true);
     expect(can("trade", "create_order")).toBe(true);
-    expect(can("trade", "inventory_write")).toBe(false);
     expect(can("trade", "warehouse_read")).toBe(false);
     expect(can("partner", "vehicle_lookup")).toBe(true);
     expect(can("partner", "trade_read")).toBe(false);
     expect(can("partner", "warehouse_read")).toBe(true);
-    expect(can("partner", "inventory_write")).toBe(true);
+    expect(can("partner", "warehouse_label_print")).toBe(true);
+    expect(can("partner", "warehouse_receive")).toBe(true);
+    expect(can("partner", "warehouse_putaway")).toBe(true);
+    expect(can("partner", "warehouse_history_read")).toBe(true);
+    expect(can("partner", "inventory_adjust")).toBe(true);
+    expect(can("partner", "location_manage")).toBe(true);
+    expect(can("partner", "staff_read")).toBe(true);
+    expect(can("partner", "staff_manage")).toBe(false);
+    expect(can("partner", "prearrival_manage")).toBe(true);
+    expect(can("partner", "order_dispatch")).toBe(true);
+    expect(can("partner", "warehouse_rma_receive")).toBe(true);
     expect(can("partner", "admin_read")).toBe(false);
     expect(can("partner", "admin_write")).toBe(false);
+    expect(can("warehouse_staff", "warehouse_read")).toBe(false);
+    expect(can("warehouse_staff", "warehouse_label_print")).toBe(true);
+    expect(can("warehouse_staff", "warehouse_receive")).toBe(true);
+    expect(can("warehouse_staff", "warehouse_putaway")).toBe(true);
+    expect(can("warehouse_staff", "warehouse_history_read")).toBe(true);
+    expect(can("warehouse_staff", "inventory_adjust")).toBe(false);
+    expect(can("warehouse_staff", "location_manage")).toBe(false);
+    expect(can("warehouse_staff", "staff_read")).toBe(false);
+    expect(can("warehouse_staff", "staff_manage")).toBe(false);
+    expect(can("warehouse_staff", "prearrival_manage")).toBe(false);
+    expect(can("warehouse_staff", "order_dispatch")).toBe(false);
+    expect(can("warehouse_staff", "warehouse_rma_receive")).toBe(false);
     expect(can("admin", "warehouse_read")).toBe(true);
     expect(can("admin", "admin_read")).toBe(true);
     expect(can("admin", "admin_write")).toBe(true);
-    expect(can("admin", "inventory_write")).toBe(true);
+    expect(can("admin", "warehouse_label_print")).toBe(true);
+    expect(can("admin", "warehouse_receive")).toBe(true);
+    expect(can("admin", "warehouse_putaway")).toBe(true);
+    expect(can("admin", "warehouse_history_read")).toBe(true);
+    expect(can("admin", "inventory_adjust")).toBe(true);
+    expect(can("admin", "location_manage")).toBe(true);
+    expect(can("admin", "staff_read")).toBe(true);
+    expect(can("admin", "staff_manage")).toBe(true);
+    expect(can("admin", "prearrival_manage")).toBe(true);
+    expect(can("admin", "order_dispatch")).toBe(true);
+    expect(can("admin", "warehouse_rma_receive")).toBe(true);
   });
 
   it("honours the demo role header only when demo auth is enabled", async () => {

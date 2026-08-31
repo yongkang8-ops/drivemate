@@ -34,8 +34,8 @@ const receiptSchema = z.object({
 export async function POST(request: Request) {
   if (!mutationRequestAllowed(request)) return NextResponse.json({ ok: false, message: "Request security validation failed." }, { status: 403 });
   const auth = await getRequestContext(request);
-  if (auth.mfaRequired || !can(auth.role, "inventory_write")) {
-    return NextResponse.json({ ok: false, message: "Warehouse access with the required assurance level is required." }, { status: 403 });
+  if (!can(auth.role, "warehouse_receive")) {
+    return NextResponse.json({ ok: false, message: "Warehouse access is required." }, { status: 403 });
   }
   const parsed = receiptSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ ok: false, error: parsed.error.flatten() }, { status: 400 });

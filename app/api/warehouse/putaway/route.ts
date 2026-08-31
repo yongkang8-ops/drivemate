@@ -28,8 +28,8 @@ function selectionFromSearchParams(request: Request) {
 }
 
 export async function GET(request: Request) {
-  if (!(await requestCan(request, "warehouse_read"))) {
-    return NextResponse.json({ ok: false, message: "Warehouse putaway requires Partner access." }, { status: 403 });
+  if (!(await requestCan(request, "warehouse_putaway"))) {
+    return NextResponse.json({ ok: false, message: "Warehouse putaway access is required." }, { status: 403 });
   }
   const parsed = selectionFromSearchParams(request);
   if (!parsed.success) return NextResponse.json({ ok: false, error: parsed.error.flatten() }, { status: 400 });
@@ -43,9 +43,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message: "Request security validation failed." }, { status: 403 });
   }
   const auth = await getRequestContext(request);
-  if (auth.mfaRequired || !can(auth.role, "inventory_write")) {
+  if (!can(auth.role, "warehouse_putaway")) {
     return NextResponse.json(
-      { ok: false, message: "Warehouse putaway requires Partner access with the required assurance level." },
+      { ok: false, message: "Warehouse putaway access is required." },
       { status: 403 },
     );
   }

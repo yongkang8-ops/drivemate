@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { buildApiHeaders } from "../lib/clientAuth";
+import { useSensitiveFetch } from "./MfaStepUpProvider";
 import { type InventoryRow } from "../lib/inventory";
 import { ScannerInput } from "./ScannerInput";
 
@@ -61,6 +62,7 @@ type WarehouseScannerPanelProps = {
 export function WarehouseScannerPanel({
   showLegacyDirectMovements = false,
 }: WarehouseScannerPanelProps) {
+  const sensitiveFetch = useSensitiveFetch();
   const [rows, setRows] = useState<InventoryRow[]>([]);
   const [movements, setMovements] = useState<MovementRow[]>([]);
   const [pickOrders, setPickOrders] = useState<PickOrder[]>([]);
@@ -158,9 +160,9 @@ export function WarehouseScannerPanel({
     toLocation?: string;
     adjustmentDirection?: "increase" | "decrease";
     quarantineAction?: "release" | "writeoff";
-  }) {
+}) {
     const payload = { ...input, idempotencyKey: crypto.randomUUID() };
-    const response = await fetch("/api/inventory-movement", {
+    const response = await sensitiveFetch("/api/inventory-movement", {
       method: "POST",
       headers: await buildApiHeaders("partner", {
         "Content-Type": "application/json",
@@ -239,7 +241,7 @@ export function WarehouseScannerPanel({
       return;
     }
 
-    const response = await fetch("/api/inventory-movement/import", {
+    const response = await sensitiveFetch("/api/inventory-movement/import", {
       method: "POST",
       headers: await buildApiHeaders("partner", {
         "Content-Type": "application/json",

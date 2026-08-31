@@ -45,7 +45,7 @@ export function ReceiptHistoryPanel({ selection }: ReceiptHistoryPanelProps) {
       if (action) params.set("action", action);
       const response = await fetch(`/api/warehouse/history?${params.toString()}`, {
         cache: "no-store",
-        headers: await buildApiHeaders("partner"),
+        headers: await buildApiHeaders("warehouse_staff"),
       });
       const body = (await response.json()) as HistoryResponse;
       if (!response.ok || !body.ok) {

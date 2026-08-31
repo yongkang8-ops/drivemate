@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { can } from "../../../lib/auth";
+import { sensitiveOperationAccessError } from "../../../lib/apiAuthResponses";
 import { getRepository } from "../../../lib/repository";
 import { getRequestContext } from "../../../lib/serverAuth";
 import { productMasterCreateSchema } from "../../../lib/validators";
@@ -10,9 +11,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message: "Request security validation failed." }, { status: 403 });
   }
   const authContext = await getRequestContext(request);
-  if (!can(authContext.role, "admin_write")) {
-    return NextResponse.json({ ok: false, message: "Product master creation requires an admin role." }, { status: 403 });
-  }
+  const accessError = sensitiveOperationAccessError(authContext, can(authContext.role, "admin_write"), "Product master creation requires an admin role.");
+  if (accessError) return accessError;
 
   const parsed = productMasterCreateSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

@@ -242,7 +242,7 @@ export function getRuntimeReadiness() {
     "staff_mfa",
     !isHosted || staffMfaRequired ? "pass" : "fail",
     staffMfaRequired
-      ? "Admin and warehouse MFA enforcement is enabled."
+      ? "Admin and partner step-up MFA enforcement is enabled."
       : "Hosted environments require DRIVEMATE_REQUIRE_STAFF_MFA=true.",
   );
   if (isProduction && turnstileTestMode) {

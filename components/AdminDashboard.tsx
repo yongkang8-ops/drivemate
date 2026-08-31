@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { buildApiHeaders } from "../lib/clientAuth";
+import { useSensitiveFetch } from "./MfaStepUpProvider";
 
 type AdminState = {
   metrics: {
@@ -179,6 +180,7 @@ function formatMoney(value: number | undefined) {
 }
 
 export function AdminDashboard() {
+  const sensitiveFetch = useSensitiveFetch();
   const [state, setState] = useState<AdminState>(emptyState);
   const [message, setMessage] = useState("Loading operating state.");
   const [masterSku, setMasterSku] = useState("");
@@ -238,7 +240,7 @@ export function AdminDashboard() {
   }
 
   async function approveApplication(applicationId: string) {
-    const response = await fetch(`/api/trade-account-applications/${applicationId}/approve`, {
+    const response = await sensitiveFetch(`/api/trade-account-applications/${applicationId}/approve`, {
       method: "POST",
       headers: await buildApiHeaders("admin", { "Idempotency-Key": crypto.randomUUID() }),
     });
@@ -257,7 +259,7 @@ export function AdminDashboard() {
   }
 
   async function provisionLogin(applicationId: string) {
-    const response = await fetch(`/api/trade-account-applications/${applicationId}/provision-login`, {
+    const response = await sensitiveFetch(`/api/trade-account-applications/${applicationId}/provision-login`, {
       method: "POST",
       headers: await buildApiHeaders("admin"),
     });
@@ -283,7 +285,7 @@ export function AdminDashboard() {
     applicationId: string,
     status: "pending" | "approved" | "paused" | "closed",
   ) {
-    const response = await fetch(`/api/trade-account-applications/${applicationId}/status`, {
+    const response = await sensitiveFetch(`/api/trade-account-applications/${applicationId}/status`, {
       method: "PATCH",
       headers: await buildApiHeaders("admin", { "Content-Type": "application/json" }),
       body: JSON.stringify({ status }),
@@ -303,7 +305,7 @@ export function AdminDashboard() {
   }
 
   async function cancelOrder(orderId: string) {
-    const response = await fetch(`/api/orders/${orderId}/cancel`, {
+    const response = await sensitiveFetch(`/api/orders/${orderId}/cancel`, {
       method: "POST",
       headers: await buildApiHeaders("admin", { "Idempotency-Key": crypto.randomUUID() }),
     });
@@ -322,7 +324,7 @@ export function AdminDashboard() {
   }
 
   async function saveProductMaster() {
-    const response = await fetch(`/api/products/${encodeURIComponent(masterSku)}`, {
+    const response = await sensitiveFetch(`/api/products/${encodeURIComponent(masterSku)}`, {
       method: "PATCH",
       headers: await buildApiHeaders("admin", { "Content-Type": "application/json" }),
       body: JSON.stringify({
@@ -353,7 +355,7 @@ export function AdminDashboard() {
   }
 
   async function createProductMaster() {
-    const response = await fetch("/api/products", {
+    const response = await sensitiveFetch("/api/products", {
       method: "POST",
       headers: await buildApiHeaders("admin", { "Content-Type": "application/json" }),
       body: JSON.stringify({
@@ -404,7 +406,7 @@ export function AdminDashboard() {
   }
 
   async function createFitmentRule() {
-    const response = await fetch("/api/fitment-rules", {
+    const response = await sensitiveFetch("/api/fitment-rules", {
       method: "POST",
       headers: await buildApiHeaders("admin", { "Content-Type": "application/json" }),
       body: JSON.stringify({
@@ -513,7 +515,7 @@ export function AdminDashboard() {
       return;
     }
 
-    const response = await fetch("/api/products/import", {
+    const response = await sensitiveFetch("/api/products/import", {
       method: "POST",
       headers: await buildApiHeaders("admin", { "Content-Type": "application/json" }),
       body: JSON.stringify({ rows }),
@@ -602,7 +604,7 @@ export function AdminDashboard() {
       return;
     }
 
-    const response = await fetch("/api/fitment-rules/import", {
+    const response = await sensitiveFetch("/api/fitment-rules/import", {
       method: "POST",
       headers: await buildApiHeaders("admin", { "Content-Type": "application/json" }),
       body: JSON.stringify({ rows }),

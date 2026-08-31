@@ -8,8 +8,8 @@ const resolveQuerySchema = z.object({
 }).strict();
 
 export async function GET(request: Request) {
-  if (!(await requestCan(request, "warehouse_read"))) {
-    return NextResponse.json({ ok: false, message: "Inventory locations require Partner access." }, { status: 403 });
+  if (!(await requestCan(request, "warehouse_putaway"))) {
+    return NextResponse.json({ ok: false, message: "Putaway destination access is required." }, { status: 403 });
   }
   const params = new URL(request.url).searchParams;
   const parsed = resolveQuerySchema.safeParse({ barcode: params.get("barcode") ?? "" });

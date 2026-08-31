@@ -6,6 +6,11 @@ import {
   requestClientKey,
 } from "../../../../lib/requestSecurity";
 import { getRequestContext } from "../../../../lib/serverAuth";
+import {
+  refreshCookieName,
+  sessionCookieName,
+  sessionCookieOptions,
+} from "../../../../lib/sessionCookies";
 import { createRequestAuthSupabaseClient } from "../../../../lib/supabaseClient";
 
 const enrollSchema = z.object({
@@ -21,18 +26,42 @@ function staffRole(role: string) {
   return role === "admin" || role === "partner";
 }
 
-export async function GET(request: Request) {
-  const context = await getRequestContext(request);
-  if (!context.userId || !staffRole(context.role))
-    return NextResponse.json(
-      { ok: false, message: "Staff session required." },
-      { status: 403 },
-    );
+async function requestMfaSession(request: Request) {
   const auth = await createRequestAuthSupabaseClient(request);
-  if (!auth)
+  if (!auth) return null;
+  const headers = new Headers(request.headers);
+  headers.set("authorization", `Bearer ${auth.session.access_token}`);
+  const context = await getRequestContext(new Request(request.url, { headers }));
+  return { auth, context };
+}
+
+function persistRequestSession<T extends NextResponse>(response: T, session: {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+}) {
+  response.cookies.set(sessionCookieName(), session.access_token, sessionCookieOptions(session.expires_in));
+  response.cookies.set(refreshCookieName(), session.refresh_token, sessionCookieOptions(60 * 60 * 24 * 30));
+  return response;
+}
+
+export async function GET(request: Request) {
+  const requestSession = await requestMfaSession(request);
+  if (!requestSession)
     return NextResponse.json(
-      { ok: false, message: "Session expired." },
+      { ok: false, code: "session_expired", message: "Session expired." },
       { status: 401 },
+    );
+  const { auth, context } = requestSession;
+  if (!context.userId)
+    return NextResponse.json(
+      { ok: false, code: "session_expired", message: "Session expired." },
+      { status: 401 },
+    );
+  if (!staffRole(context.role))
+    return NextResponse.json(
+      { ok: false, code: "forbidden", message: "Staff access is required." },
+      { status: 403 },
     );
   const { data, error } = await auth.client.auth.mfa.listFactors();
   if (error)
@@ -40,7 +69,7 @@ export async function GET(request: Request) {
       { ok: false, message: "MFA factors could not be loaded." },
       { status: 422 },
     );
-  return NextResponse.json({
+  return persistRequestSession(NextResponse.json({
     ok: true,
     assuranceLevel: context.assuranceLevel,
     factors: data.totp.map((factor) => ({
@@ -48,7 +77,7 @@ export async function GET(request: Request) {
       friendlyName: factor.friendly_name,
       status: factor.status,
     })),
-  });
+  }), auth.session);
 }
 
 export async function POST(request: Request) {
@@ -68,10 +97,21 @@ export async function POST(request: Request) {
       { ok: false, message: "Too many MFA setup attempts." },
       { status: 429 },
     );
-  const context = await getRequestContext(request);
-  if (!context.userId || !staffRole(context.role))
+  const requestSession = await requestMfaSession(request);
+  if (!requestSession)
     return NextResponse.json(
-      { ok: false, message: "Staff session required." },
+      { ok: false, code: "session_expired", message: "Session expired." },
+      { status: 401 },
+    );
+  const { auth, context } = requestSession;
+  if (!context.userId)
+    return NextResponse.json(
+      { ok: false, code: "session_expired", message: "Session expired." },
+      { status: 401 },
+    );
+  if (!staffRole(context.role))
+    return NextResponse.json(
+      { ok: false, code: "forbidden", message: "Staff access is required." },
       { status: 403 },
     );
   const parsed = enrollSchema.safeParse(await request.json());
@@ -79,12 +119,6 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { ok: false, error: parsed.error.flatten() },
       { status: 400 },
-    );
-  const auth = await createRequestAuthSupabaseClient(request);
-  if (!auth)
-    return NextResponse.json(
-      { ok: false, message: "Session expired." },
-      { status: 401 },
     );
   const listed = await auth.client.auth.mfa.listFactors();
   if (listed.data?.totp.some((factor) => factor.status === "verified"))
@@ -101,10 +135,10 @@ export async function POST(request: Request) {
       { ok: false, message: "Authenticator setup could not be started." },
       { status: 422 },
     );
-  return NextResponse.json({
+  return persistRequestSession(NextResponse.json({
     ok: true,
     factorId: data.id,
     qrCode: data.totp.qr_code,
     secret: data.totp.secret,
-  });
+  }), auth.session);
 }

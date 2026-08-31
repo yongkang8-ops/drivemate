@@ -3,6 +3,7 @@
 import { Calculator, ClipboardText, CreditCard } from "@phosphor-icons/react";
 import { useState } from "react";
 import { buildApiHeaders } from "../lib/clientAuth";
+import { useSensitiveFetch } from "./MfaStepUpProvider";
 
 const emptyCosts = {
   domesticLogisticsMinor: 0,
@@ -28,6 +29,7 @@ const costLabels: Array<[keyof typeof emptyCosts, string]> = [
 ];
 
 export function AdminOperationsPanel() {
+  const sensitiveFetch = useSensitiveFetch();
   const [shipmentId, setShipmentId] = useState("");
   const [costStatus, setCostStatus] = useState<"provisional" | "final">(
     "provisional",
@@ -54,7 +56,7 @@ export function AdminOperationsPanel() {
     "Finance and RMA actions are audit logged.",
   );
   async function saveLandedCost() {
-    const response = await fetch("/api/admin/landed-costs", {
+    const response = await sensitiveFetch("/api/admin/landed-costs", {
       method: "POST",
       headers: await buildApiHeaders("admin", {
         "Content-Type": "application/json",
@@ -76,7 +78,7 @@ export function AdminOperationsPanel() {
     );
   }
   async function postAdjustment() {
-    const response = await fetch(
+    const response = await sensitiveFetch(
       `/api/admin/accounts/${accountId}/adjustments`,
       {
         method: "POST",
@@ -99,7 +101,7 @@ export function AdminOperationsPanel() {
     );
   }
   async function inspectRma() {
-    const response = await fetch(`/api/admin/rma/${rmaId}/inspect`, {
+    const response = await sensitiveFetch(`/api/admin/rma/${rmaId}/inspect`, {
       method: "POST",
       headers: await buildApiHeaders("admin", {
         "Content-Type": "application/json",

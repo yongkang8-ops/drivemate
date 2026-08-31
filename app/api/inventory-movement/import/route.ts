@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { can } from "../../../../lib/auth";
+import { sensitiveOperationAccessError } from "../../../../lib/apiAuthResponses";
 import type {
   InventoryMovementInput,
   StockMovement,
@@ -25,15 +26,8 @@ export async function POST(request: Request) {
     );
   }
   const authContext = await getRequestContext(request);
-  if (!can(authContext.role, "inventory_write")) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "Inventory movement import requires a Partner role.",
-      },
-      { status: 403 },
-    );
-  }
+  const accessError = sensitiveOperationAccessError(authContext, can(authContext.role, "inventory_adjust"), "Inventory movement import requires authorised inventory access.");
+  if (accessError) return accessError;
 
   const parsed = inventoryMovementImportSchema.safeParse(await request.json());
   if (!parsed.success)

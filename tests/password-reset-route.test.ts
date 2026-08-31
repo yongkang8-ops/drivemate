@@ -47,4 +47,29 @@ describe("password reset route", () => {
       message: "Password recovery is temporarily unavailable. Please try again later.",
     });
   });
+
+  it("requests a recovery email with the DriveMate password setup callback", async () => {
+    resetPasswordForEmail.mockResolvedValue({ error: null });
+
+    const response = await requestPasswordReset(new Request(
+      "https://drivemateparts.com.au/api/auth/password-reset",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "https://drivemateparts.com.au",
+        },
+        body: JSON.stringify({ email: "operator@drivemateparts.com.au" }),
+      },
+    ));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+    expect(resetPasswordForEmail).toHaveBeenCalledWith(
+      "operator@drivemateparts.com.au",
+      {
+        redirectTo: "https://drivemateparts.com.au/auth/confirm?next=/password-setup",
+      },
+    );
+  });
 });

@@ -31,9 +31,9 @@ export async function POST(
     );
   }
   const auth = await getRequestContext(request);
-  if (auth.mfaRequired || !can(auth.role, "inventory_write")) {
+  if (!can(auth.role, "prearrival_manage")) {
     return NextResponse.json(
-      { ok: false, message: "Pre-arrival revisions require Partner access with the required assurance level." },
+      { ok: false, message: "Pre-arrival revision management access is required." },
       { status: 403 },
     );
   }

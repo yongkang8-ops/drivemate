@@ -40,10 +40,23 @@ export async function POST(request: Request) {
       { ok: false, message: "Too many verification attempts." },
       { status: 429 },
     );
-  const context = await getRequestContext(request);
-  if (!context.userId || !["admin", "partner"].includes(context.role))
+  const auth = await createRequestAuthSupabaseClient(request);
+  if (!auth)
     return NextResponse.json(
-      { ok: false, message: "Staff session required." },
+      { ok: false, code: "session_expired", message: "Session expired." },
+      { status: 401 },
+    );
+  const contextHeaders = new Headers(request.headers);
+  contextHeaders.set("authorization", `Bearer ${auth.session.access_token}`);
+  const context = await getRequestContext(new Request(request.url, { headers: contextHeaders }));
+  if (!context.userId)
+    return NextResponse.json(
+      { ok: false, code: "session_expired", message: "Session expired." },
+      { status: 401 },
+    );
+  if (!["admin", "partner"].includes(context.role))
+    return NextResponse.json(
+      { ok: false, code: "forbidden", message: "Staff access is required." },
       { status: 403 },
     );
   const parsed = schema.safeParse(await request.json());
@@ -51,12 +64,6 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { ok: false, message: "Enter the six-digit authenticator code." },
       { status: 400 },
-    );
-  const auth = await createRequestAuthSupabaseClient(request);
-  if (!auth)
-    return NextResponse.json(
-      { ok: false, message: "Session expired." },
-      { status: 401 },
     );
   const { data, error } = await auth.client.auth.mfa.challengeAndVerify({
     factorId: parsed.data.factorId,

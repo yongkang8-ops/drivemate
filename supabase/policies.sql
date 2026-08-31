@@ -132,7 +132,8 @@ using (
 drop policy if exists "users can read own profile" on public.user_profiles;
 create policy "users can read own profile"
 on public.user_profiles for select
-using (id = auth.uid() or public.current_user_role() = 'admin');
+to authenticated
+using (id = (select auth.uid()) or public.current_user_role() = 'admin');
 
 drop policy if exists "admin can manage trade accounts" on public.trade_accounts;
 create policy "admin can manage trade accounts"

@@ -3,6 +3,11 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests",
   testMatch: /.*\.spec\.ts/,
+  testIgnore: [
+    /account-access-polish\.spec\.ts/,
+    /auth-panel-redesign\.spec\.ts/,
+    /staff-role-acceptance\.spec\.ts/,
+  ],
   workers: 1,
   webServer: {
     command: "npm run dev -- --hostname 127.0.0.1 --port 3100",

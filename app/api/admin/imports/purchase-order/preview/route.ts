@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { can } from "../../../../../../lib/auth";
+import { sensitiveOperationAccessError } from "../../../../../../lib/apiAuthResponses";
 import { createImportPreviewToken } from "../../../../../../lib/importTokens";
 import { previewPurchaseImport } from "../../../../../../lib/purchaseImport";
 import { mutationRequestAllowed } from "../../../../../../lib/requestSecurity";
@@ -18,9 +19,8 @@ function fileBuffer(value: FormDataEntryValue | null, required: boolean) {
 
 export async function POST(request: Request) {
   const auth = await getRequestContext(request);
-  if (auth.mfaRequired || !can(auth.role, "admin_write")) {
-    return NextResponse.json({ ok: false, message: "Admin access with the required assurance level is required." }, { status: 403 });
-  }
+  const accessError = sensitiveOperationAccessError(auth, can(auth.role, "admin_write"), "Admin access is required.");
+  if (accessError) return accessError;
   if (!mutationRequestAllowed(request)) {
     return NextResponse.json({ ok: false, message: "Request origin or CSRF validation failed." }, { status: 403 });
   }

@@ -3,6 +3,7 @@
 import { type ReactNode, useState } from "react";
 import { type AuthenticatedRole } from "../lib/clientAuth";
 import { AuthPanel } from "./AuthPanel";
+import { MfaStepUpProvider } from "./MfaStepUpProvider";
 
 type RoleGateProps = {
   expectedRole: AuthenticatedRole;
@@ -13,7 +14,7 @@ export function RoleGate({ expectedRole, children }: RoleGateProps) {
   const [hasAccess, setHasAccess] = useState(false);
 
   return (
-    <>
+    <MfaStepUpProvider role={expectedRole}>
       <AuthPanel expectedRole={expectedRole} onAccessChange={setHasAccess} />
       {hasAccess ? (
         children
@@ -23,6 +24,6 @@ export function RoleGate({ expectedRole, children }: RoleGateProps) {
           <p>Sign in with an approved account to load this workspace.</p>
         </section>
       )}
-    </>
+    </MfaStepUpProvider>
   );
 }

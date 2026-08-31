@@ -23,9 +23,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message: "Request security validation failed." }, { status: 403 });
   }
   const auth = await getRequestContext(request);
-  if (auth.mfaRequired || !can(auth.role, "inventory_write")) {
+  if (!can(auth.role, "warehouse_label_print")) {
     return NextResponse.json(
-      { ok: false, message: "Inventory location label printing requires Partner access with the required assurance level." },
+      { ok: false, message: "Inventory location label printing requires warehouse label access." },
       { status: 403 },
     );
   }

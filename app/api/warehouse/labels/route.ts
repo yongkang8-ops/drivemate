@@ -38,9 +38,9 @@ function labelItemPayloads(scope: Awaited<ReturnType<typeof resolveWarehouseInbo
 }
 
 export async function GET(request: Request) {
-  if (!(await requestCan(request, "warehouse_read"))) {
+  if (!(await requestCan(request, "warehouse_label_print"))) {
     return NextResponse.json(
-      { ok: false, message: "Warehouse label preview requires Partner access." },
+      { ok: false, message: "Warehouse label preview requires warehouse label access." },
       { status: 403 },
     );
   }
@@ -76,9 +76,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message: "Request security validation failed." }, { status: 403 });
   }
   const auth = await getRequestContext(request);
-  if (auth.mfaRequired || !can(auth.role, "inventory_write")) {
+  if (!can(auth.role, "warehouse_label_print")) {
     return NextResponse.json(
-      { ok: false, message: "Warehouse label printing requires Partner access with the required assurance level." },
+      { ok: false, message: "Warehouse label printing requires warehouse label access." },
       { status: 403 },
     );
   }

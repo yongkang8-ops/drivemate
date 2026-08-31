@@ -1,21 +1,41 @@
 "use client";
 import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { Key, CheckCircle } from "@phosphor-icons/react";
+import {
+  CheckCircle,
+  Info,
+  Key,
+  WarningCircle,
+  XCircle,
+} from "@phosphor-icons/react";
 import { recoveryAccessTokenFromHash } from "../lib/authRecovery";
+
+type PasswordNoticeTone = "info" | "warning" | "error";
+type PasswordNotice = {
+  tone: PasswordNoticeTone;
+  text: string;
+};
+
+const noticeIcons = {
+  info: Info,
+  warning: WarningCircle,
+  error: XCircle,
+} satisfies Record<PasswordNoticeTone, typeof Info>;
 
 export function PasswordSetupForm() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [message, setMessage] = useState(
-    "Use 12 or more characters with upper and lower case, a number and a symbol.",
-  );
+  const [notice, setNotice] = useState<PasswordNotice>({
+    tone: "info",
+    text: "Use 12 or more characters with upper and lower case, a number and a symbol.",
+  });
   const [completed, setCompleted] = useState(false);
+  const NoticeIcon = noticeIcons[notice.tone];
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (password !== confirm) {
-      setMessage("Passwords do not match.");
+      setNotice({ tone: "warning", text: "Passwords do not match." });
       return;
     }
 
@@ -36,7 +56,10 @@ export function PasswordSetupForm() {
       return;
     }
 
-    setMessage(body.message || "Password could not be updated.");
+    setNotice({
+      tone: "error",
+      text: body.message || "Password could not be updated.",
+    });
   }
 
   if (completed) {
@@ -83,10 +106,14 @@ export function PasswordSetupForm() {
       <button className="button button-primary" type="submit">
         Set password
       </button>
-      <p role="status">
-        <CheckCircle size={17} />
-        {message}
-      </p>
+      <div
+        className={`auth-notice auth-notice--${notice.tone}`}
+        aria-atomic="true"
+        aria-live="polite"
+      >
+        <NoticeIcon aria-hidden="true" size={18} weight="fill" />
+        <span>{notice.text}</span>
+      </div>
     </form>
   );
 }

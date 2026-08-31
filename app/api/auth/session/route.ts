@@ -17,7 +17,7 @@ async function profileForToken(accessToken: string) {
   if (userError || !userData.user) return null;
   const { data: profile, error: profileError } = await service
     .from("user_profiles")
-    .select("role, display_name, trade_account_id")
+    .select("role, display_name, trade_account_id, account_status, must_change_password, temporary_password_expires_at, requires_reauthentication")
     .eq("id", userData.user.id)
     .maybeSingle();
   if (profileError || !profile) return null;
@@ -48,20 +48,36 @@ export async function GET(request: Request) {
     return NextResponse.json({ authenticated: false, message: "No active session." }, { status: 401 });
   }
 
+  const profile = sessionProfile.profile;
+  const accountStatus = profile.account_status ?? "active";
+  const mustChangePassword = profile.must_change_password ?? false;
+  const passwordChangeRequired = accountStatus === "pending_first_login" || mustChangePassword;
+  if (accountStatus === "disabled" || (profile.requires_reauthentication && !passwordChangeRequired)) {
+    const response = NextResponse.json(
+      {
+        authenticated: false,
+        code: accountStatus === "disabled" ? "account_disabled" : "reauthentication_required",
+        message: accountStatus === "disabled" ? "This staff account is disabled." : "Sign in again to continue.",
+      },
+      { status: 401 },
+    );
+    response.cookies.set(sessionCookieName(), "", sessionCookieOptions(0));
+    response.cookies.set(refreshCookieName(), "", sessionCookieOptions(0));
+    response.cookies.set(csrfCookieName(), "", csrfCookieOptions(0));
+    return response;
+  }
+
   const assuranceLevel = jwtAssuranceLevel(accessToken);
-  const role = sessionProfile.profile.role;
-  const mfaRequired =
-    process.env.DRIVEMATE_REQUIRE_STAFF_MFA === "true" &&
-    (role === "admin" || role === "partner") &&
-    assuranceLevel !== "aal2";
+  const role = profile.role;
   const response = NextResponse.json({
     authenticated: true,
-    mfaRequired,
+    mfaRequired: false,
     assuranceLevel,
+    passwordChangeRequired,
     profile: {
       role,
-      displayName: sessionProfile.profile.display_name,
-      tradeAccountId: sessionProfile.profile.trade_account_id,
+      displayName: profile.display_name,
+      tradeAccountId: profile.trade_account_id,
     },
   });
 

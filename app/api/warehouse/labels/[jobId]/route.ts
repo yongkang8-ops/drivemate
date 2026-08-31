@@ -25,9 +25,9 @@ export async function GET(
   request: Request,
   context: { params: Promise<{ jobId: string }> },
 ) {
-  if (!(await requestCan(request, "warehouse_read"))) {
+  if (!(await requestCan(request, "warehouse_label_print"))) {
     return NextResponse.json(
-      { ok: false, message: "Warehouse label audit requires Partner access." },
+      { ok: false, message: "Warehouse label audit requires warehouse label access." },
       { status: 403 },
     );
   }
@@ -44,9 +44,9 @@ export async function POST(
     return NextResponse.json({ ok: false, message: "Request security validation failed." }, { status: 403 });
   }
   const auth = await getRequestContext(request);
-  if (auth.mfaRequired || !can(auth.role, "inventory_write")) {
+  if (!can(auth.role, "warehouse_label_print")) {
     return NextResponse.json(
-      { ok: false, message: "Warehouse label actions require Partner access with the required assurance level." },
+      { ok: false, message: "Warehouse label actions require warehouse label access." },
       { status: 403 },
     );
   }

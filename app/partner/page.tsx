@@ -8,5 +8,15 @@ export const metadata: Metadata = {
 };
 
 export default function PartnerDashboardPage() {
-  return <RoleGate expectedRole="partner"><PartnerDashboard /></RoleGate>;
+  return (
+    <RoleGate expectedRole="partner">
+      <>
+        <nav className="internal-tabs" aria-label="Partner modules">
+          <a href="/partner">Operations dashboard</a>
+          <a href="/admin/staff">Staff</a>
+        </nav>
+        <PartnerDashboard />
+      </>
+    </RoleGate>
+  );
 }

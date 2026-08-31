@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { can } from "../../../lib/auth";
+import { sensitiveOperationAccessError } from "../../../lib/apiAuthResponses";
 import { getRepository } from "../../../lib/repository";
 import { getRequestContext } from "../../../lib/serverAuth";
 import { inventoryMovementSchema } from "../../../lib/validators";
@@ -13,12 +14,8 @@ export async function POST(request: Request) {
     );
   }
   const authContext = await getRequestContext(request);
-  if (!can(authContext.role, "inventory_write")) {
-    return NextResponse.json(
-      { ok: false, message: "Inventory movements require a Partner role." },
-      { status: 403 },
-    );
-  }
+  const accessError = sensitiveOperationAccessError(authContext, can(authContext.role, "inventory_adjust"), "Manual inventory adjustment requires authorised inventory access.");
+  if (accessError) return accessError;
 
   const parsed = inventoryMovementSchema.safeParse(await request.json());
   if (!parsed.success) {

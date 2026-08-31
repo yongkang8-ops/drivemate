@@ -62,7 +62,7 @@ export function WarehousePutawayPanel({
   async function loadScope() {
     const response = await fetch(scopeUrl(selection), {
       cache: "no-store",
-      headers: await buildApiHeaders("partner"),
+      headers: await buildApiHeaders("warehouse_staff"),
     });
     const body = (await response.json()) as PutawayScopeResponse;
     if (!response.ok || !body.ok) {
@@ -101,7 +101,7 @@ export function WarehousePutawayPanel({
       try {
         const response = await fetch(`/api/inventory/locations/resolve?barcode=${encodeURIComponent(barcode)}`, {
           cache: "no-store",
-          headers: await buildApiHeaders("partner"),
+          headers: await buildApiHeaders("warehouse_staff"),
         });
         const body = await response.json() as DestinationResolutionResponse;
         if (cancelled) return;
@@ -140,7 +140,7 @@ export function WarehousePutawayPanel({
     try {
       const response = await fetch("/api/warehouse/putaway", {
         method: "POST",
-        headers: await buildApiHeaders("partner", { "Content-Type": "application/json" }),
+        headers: await buildApiHeaders("warehouse_staff", { "Content-Type": "application/json" }),
         body: JSON.stringify({
           selection,
           productBarcode,

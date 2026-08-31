@@ -411,6 +411,32 @@ export type AdminLookupRequest = {
   createdAt: string;
 };
 
+export type StaffAccountStatus = "pending_first_login" | "active" | "disabled";
+export type StaffCreatableRole = "warehouse_staff" | "partner";
+export type StaffRole = StaffCreatableRole | "admin";
+
+export type StaffAccount = {
+  userId: string;
+  email: string;
+  displayName?: string;
+  role: StaffRole;
+  accountStatus: StaffAccountStatus;
+  mustChangePassword: boolean;
+  requiresReauthentication: boolean;
+  mfaEnrolled?: boolean;
+  temporaryPasswordExpiresAt?: string;
+  passwordChangedAt?: string;
+  disabledAt?: string;
+  disabledBy?: string;
+  disabledReason?: string;
+  statusBeforeDisabled?: Exclude<StaffAccountStatus, "disabled">;
+  lastLoginAt?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedBy?: string;
+  updatedAt: string;
+};
+
 export type AdminUserRole = {
   userId: string;
   role: string;

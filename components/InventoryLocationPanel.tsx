@@ -4,6 +4,7 @@ import Link from "next/link";
 import JsBarcode from "jsbarcode";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildApiHeaders } from "../lib/clientAuth";
+import { useSensitiveFetch } from "./MfaStepUpProvider";
 import { parseLocationCodeBatch } from "../lib/inventoryLocations";
 import type {
   InventoryLocation,
@@ -84,6 +85,7 @@ function statusLabel(status: InventoryLocationStatus) {
 }
 
 export function InventoryLocationPanel() {
+  const sensitiveFetch = useSensitiveFetch();
   const [locations, setLocations] = useState<LocationRecord[]>([]);
   const [summary, setSummary] = useState<LocationSummary | null>(null);
   const [batch, setBatch] = useState("");
@@ -164,7 +166,7 @@ export function InventoryLocationPanel() {
     }
     setBusy(true);
     try {
-      const response = await fetch("/api/inventory/locations", {
+      const response = await sensitiveFetch("/api/inventory/locations", {
         method: "POST",
         headers: await buildApiHeaders("partner", { "Content-Type": "application/json" }),
         body: JSON.stringify({ locationCodes: previewedLocations.map((location) => location.locationCode) }),
@@ -196,7 +198,7 @@ export function InventoryLocationPanel() {
     if (!editingLocation) return;
     setBusy(true);
     try {
-      const response = await fetch(`/api/inventory/locations/${encodeURIComponent(editingLocation.id)}`, {
+      const response = await sensitiveFetch(`/api/inventory/locations/${encodeURIComponent(editingLocation.id)}`, {
         method: "PATCH",
         headers: await buildApiHeaders("partner", { "Content-Type": "application/json" }),
         body: JSON.stringify({
@@ -222,7 +224,7 @@ export function InventoryLocationPanel() {
   async function updateStatus(location: LocationRecord, status: InventoryLocationStatus) {
     setBusy(true);
     try {
-      const response = await fetch(`/api/inventory/locations/${encodeURIComponent(location.id)}/status`, {
+      const response = await sensitiveFetch(`/api/inventory/locations/${encodeURIComponent(location.id)}/status`, {
         method: "POST",
         headers: await buildApiHeaders("partner", { "Content-Type": "application/json" }),
         body: JSON.stringify({ status }),

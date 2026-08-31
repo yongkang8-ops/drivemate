@@ -12,6 +12,6 @@ export const metadata: Metadata = {
 
 export default function WarehousePage() {
   return (
-    <RoleGate expectedRole="partner"><PartnerInboundWorkspace /></RoleGate>
+    <RoleGate expectedRole="warehouse_staff"><PartnerInboundWorkspace /></RoleGate>
   );
 }

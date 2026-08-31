@@ -124,7 +124,7 @@ export function PartnerInboundWorkspace() {
     if (!nextShipmentId) return;
     const response = await fetch(makeScopeUrl(nextShipmentId, palletNumbers), {
       cache: "no-store",
-      headers: await buildApiHeaders("partner"),
+      headers: await buildApiHeaders("warehouse_staff"),
     });
     const body = (await response.json()) as ScopePreviewResponse;
     if (!response.ok || !body.ok) {
@@ -152,7 +152,7 @@ export function PartnerInboundWorkspace() {
     cartonNumbers.forEach((cartonNumber) => params.append("cartonNumber", cartonNumber));
     const response = await fetch(`/api/warehouse/putaway?${params.toString()}`, {
       cache: "no-store",
-      headers: await buildApiHeaders("partner"),
+      headers: await buildApiHeaders("warehouse_staff"),
     });
     const body = (await response.json()) as PutawayScopeResponse;
     setPutawayReady(response.ok && body.ok && body.lines.some((line) => line.remainingQuantity > 0));
@@ -161,7 +161,7 @@ export function PartnerInboundWorkspace() {
   async function loadWorkspace() {
     const response = await fetch("/api/prearrival/shipments", {
       cache: "no-store",
-      headers: await buildApiHeaders("partner"),
+      headers: await buildApiHeaders("warehouse_staff"),
     });
     const body = (await response.json()) as ShipmentListResponse;
     if (!response.ok || !body.ok || !body.shipments.length) {
@@ -174,7 +174,7 @@ export function PartnerInboundWorkspace() {
 
     const allScopeResponse = await fetch(makeScopeUrl(firstShipmentId, []), {
       cache: "no-store",
-      headers: await buildApiHeaders("partner"),
+      headers: await buildApiHeaders("warehouse_staff"),
     });
     const allScope = (await allScopeResponse.json()) as ScopePreviewResponse;
     if (!allScopeResponse.ok || !allScope.ok) {
@@ -200,7 +200,7 @@ export function PartnerInboundWorkspace() {
     void (async () => {
       const response = await fetch(makeScopeUrl(nextShipmentId, []), {
         cache: "no-store",
-        headers: await buildApiHeaders("partner"),
+        headers: await buildApiHeaders("warehouse_staff"),
       });
       const body = (await response.json()) as ScopePreviewResponse;
       if (!response.ok || !body.ok) {
@@ -236,7 +236,7 @@ export function PartnerInboundWorkspace() {
     try {
       const response = await fetch("/api/warehouse/labels", {
         method: "POST",
-        headers: await buildApiHeaders("partner", { "Content-Type": "application/json" }),
+        headers: await buildApiHeaders("warehouse_staff", { "Content-Type": "application/json" }),
         body: JSON.stringify({
           selection: { shipmentId, palletNumbers: selectedPallets },
           templateId: "unit_product",
@@ -262,7 +262,7 @@ export function PartnerInboundWorkspace() {
     try {
       const response = await fetch(`/api/warehouse/labels/${encodeURIComponent(printJob.id)}`, {
         method: "POST",
-        headers: await buildApiHeaders("partner", { "Content-Type": "application/json" }),
+        headers: await buildApiHeaders("warehouse_staff", { "Content-Type": "application/json" }),
         body: JSON.stringify({ action: "outcome", outcome }),
       });
       const body = (await response.json()) as PrintJobResponse;
@@ -288,7 +288,7 @@ export function PartnerInboundWorkspace() {
     try {
       const response = await fetch(`/api/warehouse/labels/${encodeURIComponent(printJob.id)}`, {
         method: "POST",
-        headers: await buildApiHeaders("partner", { "Content-Type": "application/json" }),
+        headers: await buildApiHeaders("warehouse_staff", { "Content-Type": "application/json" }),
         body: JSON.stringify({
           action: "reprint",
           requestedQuantity: printJob.requestedQuantity,
@@ -388,7 +388,7 @@ export function PartnerInboundWorkspace() {
     try {
       const response = await fetch("/api/warehouse/receipts", {
         method: "POST",
-        headers: await buildApiHeaders("partner", { "Content-Type": "application/json" }),
+        headers: await buildApiHeaders("warehouse_staff", { "Content-Type": "application/json" }),
         body: JSON.stringify({
           selection: {
             shipmentId: preview.scope.shipmentId,

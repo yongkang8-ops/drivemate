@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { can } from "../../../../lib/auth";
+import { sensitiveOperationAccessError } from "../../../../lib/apiAuthResponses";
 import { parseInventoryLocationCode, parseLocationCodeBatch } from "../../../../lib/inventoryLocations";
 import {
   getRepository,
@@ -97,8 +98,8 @@ function listQueryFromRequest(request: Request) {
 }
 
 export async function GET(request: Request) {
-  if (!(await requestCan(request, "warehouse_read"))) {
-    return NextResponse.json({ ok: false, message: "Inventory locations require Partner access." }, { status: 403 });
+  if (!(await requestCan(request, "location_manage"))) {
+    return NextResponse.json({ ok: false, message: "Inventory location management access is required." }, { status: 403 });
   }
   const parsed = listQueryFromRequest(request);
   if (!parsed.success) return NextResponse.json({ ok: false, error: parsed.error.flatten() }, { status: 400 });
@@ -127,12 +128,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, message: "Request security validation failed." }, { status: 403 });
   }
   const auth = await getRequestContext(request);
-  if (auth.mfaRequired || !can(auth.role, "inventory_write")) {
-    return NextResponse.json(
-      { ok: false, message: "Inventory location changes require Partner access with the required assurance level." },
-      { status: 403 },
-    );
-  }
+  const accessError = sensitiveOperationAccessError(auth, can(auth.role, "location_manage"), "Inventory location management access is required.");
+  if (accessError) return accessError;
   const parsed = createLocationsSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ ok: false, error: parsed.error.flatten() }, { status: 400 });
 

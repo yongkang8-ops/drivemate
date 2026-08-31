@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { can } from "../../../../../lib/auth";
+import { sensitiveOperationAccessError } from "../../../../../lib/apiAuthResponses";
 import { createImportPreviewToken, verifyImportPreviewToken } from "../../../../../lib/importTokens";
 import { mutationRequestAllowed } from "../../../../../lib/requestSecurity";
 import { getRequestContext } from "../../../../../lib/serverAuth";
@@ -14,7 +15,8 @@ function sourceHash(rows: z.infer<typeof vinRow>[]) { return createHash("sha256"
 export async function POST(request: Request) {
   if (!mutationRequestAllowed(request)) return NextResponse.json({ ok: false, message: "Request security validation failed." }, { status: 403 });
   const auth = await getRequestContext(request);
-  if (auth.mfaRequired || !can(auth.role, "admin_write")) return NextResponse.json({ ok: false, message: "Admin access with the required assurance level is required." }, { status: 403 });
+  const accessError = sensitiveOperationAccessError(auth, can(auth.role, "admin_write"), "Admin access is required.");
+  if (accessError) return accessError;
   const parsed = requestSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ ok: false, error: parsed.error.flatten() }, { status: 400 });
   const rows = parsed.data.rows; const hash = sourceHash(rows); const vins = rows.map((row) => row.vin);

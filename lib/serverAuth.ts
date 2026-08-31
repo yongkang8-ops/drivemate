@@ -1,5 +1,5 @@
 import { type AppRole, DEMO_ROLE_HEADER, can, isDemoRoleHeaderEnabled, parseRole } from "./auth";
-import { createServiceSupabaseClient } from "./supabaseClient";
+import { createRequestAuthSupabaseClient, createServiceSupabaseClient } from "./supabaseClient";
 import { jwtAssuranceLevel, requestSessionTokens } from "./sessionCookies";
 
 export type AuthContext = {
@@ -8,6 +8,11 @@ export type AuthContext = {
   tradeAccountId?: string;
   assuranceLevel?: "aal1" | "aal2";
   mfaRequired?: boolean;
+  authenticated?: boolean;
+  accountStatus?: "pending_first_login" | "active" | "disabled";
+  mustChangePassword?: boolean;
+  temporaryPasswordExpiresAt?: string;
+  requiresReauthentication?: boolean;
 };
 
 function getBearerToken(request: Request): string | null {
@@ -27,12 +32,20 @@ async function getSupabaseAuthContextFromToken(token: string): Promise<AuthConte
 
     const { data: profile, error: profileError } = await supabase
       .from("user_profiles")
-      .select("role, trade_account_id")
+      .select("role, trade_account_id, account_status, must_change_password, temporary_password_expires_at, requires_reauthentication")
       .eq("id", userResult.user.id)
       .maybeSingle();
 
-    if (profileError) return { role: "public", userId: userResult.user.id };
+    if (profileError) return { role: "public", userId: userResult.user.id, authenticated: true };
     const role = parseRole(profile?.role);
+    const accountStatus = profile?.account_status ?? "active";
+    const mustChangePassword = profile?.must_change_password ?? false;
+    const requiresReauthentication = profile?.requires_reauthentication ?? false;
+    const lifecycleBlocked =
+      accountStatus === "disabled" ||
+      accountStatus === "pending_first_login" ||
+      mustChangePassword ||
+      requiresReauthentication;
     const assuranceLevel = jwtAssuranceLevel(token);
     const mfaRequired =
       process.env.DRIVEMATE_REQUIRE_STAFF_MFA === "true" &&
@@ -40,11 +53,16 @@ async function getSupabaseAuthContextFromToken(token: string): Promise<AuthConte
       assuranceLevel !== "aal2";
 
     return {
-      role,
+      role: lifecycleBlocked ? "public" : role,
       userId: userResult.user.id,
       tradeAccountId: profile?.trade_account_id ?? undefined,
       assuranceLevel,
       mfaRequired,
+      authenticated: true,
+      accountStatus,
+      mustChangePassword,
+      temporaryPasswordExpiresAt: profile?.temporary_password_expires_at ?? undefined,
+      requiresReauthentication,
     };
   } catch {
     return { role: "public" };
@@ -60,14 +78,23 @@ export async function getRequestContext(request: Request): Promise<AuthContext> 
         role,
         userId: role === "public" ? undefined : `demo-${role}-user`,
         tradeAccountId: role === "trade" ? "acct-demo" : undefined,
+        authenticated: role !== "public",
       };
     }
   }
 
-  const token = getBearerToken(request) ?? requestSessionTokens(request).accessToken;
-  if (!token) return { role: "public" };
+  const bearerToken = getBearerToken(request);
+  if (bearerToken) return getSupabaseAuthContextFromToken(bearerToken);
 
-  return getSupabaseAuthContextFromToken(token);
+  const tokens = requestSessionTokens(request);
+  if (!tokens.accessToken) return { role: "public" };
+
+  const current = await getSupabaseAuthContextFromToken(tokens.accessToken);
+  if (current.authenticated || current.role !== "public" || !tokens.refreshToken) return current;
+
+  const refreshed = await createRequestAuthSupabaseClient(request);
+  if (!refreshed?.session.access_token) return current;
+  return getSupabaseAuthContextFromToken(refreshed.session.access_token);
 }
 
 export async function getRequestRole(request: Request): Promise<AppRole> {
@@ -76,5 +103,5 @@ export async function getRequestRole(request: Request): Promise<AppRole> {
 
 export async function requestCan(request: Request, capability: Parameters<typeof can>[1]): Promise<boolean> {
   const context = await getRequestContext(request);
-  return !context.mfaRequired && can(context.role, capability);
+  return can(context.role, capability);
 }

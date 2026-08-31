@@ -3,9 +3,9 @@ import { getRepository } from "../../../../lib/repository";
 import { requestCan } from "../../../../lib/serverAuth";
 
 export async function GET(request: Request) {
-  if (!(await requestCan(request, "warehouse_read"))) {
+  if (!(await requestCan(request, "warehouse_receive"))) {
     return NextResponse.json(
-      { ok: false, message: "Pre-arrival shipment access requires a Partner role." },
+      { ok: false, message: "Pre-arrival shipment access requires warehouse receiving access." },
       { status: 403 },
     );
   }

@@ -26,7 +26,7 @@ export async function POST(
       { status: 403 },
     );
   const auth = await getRequestContext(request);
-  if (auth.mfaRequired || !can(auth.role, "inventory_write"))
+  if (!can(auth.role, "warehouse_rma_receive"))
     return NextResponse.json(
       {
         ok: false,
