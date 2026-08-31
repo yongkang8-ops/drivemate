@@ -40,7 +40,15 @@ export async function POST(
 
   const parsed = packingListSchema.safeParse(await request.json());
   if (!parsed.success) {
-    return NextResponse.json({ ok: false, error: parsed.error.flatten() }, { status: 400 });
+    return NextResponse.json({
+      ok: false,
+      error: {
+        fieldErrors: parsed.error.issues.map((issue) => ({
+          path: issue.path,
+          message: issue.message,
+        })),
+      },
+    }, { status: 400 });
   }
   const { shipmentId } = await context.params;
   if (parsed.data.shipmentId !== shipmentId) {
