@@ -59,6 +59,48 @@ test("opens the shipment requested in the query when the list order differs", as
   await expect(page.locator(".prearrival-shipment-bar strong")).toHaveText("BNE-TEST-001");
 });
 
+test("a stale shipment response cannot overwrite the latest selection", async ({
+  page,
+  request,
+}) => {
+  await request.post("/api/test/reset?shipments=multiple");
+  await page.goto("/prearrival?shipmentId=shipment-test-1");
+  await expect(page.getByLabel("Shipment")).toHaveValue("shipment-test-1");
+
+  let releaseStaleRequest!: () => void;
+  let reportStaleRequest!: () => void;
+  const staleGate = new Promise<void>((resolve) => { releaseStaleRequest = resolve; });
+  const staleStarted = new Promise<void>((resolve) => { reportStaleRequest = resolve; });
+  await page.route(/\/api\/prearrival\/shipments\?shipmentId=/, async (route) => {
+    const shipmentId = new URL(route.request().url()).searchParams.get("shipmentId");
+    if (shipmentId === "shipment-test-2") {
+      reportStaleRequest();
+      await staleGate;
+    }
+    const response = await route.fetch();
+    await route.fulfill({ response });
+  });
+
+  await page.getByLabel("Shipment").selectOption("shipment-test-2");
+  await staleStarted;
+  const latestResponse = page.waitForResponse((response) => (
+    new URL(response.url()).searchParams.get("shipmentId") === "shipment-test-1"
+  ));
+  await page.getByLabel("Shipment").selectOption("shipment-test-1");
+  await latestResponse;
+  const staleResponse = page.waitForResponse((response) => (
+    new URL(response.url()).searchParams.get("shipmentId") === "shipment-test-2"
+  ));
+  releaseStaleRequest();
+  await staleResponse;
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
+
+  await expect(page.getByLabel("Shipment")).toHaveValue("shipment-test-1");
+  await expect(page.locator(".prearrival-shipment-bar strong")).toHaveText("BNE-TEST-001");
+});
+
 test("Partner initializes the first packing list and unlocks the Warehouse label queue", async ({
   page,
   request,
@@ -141,7 +183,23 @@ test("first Packing List validation stays local and cancel clears errors", async
   await expect(page.getByText("Enter a recognised SKU.", { exact: true })).toBeVisible();
   expect(revisionPostCount).toBe(0);
 
-  await page.getByLabel("Pallet number").fill("P001");
+  const palletInput = page.getByLabel("Pallet number");
+  expect(await palletInput.evaluate((input) => {
+    const describedBy = input.getAttribute("aria-describedby");
+    return {
+      hasStableId: Boolean(input.id),
+      wrappedByLabel: Boolean(input.closest("label")),
+      describedBySibling: Boolean(
+        describedBy && input.nextElementSibling?.id === describedBy,
+      ),
+    };
+  })).toEqual({
+    hasStableId: true,
+    wrappedByLabel: false,
+    describedBySibling: true,
+  });
+
+  await palletInput.fill("P001");
   await expect(page.getByText("Enter the pallet number.", { exact: true })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Cancel working copy" }).click();
@@ -149,6 +207,183 @@ test("first Packing List validation stays local and cancel clears errors", async
   await expect(
     page.getByText("Packing-list revision could not be created.", { exact: true }),
   ).toHaveCount(0);
+});
+
+test("Packing List SKU rows keep identity while a scanner types", async ({
+  page,
+  request,
+}) => {
+  const duplicateKeyErrors: string[] = [];
+  page.on("console", (entry) => {
+    if (entry.type() === "error" && entry.text().includes("same key")) {
+      duplicateKeyErrors.push(entry.text());
+    }
+  });
+  await request.post("/api/test/reset?packingList=empty");
+  await page.goto("/prearrival");
+  await page.getByRole("button", { name: "Create first Packing List" }).click();
+  await page.getByRole("button", { name: "Add SKU line" }).click();
+
+  const secondSku = page.getByLabel("SKU 2");
+  await secondSku.pressSequentially("DM-GWM-AF-002");
+
+  await expect(secondSku).toHaveValue("DM-GWM-AF-002");
+  await expect(secondSku).toBeFocused();
+  expect(duplicateKeyErrors).toEqual([]);
+});
+
+test("validation selects and focuses the first error in a hidden carton", async ({
+  page,
+  request,
+}) => {
+  await request.post("/api/test/reset?packingList=empty");
+  await page.goto("/prearrival");
+  await page.getByRole("button", { name: "Create first Packing List" }).click();
+  await page.getByLabel("Pallet number").fill("P001");
+  await page.getByLabel("Carton number").fill("C001");
+
+  await page.getByRole("button", { name: "Add carton" }).click();
+  await page.getByLabel("Carton number").fill("C002");
+  await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
+  await page.getByRole("button", { name: "Confirm Packing List" }).click();
+
+  await expect(page.getByRole("heading", { name: /Carton C001 expected contents/ })).toBeVisible();
+  await expect(page.getByLabel("SKU", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("SKU", { exact: true })).toBeFocused();
+});
+
+test("removing a Packing List row clears index-based draft errors", async ({
+  page,
+  request,
+}) => {
+  await request.post("/api/test/reset?packingList=empty");
+  await page.goto("/prearrival");
+  await page.getByRole("button", { name: "Create first Packing List" }).click();
+  await page.getByRole("button", { name: "Add SKU line" }).click();
+  await page.getByRole("button", { name: "Confirm Packing List" }).click();
+  await expect(page.locator(".prearrival-field-error")).not.toHaveCount(0);
+
+  await page.getByRole("button", { name: "Remove SKU line 2" }).click();
+
+  await expect(page.locator('.prearrival-error-summary[role="alert"]')).toHaveCount(0);
+  await expect(page.locator(".prearrival-field-error")).toHaveCount(0);
+  await expect(page.locator('.prearrival-editor input[aria-invalid="true"]')).toHaveCount(0);
+});
+
+test("duplicate Packing List values stay local and do not create a revision", async ({
+  page,
+  request,
+}) => {
+  await request.post("/api/test/reset?packingList=empty");
+  let revisionPostCount = 0;
+  page.on("request", (pendingRequest) => {
+    if (
+      pendingRequest.method() === "POST"
+      && /\/api\/prearrival\/shipments\/[^/]+\/revisions$/.test(
+        new URL(pendingRequest.url()).pathname,
+      )
+    ) revisionPostCount += 1;
+  });
+
+  await page.goto("/prearrival");
+  await page.getByRole("button", { name: "Create first Packing List" }).click();
+  await page.getByLabel("Pallet number").fill("P001");
+  await page.getByLabel("Carton number").fill("C001");
+  await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
+  await page.getByRole("button", { name: "Add SKU line" }).click();
+  await page.getByLabel("SKU 2").fill(" dm-gwm-of-001 ");
+  await page.getByRole("button", { name: "Confirm Packing List" }).click();
+
+  await expect(page.getByText("Use each SKU once per carton.", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("SKU 2")).toBeFocused();
+  expect(revisionPostCount).toBe(0);
+});
+
+test("cancel restores the loaded confirmed shipment status message", async ({ page }) => {
+  await page.goto("/prearrival");
+  await page.getByRole("button", { name: "Create revision" }).click();
+  await page.getByRole("button", { name: "Cancel working copy" }).click();
+
+  await expect(page.locator(".prearrival-message")).toHaveText(
+    "Export packing data confirmed. Create a revision before changing any source quantity.",
+  );
+});
+
+test("a saved draft retries confirmation without creating another revision", async ({
+  page,
+  request,
+}) => {
+  await request.post("/api/test/reset?packingList=empty");
+  let createPostCount = 0;
+  let confirmPostCount = 0;
+  let releaseCreate!: () => void;
+  let reportCreateStarted!: () => void;
+  const createGate = new Promise<void>((resolve) => { releaseCreate = resolve; });
+  const createStarted = new Promise<void>((resolve) => { reportCreateStarted = resolve; });
+
+  await page.route(/\/api\/prearrival\/shipments\/[^/]+\/revisions$/, async (route) => {
+    createPostCount += 1;
+    reportCreateStarted();
+    await createGate;
+    await route.continue();
+  });
+  await page.route(/\/api\/prearrival\/revisions\/[^/]+\/confirm$/, async (route) => {
+    confirmPostCount += 1;
+    if (confirmPostCount === 1) {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: false, message: "Temporary confirmation failure." }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto("/prearrival");
+  await page.getByRole("button", { name: "Create first Packing List" }).click();
+  await page.getByLabel("Pallet number").fill("P001");
+  await page.getByLabel("Carton number").fill("C001");
+  await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
+  await page.getByRole("button", { name: "Confirm Packing List" }).click();
+
+  await createStarted;
+  await expect(page.getByLabel("Shipment")).toBeDisabled();
+  releaseCreate();
+  await expect(page.getByText("Temporary confirmation failure.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Confirm Packing List" })).toBeEnabled();
+
+  await page.getByRole("button", { name: "Confirm Packing List" }).click();
+  await expect(page.getByText("Packing List v1 confirmed", { exact: true })).toBeVisible();
+  expect(createPostCount).toBe(1);
+  expect(confirmPostCount).toBe(2);
+});
+
+test("an unknown create result requires shipment reconciliation", async ({
+  page,
+  request,
+}) => {
+  await request.post("/api/test/reset?packingList=empty");
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  await page.route(/\/api\/prearrival\/shipments\/[^/]+\/revisions$/, async (route) => {
+    await route.abort("failed");
+  });
+
+  await page.goto("/prearrival");
+  await page.getByRole("button", { name: "Create first Packing List" }).click();
+  await page.getByLabel("Pallet number").fill("P001");
+  await page.getByLabel("Carton number").fill("C001");
+  await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
+  await page.getByRole("button", { name: "Confirm Packing List" }).click();
+
+  await expect(page.getByRole("button", { name: "Reload shipment status" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Confirm Packing List" })).toBeDisabled();
+  expect(pageErrors).toEqual([]);
+
+  await page.unroute(/\/api\/prearrival\/shipments\/[^/]+\/revisions$/);
+  await page.getByRole("button", { name: "Reload shipment status" }).click();
+  await expect(page.getByRole("button", { name: "Create first Packing List" })).toBeVisible();
 });
 
 test("operations copy does not describe saved records as sample data", async ({ page }) => {

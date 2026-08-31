@@ -3,10 +3,7 @@ import type { PackingListRevisionInput } from "./prearrivalShipment";
 export type PackingListFieldErrors = Record<string, string>;
 
 export type PackingListServerError = {
-  fieldErrors?: Array<{
-    path: Array<string | number>;
-    message: string;
-  }>;
+  fieldErrors?: unknown;
 };
 
 export function packingListFieldKey(path: Array<string | number>): string {
@@ -17,9 +14,23 @@ export function mapPackingListServerErrors(
   error?: PackingListServerError,
 ): PackingListFieldErrors {
   const fieldErrors: PackingListFieldErrors = {};
+  if (!Array.isArray(error?.fieldErrors)) return fieldErrors;
 
-  for (const fieldError of error?.fieldErrors ?? []) {
-    fieldErrors[packingListFieldKey(fieldError.path)] = fieldError.message;
+  for (const candidate of error.fieldErrors) {
+    if (!candidate || typeof candidate !== "object") continue;
+    const { path, message } = candidate as { path?: unknown; message?: unknown };
+    if (
+      !Array.isArray(path)
+      || !path.length
+      || !path.every((segment) => (
+        typeof segment === "string"
+        || (typeof segment === "number" && Number.isSafeInteger(segment))
+      ))
+      || typeof message !== "string"
+    ) continue;
+
+    const key = packingListFieldKey(path);
+    if (!(key in fieldErrors)) fieldErrors[key] = message;
   }
 
   return fieldErrors;
@@ -38,27 +49,42 @@ export function validatePackingListDraft(
     knownSkus.map((sku) => sku.trim().toUpperCase()),
   );
   const fieldErrors: PackingListFieldErrors = {};
+  const palletNumbers = new Set<string>();
+  const cartonNumbers = new Set<string>();
 
   payload.pallets.forEach((pallet, palletIndex) => {
-    if (!pallet.sourcePalletNumber.trim()) {
-      fieldErrors[
-        packingListFieldKey(["pallets", palletIndex, "sourcePalletNumber"])
-      ] = "Enter the pallet number.";
+    const palletField = packingListFieldKey([
+      "pallets",
+      palletIndex,
+      "sourcePalletNumber",
+    ]);
+    const normalizedPalletNumber = pallet.sourcePalletNumber.trim().toUpperCase();
+    if (!normalizedPalletNumber) {
+      fieldErrors[palletField] = "Enter the pallet number.";
+    } else if (palletNumbers.has(normalizedPalletNumber)) {
+      fieldErrors[palletField] = "Use a unique pallet number.";
+    } else {
+      palletNumbers.add(normalizedPalletNumber);
     }
 
     pallet.cartons.forEach((carton, cartonIndex) => {
-      if (!carton.sourceCartonNumber.trim()) {
-        fieldErrors[
-          packingListFieldKey([
-            "pallets",
-            palletIndex,
-            "cartons",
-            cartonIndex,
-            "sourceCartonNumber",
-          ])
-        ] = "Enter the carton number.";
+      const cartonField = packingListFieldKey([
+        "pallets",
+        palletIndex,
+        "cartons",
+        cartonIndex,
+        "sourceCartonNumber",
+      ]);
+      const normalizedCartonNumber = carton.sourceCartonNumber.trim().toUpperCase();
+      if (!normalizedCartonNumber) {
+        fieldErrors[cartonField] = "Enter the carton number.";
+      } else if (cartonNumbers.has(normalizedCartonNumber)) {
+        fieldErrors[cartonField] = "Use a unique carton number.";
+      } else {
+        cartonNumbers.add(normalizedCartonNumber);
       }
 
+      const cartonSkus = new Set<string>();
       carton.lines.forEach((line, lineIndex) => {
         const skuField = packingListFieldKey([
           "pallets",
@@ -75,6 +101,10 @@ export function validatePackingListDraft(
           fieldErrors[skuField] = "Enter a recognised SKU.";
         } else if (!normalizedKnownSkus.has(normalizedSku)) {
           fieldErrors[skuField] = "Select an SKU from the product master.";
+        } else if (cartonSkus.has(normalizedSku)) {
+          fieldErrors[skuField] = "Use each SKU once per carton.";
+        } else {
+          cartonSkus.add(normalizedSku);
         }
 
         if (!Number.isInteger(line.expectedQuantity) || line.expectedQuantity <= 0) {

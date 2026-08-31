@@ -113,6 +113,14 @@ function formatChinaTime(value?: string) {
   }).format(new Date(value));
 }
 
+function shipmentStatusMessage(shipment: PrearrivalShipment): string {
+  return shipment.packingListStatus === "confirmed"
+    ? "Export packing data confirmed. Create a revision before changing any source quantity."
+    : shipment.packingListStatus === "draft"
+      ? "A prior immutable draft exists. Open a new working copy to complete and confirm the Packing List."
+      : "Create and confirm the first Packing List before Australian warehouse work begins.";
+}
+
 export function PrearrivalShipmentPanel() {
   const [shipments, setShipments] = useState<PrearrivalShipmentSummary[]>([]);
   const [shipment, setShipment] = useState<PrearrivalShipment | null>(null);
@@ -122,54 +130,74 @@ export function PrearrivalShipmentPanel() {
   const [busy, setBusy] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<PackingListFieldErrors>({});
   const [errorSummary, setErrorSummary] = useState<string | null>(null);
+  const [pendingFocusField, setPendingFocusField] = useState<string | null>(null);
+  const [pendingRevisionId, setPendingRevisionId] = useState<string | null>(null);
+  const [reconciliationRequired, setReconciliationRequired] = useState(false);
   const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const loadRequestToken = useRef(0);
 
   function clearDraftErrors() {
     setFieldErrors({});
     setErrorSummary(null);
+    setPendingFocusField(null);
+  }
+
+  function clearRevisionProgress() {
+    setPendingRevisionId(null);
+    setReconciliationRequired(false);
   }
 
   function focusDraftField(field: string | undefined) {
     if (!field) return;
-    requestAnimationFrame(() => fieldRefs.current[field]?.focus());
+    const selectionPath = /^pallets\.(\d+)(?:\.cartons\.(\d+))?/.exec(field);
+    if (selectionPath) {
+      setSelection({
+        palletIndex: Number(selectionPath[1]),
+        cartonIndex: Number(selectionPath[2] ?? 0),
+      });
+    }
+    setPendingFocusField(field);
   }
 
   function clearFieldError(field: string) {
-    setFieldErrors((current) => {
-      if (!current[field]) return current;
-      const next = { ...current };
-      delete next[field];
-      if (!Object.keys(next).length) setErrorSummary(null);
-      return next;
-    });
+    if (!fieldErrors[field]) return;
+    const next = { ...fieldErrors };
+    delete next[field];
+    setFieldErrors(next);
+    if (!Object.keys(next).length) setErrorSummary(null);
   }
 
   function cancelWorkingCopy() {
     setDraftPayload(null);
     clearDraftErrors();
-    setMessage("Create and confirm the first Packing List before Australian warehouse work begins.");
+    clearRevisionProgress();
+    if (shipment) setMessage(shipmentStatusMessage(shipment));
   }
 
   async function loadShipment(shipmentId: string) {
-    const response = await fetch(
-      `/api/prearrival/shipments?shipmentId=${encodeURIComponent(shipmentId)}`,
-      { cache: "no-store", headers: await buildApiHeaders("partner") },
-    );
-    const body = (await response.json()) as ShipmentResponse;
-    if (!response.ok || !body.ok) {
-      setShipment(null);
-      setMessage(("message" in body && body.message) || "Pre-arrival shipment could not be loaded.");
-      return;
+    const requestToken = ++loadRequestToken.current;
+    try {
+      const response = await fetch(
+        `/api/prearrival/shipments?shipmentId=${encodeURIComponent(shipmentId)}`,
+        { cache: "no-store", headers: await buildApiHeaders("partner") },
+      );
+      const body = (await response.json()) as ShipmentResponse;
+      if (requestToken !== loadRequestToken.current) return;
+      if (!response.ok || !body.ok) {
+        setShipment(null);
+        setMessage(("message" in body && body.message) || "Pre-arrival shipment could not be loaded.");
+        return;
+      }
+      setShipment(body.shipment);
+      setDraftPayload(null);
+      clearDraftErrors();
+      clearRevisionProgress();
+      setSelection({ palletIndex: 0, cartonIndex: 0 });
+      setMessage(shipmentStatusMessage(body.shipment));
+    } catch {
+      if (requestToken !== loadRequestToken.current) return;
+      setMessage("Pre-arrival shipment could not be loaded. Try reloading shipment status.");
     }
-    setShipment(body.shipment);
-    setDraftPayload(null);
-    clearDraftErrors();
-    setSelection({ palletIndex: 0, cartonIndex: 0 });
-    setMessage(body.shipment.packingListStatus === "confirmed"
-      ? "Export packing data confirmed. Create a revision before changing any source quantity."
-      : body.shipment.packingListStatus === "draft"
-        ? "A prior immutable draft exists. Open a new working copy to complete and confirm the Packing List."
-        : "Create and confirm the first Packing List before Australian warehouse work begins.");
   }
 
   async function loadWorkspace() {
@@ -193,6 +221,17 @@ export function PrearrivalShipmentPanel() {
   useEffect(() => {
     void loadWorkspace();
   }, []);
+
+  useEffect(() => {
+    if (!pendingFocusField) return;
+    const frame = requestAnimationFrame(() => {
+      const input = fieldRefs.current[pendingFocusField];
+      if (!input) return;
+      input.focus();
+      setPendingFocusField(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [pendingFocusField, selection]);
 
   const selectedCarton = useMemo<SelectedCarton | null>(() => {
     if (draftPayload) {
@@ -228,6 +267,7 @@ export function PrearrivalShipmentPanel() {
   function startRevision() {
     if (!shipment) return;
     clearDraftErrors();
+    clearRevisionProgress();
     setDraftPayload(payloadFromShipment(shipment));
     setSelection({ palletIndex: 0, cartonIndex: 0 });
     setMessage(shipment.packingListStatus === "not_started"
@@ -236,6 +276,7 @@ export function PrearrivalShipmentPanel() {
   }
 
   function addPallet() {
+    clearDraftErrors();
     setDraftPayload((current) => {
       if (!current) return current;
       const next = structuredClone(current);
@@ -246,6 +287,7 @@ export function PrearrivalShipmentPanel() {
   }
 
   function addCarton() {
+    clearDraftErrors();
     setDraftPayload((current) => {
       if (!current) return current;
       const next = structuredClone(current);
@@ -258,6 +300,7 @@ export function PrearrivalShipmentPanel() {
   }
 
   function addSkuLine() {
+    clearDraftErrors();
     setDraftPayload((current) => {
       if (!current) return current;
       const next = structuredClone(current);
@@ -269,6 +312,7 @@ export function PrearrivalShipmentPanel() {
   }
 
   function removeSkuLine(lineIndex: number) {
+    clearDraftErrors();
     setDraftPayload((current) => {
       if (!current) return current;
       const next = structuredClone(current);
@@ -280,6 +324,7 @@ export function PrearrivalShipmentPanel() {
   }
 
   function removeSelectedCarton() {
+    clearDraftErrors();
     setDraftPayload((current) => {
       if (!current) return current;
       const next = structuredClone(current);
@@ -295,6 +340,7 @@ export function PrearrivalShipmentPanel() {
   }
 
   function removeSelectedPallet() {
+    clearDraftErrors();
     setDraftPayload((current) => {
       if (!current || current.pallets.length === 1) return current;
       const next = structuredClone(current);
@@ -327,45 +373,53 @@ export function PrearrivalShipmentPanel() {
 
   async function confirmRevision() {
     if (!draftPayload || !shipment) return;
-    const validation = validatePackingListDraft(draftPayload, shipment.productMasterSkus);
-    if (!validation.ok) {
-      setFieldErrors(validation.fieldErrors);
-      setErrorSummary(validation.summary ?? null);
-      focusDraftField(validation.firstField);
-      return;
+    const mutationShipmentId = shipment.shipmentId;
+    if (!pendingRevisionId) {
+      const validation = validatePackingListDraft(draftPayload, shipment.productMasterSkus);
+      if (!validation.ok) {
+        setFieldErrors(validation.fieldErrors);
+        setErrorSummary(validation.summary ?? null);
+        focusDraftField(validation.firstField);
+        return;
+      }
     }
     clearDraftErrors();
     setBusy(true);
+    let revisionId = pendingRevisionId;
     try {
-      const createResponse = await fetch(
-        `/api/prearrival/shipments/${encodeURIComponent(shipment.shipmentId)}/revisions`,
-        {
-          method: "POST",
-          headers: await buildApiHeaders("partner", { "Content-Type": "application/json" }),
-          body: JSON.stringify(draftPayload),
-        },
-      );
-      const created = (await createResponse.json()) as RevisionResponse;
-      if (!createResponse.ok || !created.ok) {
-        const serverFieldErrors = mapPackingListServerErrors(
-          "error" in created ? created.error : undefined,
+      if (!revisionId) {
+        const createResponse = await fetch(
+          `/api/prearrival/shipments/${encodeURIComponent(mutationShipmentId)}/revisions`,
+          {
+            method: "POST",
+            headers: await buildApiHeaders("partner", { "Content-Type": "application/json" }),
+            body: JSON.stringify(draftPayload),
+          },
         );
-        const firstServerField = Object.keys(serverFieldErrors)[0];
-        if (firstServerField) {
-          setFieldErrors(serverFieldErrors);
-          setErrorSummary("Review the highlighted Packing List fields and try again.");
-          focusDraftField(firstServerField);
-        } else {
-          setErrorSummary(
-            ("message" in created && created.message)
-            || "The Packing List could not be saved. Review the form and try again.",
+        const created = (await createResponse.json()) as RevisionResponse;
+        if (!createResponse.ok || !created.ok) {
+          const serverFieldErrors = mapPackingListServerErrors(
+            "error" in created ? created.error : undefined,
           );
+          const firstServerField = Object.keys(serverFieldErrors)[0];
+          if (firstServerField) {
+            setFieldErrors(serverFieldErrors);
+            setErrorSummary("Review the highlighted Packing List fields and try again.");
+            focusDraftField(firstServerField);
+          } else {
+            setErrorSummary(
+              ("message" in created && created.message)
+              || "The Packing List could not be saved. Review the form and try again.",
+            );
+          }
+          return;
         }
-        return;
+        revisionId = created.revision.id;
+        setPendingRevisionId(revisionId);
       }
 
       const confirmResponse = await fetch(
-        `/api/prearrival/revisions/${encodeURIComponent(created.revision.id)}/confirm`,
+        `/api/prearrival/revisions/${encodeURIComponent(revisionId)}/confirm`,
         {
           method: "POST",
           headers: await buildApiHeaders("partner"),
@@ -374,12 +428,24 @@ export function PrearrivalShipmentPanel() {
       const confirmedRevision = (await confirmResponse.json()) as RevisionResponse;
       if (!confirmResponse.ok || !confirmedRevision.ok) {
         setMessage(("message" in confirmedRevision && confirmedRevision.message) || "Packing-list revision could not be confirmed.");
+        setErrorSummary("Packing List draft was saved, but confirmation could not be completed. Try Confirm Packing List again.");
         return;
       }
 
+      clearRevisionProgress();
       setDraftPayload(null);
-      await loadShipment(shipment.shipmentId);
+      await loadShipment(mutationShipmentId);
       setMessage(`Packing List v${confirmedRevision.revision.version} confirmed`);
+    } catch {
+      if (revisionId) {
+        setPendingRevisionId(revisionId);
+        setErrorSummary("Packing List draft was saved, but confirmation could not be completed. Try Confirm Packing List again.");
+        setMessage("The confirmation request did not complete. Retry confirmation when ready.");
+      } else {
+        setReconciliationRequired(true);
+        setErrorSummary("The Packing List save result is unknown. Reload shipment status before trying again.");
+        setMessage("Reload shipment status before attempting another Packing List save.");
+      }
     } finally {
       setBusy(false);
     }
@@ -422,6 +488,7 @@ export function PrearrivalShipmentPanel() {
     "sourceCartonNumber",
   ]);
   const errorId = (field: string) => `prearrival-error-${field.replace(/\./g, "-")}`;
+  const fieldId = (field: string) => `prearrival-field-${field.replace(/\./g, "-")}`;
 
   return (
     <div className="prearrival-app" id="prearrival-workspace">
@@ -465,6 +532,7 @@ export function PrearrivalShipmentPanel() {
               : `${shipment.packingListStatus === "draft" ? "Draft exists" : "Packing List not started"} / Warehouse locked until confirmation`}</p>
             <select
               aria-label="Shipment"
+              disabled={busy}
               value={shipment.shipmentId}
               onChange={(event) => void loadShipment(event.target.value)}
             >
@@ -581,23 +649,24 @@ export function PrearrivalShipmentPanel() {
                     ? "Confirming this copy creates a new immutable version. The existing confirmed record remains unchanged."
                     : "Build the complete export structure here. Confirmation creates immutable Packing List v1 and unlocks Warehouse."}</p>
                   {errorSummary ? <div className="prearrival-error-summary" role="alert">{errorSummary}</div> : null}
+                  {reconciliationRequired ? <button className="secondary-button prearrival-reconcile" type="button" onClick={() => void loadShipment(shipment.shipmentId)} disabled={busy}>Reload shipment status</button> : null}
                   <div className="prearrival-editor-grid">
-                    <label>Pallet number<input ref={(element) => { fieldRefs.current[palletField] = element; }} aria-invalid={Boolean(fieldErrors[palletField])} aria-describedby={fieldErrors[palletField] ? errorId(palletField) : undefined} value={selectedCarton.draftPallet.sourcePalletNumber} onChange={(event) => { clearFieldError(palletField); updateSelectedCarton("pallet", event.target.value); }} />{fieldErrors[palletField] ? <span className="prearrival-field-error" id={errorId(palletField)}>{fieldErrors[palletField]}</span> : null}</label>
-                    <label>Carton number<input ref={(element) => { fieldRefs.current[cartonField] = element; }} aria-invalid={Boolean(fieldErrors[cartonField])} aria-describedby={fieldErrors[cartonField] ? errorId(cartonField) : undefined} value={selectedCarton.draftCarton.sourceCartonNumber} onChange={(event) => { clearFieldError(cartonField); updateSelectedCarton("carton", event.target.value); }} />{fieldErrors[cartonField] ? <span className="prearrival-field-error" id={errorId(cartonField)}>{fieldErrors[cartonField]}</span> : null}</label>
+                    <div className="prearrival-field"><label htmlFor={fieldId(palletField)}>Pallet number</label><input id={fieldId(palletField)} ref={(element) => { fieldRefs.current[palletField] = element; }} aria-invalid={Boolean(fieldErrors[palletField])} aria-describedby={fieldErrors[palletField] ? errorId(palletField) : undefined} value={selectedCarton.draftPallet.sourcePalletNumber} onChange={(event) => { clearFieldError(palletField); updateSelectedCarton("pallet", event.target.value); }} />{fieldErrors[palletField] ? <span className="prearrival-field-error" id={errorId(palletField)}>{fieldErrors[palletField]}</span> : null}</div>
+                    <div className="prearrival-field"><label htmlFor={fieldId(cartonField)}>Carton number</label><input id={fieldId(cartonField)} ref={(element) => { fieldRefs.current[cartonField] = element; }} aria-invalid={Boolean(fieldErrors[cartonField])} aria-describedby={fieldErrors[cartonField] ? errorId(cartonField) : undefined} value={selectedCarton.draftCarton.sourceCartonNumber} onChange={(event) => { clearFieldError(cartonField); updateSelectedCarton("carton", event.target.value); }} />{fieldErrors[cartonField] ? <span className="prearrival-field-error" id={errorId(cartonField)}>{fieldErrors[cartonField]}</span> : null}</div>
                     {selectedCarton.draftCarton.lines.map((line, lineIndex) => {
                       const skuField = packingListFieldKey(["pallets", selection.palletIndex, "cartons", selection.cartonIndex, "lines", lineIndex, "sku"]);
                       const quantityField = packingListFieldKey(["pallets", selection.palletIndex, "cartons", selection.cartonIndex, "lines", lineIndex, "expectedQuantity"]);
                       return (
-                        <div className="prearrival-line-editor" key={`${line.sku}-${lineIndex}`}>
-                          <label>{lineIndex === 0 ? "SKU" : `SKU ${lineIndex + 1}`}<input ref={(element) => { fieldRefs.current[skuField] = element; }} aria-invalid={Boolean(fieldErrors[skuField])} aria-describedby={fieldErrors[skuField] ? errorId(skuField) : undefined} value={line.sku} onChange={(event) => { clearFieldError(skuField); updateSelectedCarton("sku", event.target.value, lineIndex); }} />{fieldErrors[skuField] ? <span className="prearrival-field-error" id={errorId(skuField)}>{fieldErrors[skuField]}</span> : null}</label>
-                          <label>{lineIndex === 0 ? "Expected quantity" : `Expected quantity ${lineIndex + 1}`}<input ref={(element) => { fieldRefs.current[quantityField] = element; }} aria-invalid={Boolean(fieldErrors[quantityField])} aria-describedby={fieldErrors[quantityField] ? errorId(quantityField) : undefined} min="1" type="number" value={line.expectedQuantity} onChange={(event) => { clearFieldError(quantityField); updateSelectedCarton("quantity", event.target.value, lineIndex); }} />{fieldErrors[quantityField] ? <span className="prearrival-field-error" id={errorId(quantityField)}>{fieldErrors[quantityField]}</span> : null}</label>
+                        <div className="prearrival-line-editor" key={`line-${lineIndex}`}>
+                          <div className="prearrival-field"><label htmlFor={fieldId(skuField)}>{lineIndex === 0 ? "SKU" : `SKU ${lineIndex + 1}`}</label><input id={fieldId(skuField)} ref={(element) => { fieldRefs.current[skuField] = element; }} aria-invalid={Boolean(fieldErrors[skuField])} aria-describedby={fieldErrors[skuField] ? errorId(skuField) : undefined} value={line.sku} onChange={(event) => { clearFieldError(skuField); updateSelectedCarton("sku", event.target.value, lineIndex); }} />{fieldErrors[skuField] ? <span className="prearrival-field-error" id={errorId(skuField)}>{fieldErrors[skuField]}</span> : null}</div>
+                          <div className="prearrival-field"><label htmlFor={fieldId(quantityField)}>{lineIndex === 0 ? "Expected quantity" : `Expected quantity ${lineIndex + 1}`}</label><input id={fieldId(quantityField)} ref={(element) => { fieldRefs.current[quantityField] = element; }} aria-invalid={Boolean(fieldErrors[quantityField])} aria-describedby={fieldErrors[quantityField] ? errorId(quantityField) : undefined} min="1" type="number" value={line.expectedQuantity} onChange={(event) => { clearFieldError(quantityField); updateSelectedCarton("quantity", event.target.value, lineIndex); }} />{fieldErrors[quantityField] ? <span className="prearrival-field-error" id={errorId(quantityField)}>{fieldErrors[quantityField]}</span> : null}</div>
                           {lineIndex > 0 ? <button className="prearrival-remove-button" type="button" aria-label={`Remove SKU line ${lineIndex + 1}`} onClick={() => removeSkuLine(lineIndex)}><Trash size={14} />Remove line</button> : null}
                         </div>
                       );
                     })}
                   </div>
                   <button className="secondary-button prearrival-add-line" type="button" onClick={addSkuLine}><Plus size={15} />Add SKU line</button>
-                  <div className="prearrival-editor-actions"><button className="button button-primary" type="button" onClick={() => void confirmRevision()} disabled={busy}>{busy ? "Confirming..." : "Confirm Packing List"}</button><button className="button button-secondary" type="button" onClick={cancelWorkingCopy} disabled={busy}>Cancel working copy</button></div>
+                  <div className="prearrival-editor-actions"><button className="button button-primary" type="button" onClick={() => void confirmRevision()} disabled={busy || reconciliationRequired}>{busy ? "Confirming..." : "Confirm Packing List"}</button><button className="button button-secondary" type="button" onClick={cancelWorkingCopy} disabled={busy}>Cancel working copy</button></div>
                 </section>
               ) : null}
 
@@ -605,7 +674,7 @@ export function PrearrivalShipmentPanel() {
                 <div className="prearrival-table-shell">
                   <table>
                     <thead><tr><th>SKU</th><th>Product barcode</th><th>Expected qty</th><th>Label preparation</th></tr></thead>
-                    <tbody>{activeLines.map((line) => <tr key={`${line.sku}-${line.sourceCartonNumber}`}><td data-label="SKU"><code>{line.sku || "Pending"}</code></td><td data-label="Product barcode"><code>{shipment.productBarcodes[line.sku] ?? "Not assigned"}</code></td><td data-label="Expected qty"><strong>{line.expectedQuantity}</strong></td><td data-label="Label preparation"><strong className="prearrival-ready">{line.sku ? `${line.expectedQuantity} Ready` : "Pending"}</strong></td></tr>)}</tbody>
+                    <tbody>{activeLines.map((line, lineIndex) => <tr key={`active-line-${lineIndex}`}><td data-label="SKU"><code>{line.sku || "Pending"}</code></td><td data-label="Product barcode"><code>{shipment.productBarcodes[line.sku] ?? "Not assigned"}</code></td><td data-label="Expected qty"><strong>{line.expectedQuantity}</strong></td><td data-label="Label preparation"><strong className="prearrival-ready">{line.sku ? `${line.expectedQuantity} Ready` : "Pending"}</strong></td></tr>)}</tbody>
                   </table>
                 </div>
               ) : (
