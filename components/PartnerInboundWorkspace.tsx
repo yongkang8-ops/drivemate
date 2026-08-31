@@ -128,7 +128,7 @@ function WarehousePackingListGate({
           <p>Pallet and carton structure</p>
           <p>Recognised SKU quantities</p>
         </div>
-        <div className="inbound-phase-note"><span>Warehouse gate</span><p>Source data pending</p></div>
+        <div className="inbound-phase-note"><span>Warehouse control</span><p>Receipt remains locked until product-label print confirmation.</p></div>
       </aside>
 
       <section className="inbound-content">
@@ -565,7 +565,7 @@ export function PartnerInboundWorkspace() {
           <span>{view === "label_print" ? "Print rule" : view === "receive_stock" ? "Receipt mode" : view === "put_away" ? "Putaway rule" : "Audit rule"}</span>
           {view === "label_print" ? <><p>Receipt stays locked</p><p className="is-amber">Reprint needs a reason</p></> : view === "receive_stock" ? <><p>Product barcode required</p><p className="is-amber">Difference reason required</p></> : view === "put_away" ? <><p>Product barcode required</p><p>DMLOC destination required</p><p>Source is system-only</p></> : <><p>Print outcome retained</p><p>Receipt reason retained</p><p>Movement reference retained</p></>}
         </div>
-        <div className="inbound-phase-note"><span>Phase 1</span><p>Sample data only</p></div>
+        <div className="inbound-phase-note"><span>Warehouse control</span><p>Receipt remains locked until product-label print confirmation.</p></div>
       </aside>
 
       <section className="inbound-content">

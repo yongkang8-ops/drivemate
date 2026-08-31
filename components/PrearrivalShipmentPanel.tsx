@@ -12,8 +12,15 @@ import {
   Trash,
   WarningCircle,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { buildApiHeaders } from "../lib/clientAuth";
+import {
+  mapPackingListServerErrors,
+  packingListFieldKey,
+  validatePackingListDraft,
+  type PackingListFieldErrors,
+  type PackingListServerError,
+} from "../lib/prearrivalDraftValidation";
 import type {
   PackingListRevision,
   PrearrivalShipment,
@@ -29,7 +36,7 @@ type ShipmentResponse =
   | { ok: false; message?: string };
 type RevisionResponse =
   | { ok: true; revision: PackingListRevision }
-  | { ok: false; message?: string };
+  | { ok: false; message?: string; error?: PackingListServerError };
 
 type CartonSelection = { palletIndex: number; cartonIndex: number };
 type SelectedCarton = {
@@ -113,6 +120,35 @@ export function PrearrivalShipmentPanel() {
   const [draftPayload, setDraftPayload] = useState<PackingListRevisionInput | null>(null);
   const [message, setMessage] = useState("Loading pre-arrival shipment data.");
   const [busy, setBusy] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<PackingListFieldErrors>({});
+  const [errorSummary, setErrorSummary] = useState<string | null>(null);
+  const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  function clearDraftErrors() {
+    setFieldErrors({});
+    setErrorSummary(null);
+  }
+
+  function focusDraftField(field: string | undefined) {
+    if (!field) return;
+    requestAnimationFrame(() => fieldRefs.current[field]?.focus());
+  }
+
+  function clearFieldError(field: string) {
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      if (!Object.keys(next).length) setErrorSummary(null);
+      return next;
+    });
+  }
+
+  function cancelWorkingCopy() {
+    setDraftPayload(null);
+    clearDraftErrors();
+    setMessage("Create and confirm the first Packing List before Australian warehouse work begins.");
+  }
 
   async function loadShipment(shipmentId: string) {
     const response = await fetch(
@@ -127,6 +163,7 @@ export function PrearrivalShipmentPanel() {
     }
     setShipment(body.shipment);
     setDraftPayload(null);
+    clearDraftErrors();
     setSelection({ palletIndex: 0, cartonIndex: 0 });
     setMessage(body.shipment.packingListStatus === "confirmed"
       ? "Export packing data confirmed. Create a revision before changing any source quantity."
@@ -190,6 +227,7 @@ export function PrearrivalShipmentPanel() {
 
   function startRevision() {
     if (!shipment) return;
+    clearDraftErrors();
     setDraftPayload(payloadFromShipment(shipment));
     setSelection({ palletIndex: 0, cartonIndex: 0 });
     setMessage(shipment.packingListStatus === "not_started"
@@ -289,6 +327,14 @@ export function PrearrivalShipmentPanel() {
 
   async function confirmRevision() {
     if (!draftPayload || !shipment) return;
+    const validation = validatePackingListDraft(draftPayload, shipment.productMasterSkus);
+    if (!validation.ok) {
+      setFieldErrors(validation.fieldErrors);
+      setErrorSummary(validation.summary ?? null);
+      focusDraftField(validation.firstField);
+      return;
+    }
+    clearDraftErrors();
     setBusy(true);
     try {
       const createResponse = await fetch(
@@ -301,7 +347,20 @@ export function PrearrivalShipmentPanel() {
       );
       const created = (await createResponse.json()) as RevisionResponse;
       if (!createResponse.ok || !created.ok) {
-        setMessage(("message" in created && created.message) || "Packing-list revision could not be created.");
+        const serverFieldErrors = mapPackingListServerErrors(
+          "error" in created ? created.error : undefined,
+        );
+        const firstServerField = Object.keys(serverFieldErrors)[0];
+        if (firstServerField) {
+          setFieldErrors(serverFieldErrors);
+          setErrorSummary("Review the highlighted Packing List fields and try again.");
+          focusDraftField(firstServerField);
+        } else {
+          setErrorSummary(
+            ("message" in created && created.message)
+            || "The Packing List could not be saved. Review the form and try again.",
+          );
+        }
         return;
       }
 
@@ -350,6 +409,19 @@ export function PrearrivalShipmentPanel() {
           })),
       }));
   const packingListConfirmed = shipment.packingListStatus === "confirmed";
+  const palletField = packingListFieldKey([
+    "pallets",
+    selection.palletIndex,
+    "sourcePalletNumber",
+  ]);
+  const cartonField = packingListFieldKey([
+    "pallets",
+    selection.palletIndex,
+    "cartons",
+    selection.cartonIndex,
+    "sourceCartonNumber",
+  ]);
+  const errorId = (field: string) => `prearrival-error-${field.replace(/\./g, "-")}`;
 
   return (
     <div className="prearrival-app" id="prearrival-workspace">
@@ -373,7 +445,7 @@ export function PrearrivalShipmentPanel() {
           <p>Actor always recorded</p>
           <p>Timezone is a display choice</p>
         </div>
-        <div className="prearrival-phase-note"><span>Phase 1</span><p>Sample data only</p></div>
+        <div className="prearrival-phase-note"><span>Inbound gate</span><p>Label preparation remains locked until Packing List confirmation.</p></div>
       </aside>
 
       <section className="prearrival-content">
@@ -473,7 +545,7 @@ export function PrearrivalShipmentPanel() {
                   <button className="prearrival-remove-button" type="button" onClick={removeSelectedPallet} disabled={draftPayload.pallets.length <= 1}><Trash size={14} />Remove pallet</button>
                 </div>
               ) : null}
-              <div className="prearrival-phase-copy"><span>Phase 1 label position</span><p>No DriveMate label is required in China. Australian printing is prepared from this data.</p></div>
+              <div className="prearrival-phase-copy"><span>Export label position</span><p>No DriveMate label is required in China. Australian printing is prepared from this data.</p></div>
             </section>
 
             <section className="prearrival-detail" id="shipment-contents">
@@ -508,19 +580,24 @@ export function PrearrivalShipmentPanel() {
                   <p>{packingListConfirmed
                     ? "Confirming this copy creates a new immutable version. The existing confirmed record remains unchanged."
                     : "Build the complete export structure here. Confirmation creates immutable Packing List v1 and unlocks Warehouse."}</p>
+                  {errorSummary ? <div className="prearrival-error-summary" role="alert">{errorSummary}</div> : null}
                   <div className="prearrival-editor-grid">
-                    <label>Pallet number<input value={selectedCarton.draftPallet.sourcePalletNumber} onChange={(event) => updateSelectedCarton("pallet", event.target.value)} /></label>
-                    <label>Carton number<input value={selectedCarton.draftCarton.sourceCartonNumber} onChange={(event) => updateSelectedCarton("carton", event.target.value)} /></label>
-                    {selectedCarton.draftCarton.lines.map((line, lineIndex) => (
-                      <div className="prearrival-line-editor" key={`${line.sku}-${lineIndex}`}>
-                        <label>{lineIndex === 0 ? "SKU" : `SKU ${lineIndex + 1}`}<input value={line.sku} onChange={(event) => updateSelectedCarton("sku", event.target.value, lineIndex)} /></label>
-                        <label>{lineIndex === 0 ? "Expected quantity" : `Expected quantity ${lineIndex + 1}`}<input min="1" type="number" value={line.expectedQuantity} onChange={(event) => updateSelectedCarton("quantity", event.target.value, lineIndex)} /></label>
-                        {lineIndex > 0 ? <button className="prearrival-remove-button" type="button" aria-label={`Remove SKU line ${lineIndex + 1}`} onClick={() => removeSkuLine(lineIndex)}><Trash size={14} />Remove line</button> : null}
-                      </div>
-                    ))}
+                    <label>Pallet number<input ref={(element) => { fieldRefs.current[palletField] = element; }} aria-invalid={Boolean(fieldErrors[palletField])} aria-describedby={fieldErrors[palletField] ? errorId(palletField) : undefined} value={selectedCarton.draftPallet.sourcePalletNumber} onChange={(event) => { clearFieldError(palletField); updateSelectedCarton("pallet", event.target.value); }} />{fieldErrors[palletField] ? <span className="prearrival-field-error" id={errorId(palletField)}>{fieldErrors[palletField]}</span> : null}</label>
+                    <label>Carton number<input ref={(element) => { fieldRefs.current[cartonField] = element; }} aria-invalid={Boolean(fieldErrors[cartonField])} aria-describedby={fieldErrors[cartonField] ? errorId(cartonField) : undefined} value={selectedCarton.draftCarton.sourceCartonNumber} onChange={(event) => { clearFieldError(cartonField); updateSelectedCarton("carton", event.target.value); }} />{fieldErrors[cartonField] ? <span className="prearrival-field-error" id={errorId(cartonField)}>{fieldErrors[cartonField]}</span> : null}</label>
+                    {selectedCarton.draftCarton.lines.map((line, lineIndex) => {
+                      const skuField = packingListFieldKey(["pallets", selection.palletIndex, "cartons", selection.cartonIndex, "lines", lineIndex, "sku"]);
+                      const quantityField = packingListFieldKey(["pallets", selection.palletIndex, "cartons", selection.cartonIndex, "lines", lineIndex, "expectedQuantity"]);
+                      return (
+                        <div className="prearrival-line-editor" key={`${line.sku}-${lineIndex}`}>
+                          <label>{lineIndex === 0 ? "SKU" : `SKU ${lineIndex + 1}`}<input ref={(element) => { fieldRefs.current[skuField] = element; }} aria-invalid={Boolean(fieldErrors[skuField])} aria-describedby={fieldErrors[skuField] ? errorId(skuField) : undefined} value={line.sku} onChange={(event) => { clearFieldError(skuField); updateSelectedCarton("sku", event.target.value, lineIndex); }} />{fieldErrors[skuField] ? <span className="prearrival-field-error" id={errorId(skuField)}>{fieldErrors[skuField]}</span> : null}</label>
+                          <label>{lineIndex === 0 ? "Expected quantity" : `Expected quantity ${lineIndex + 1}`}<input ref={(element) => { fieldRefs.current[quantityField] = element; }} aria-invalid={Boolean(fieldErrors[quantityField])} aria-describedby={fieldErrors[quantityField] ? errorId(quantityField) : undefined} min="1" type="number" value={line.expectedQuantity} onChange={(event) => { clearFieldError(quantityField); updateSelectedCarton("quantity", event.target.value, lineIndex); }} />{fieldErrors[quantityField] ? <span className="prearrival-field-error" id={errorId(quantityField)}>{fieldErrors[quantityField]}</span> : null}</label>
+                          {lineIndex > 0 ? <button className="prearrival-remove-button" type="button" aria-label={`Remove SKU line ${lineIndex + 1}`} onClick={() => removeSkuLine(lineIndex)}><Trash size={14} />Remove line</button> : null}
+                        </div>
+                      );
+                    })}
                   </div>
                   <button className="secondary-button prearrival-add-line" type="button" onClick={addSkuLine}><Plus size={15} />Add SKU line</button>
-                  <div className="prearrival-editor-actions"><button className="button button-primary" type="button" onClick={() => void confirmRevision()} disabled={busy}>{busy ? "Confirming..." : "Confirm Packing List"}</button><button className="button button-secondary" type="button" onClick={() => setDraftPayload(null)} disabled={busy}>Cancel working copy</button></div>
+                  <div className="prearrival-editor-actions"><button className="button button-primary" type="button" onClick={() => void confirmRevision()} disabled={busy}>{busy ? "Confirming..." : "Confirm Packing List"}</button><button className="button button-secondary" type="button" onClick={cancelWorkingCopy} disabled={busy}>Cancel working copy</button></div>
                 </section>
               ) : null}
 

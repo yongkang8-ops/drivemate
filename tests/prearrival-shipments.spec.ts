@@ -109,6 +109,58 @@ test("Partner initializes the first packing list and unlocks the Warehouse label
   await expect(page.getByText("42 expected units")).toBeVisible();
 });
 
+test("first Packing List validation stays local and cancel clears errors", async ({
+  page,
+  request,
+}) => {
+  const reset = await request.post("/api/test/reset?packingList=empty");
+  expect(reset.ok()).toBeTruthy();
+
+  let revisionPostCount = 0;
+  page.on("request", (pendingRequest) => {
+    if (
+      pendingRequest.method() === "POST"
+      && /\/api\/prearrival\/shipments\/[^/]+\/revisions$/.test(
+        new URL(pendingRequest.url()).pathname,
+      )
+    ) {
+      revisionPostCount += 1;
+    }
+  });
+
+  await page.goto("/prearrival");
+  await page.getByRole("button", { name: "Create first Packing List" }).click();
+  await page.getByRole("button", { name: "Confirm Packing List" }).click();
+
+  const errorSummary = page.locator('.prearrival-error-summary[role="alert"]');
+  await expect(errorSummary).toHaveText(
+    "Complete the highlighted Packing List fields before confirming.",
+  );
+  await expect(page.getByText("Enter the pallet number.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Enter the carton number.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Enter a recognised SKU.", { exact: true })).toBeVisible();
+  expect(revisionPostCount).toBe(0);
+
+  await page.getByLabel("Pallet number").fill("P001");
+  await expect(page.getByText("Enter the pallet number.", { exact: true })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Cancel working copy" }).click();
+  await expect(errorSummary).toHaveCount(0);
+  await expect(
+    page.getByText("Packing-list revision could not be created.", { exact: true }),
+  ).toHaveCount(0);
+});
+
+test("operations copy does not describe saved records as sample data", async ({ page }) => {
+  await page.goto("/prearrival");
+  await expect(page.getByRole("heading", { name: "Pre-arrival shipments" })).toBeVisible();
+  await expect(page.getByText("Sample data only", { exact: true })).toHaveCount(0);
+
+  await page.goto("/warehouse");
+  await expect(page.getByRole("heading", { name: "Inbound operations" })).toBeVisible();
+  await expect(page.getByText("Sample data only", { exact: true })).toHaveCount(0);
+});
+
 test("Partner creates and confirms a pre-arrival packing-list revision", async ({
   page,
 }) => {

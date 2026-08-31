@@ -324,6 +324,10 @@ body:has(.prearrival-app) .site-shell { min-height: 100vh; }
 .prearrival-editor { margin: 18px 0; padding: 18px; border: 1px solid #b9dfda; border-radius: 8px; background: #f4fbf9; }
 .prearrival-editor h3 { margin: 0; font-size: 15px; }
 .prearrival-editor > p { margin-top: 4px; }
+.prearrival-error-summary { margin-top: 14px; padding: 11px 13px; border: 1px solid #d7a05c; border-radius: 6px; background: #fff7e9; color: #7a4b13; font-size: 13px; font-weight: 650; }
+.prearrival-field-error { display: block; margin-top: 5px; color: #a13f35; font-size: 12px; font-weight: 650; }
+.prearrival-editor input[aria-invalid="true"] { border-color: #bd6258; box-shadow: 0 0 0 2px rgb(189 98 88 / 12%); }
+.prearrival-editor input[aria-invalid="true"]:focus { outline-color: #a8473e; }
 .prearrival-editor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
 .prearrival-line-editor { display: grid; grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; gap: 12px; align-items: end; padding-top: 12px; border-top: 1px solid #dbeae7; }
 .prearrival-remove-button { display: inline-flex; min-height: 36px; align-items: center; justify-content: center; gap: 6px; padding: 0 11px; border: 1px solid #dec8c1; border-radius: 6px; background: #fff; color: #8a4338; font-size: 12px; font-weight: 680; cursor: pointer; }
