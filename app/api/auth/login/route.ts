@@ -31,8 +31,21 @@ export async function POST(request: Request) {
 
   const auth = createServerAuthSupabaseClient();
   const { data, error } = await auth.auth.signInWithPassword(parsed.data);
+  if (error?.code === "invalid_credentials") {
+    return NextResponse.json(
+      { ok: false, code: "invalid_credentials", message: "Email or password was not accepted." },
+      { status: 401 },
+    );
+  }
   if (error || !data.session || !data.user) {
-    return NextResponse.json({ ok: false, message: "Email or password was not accepted." }, { status: 401 });
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "auth_service_unavailable",
+        message: "Sign-in service is temporarily unavailable. Please try again later.",
+      },
+      { status: 503 },
+    );
   }
 
   const service = createServiceSupabaseClient();

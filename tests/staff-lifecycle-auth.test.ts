@@ -55,6 +55,46 @@ afterEach(() => {
 });
 
 describe("staff account lifecycle authentication", () => {
+  it("returns a credential error only when Supabase rejects the credentials", async () => {
+    authSignInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { code: "invalid_credentials", message: "Invalid login credentials", status: 400 },
+    });
+    const { POST } = await import("../app/api/auth/login/route");
+    const response = await POST(new Request("https://drivemateparts.com.au/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "https://drivemateparts.com.au" },
+      body: JSON.stringify({ email: "worker@example.com", password: "Incorrect-Password-123!" }),
+    }));
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      code: "invalid_credentials",
+      message: "Email or password was not accepted.",
+    });
+  });
+
+  it("reports an unavailable authentication service without blaming the credentials", async () => {
+    authSignInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { code: "unexpected_failure", message: "upstream unavailable", status: 503 },
+    });
+    const { POST } = await import("../app/api/auth/login/route");
+    const response = await POST(new Request("https://drivemateparts.com.au/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "https://drivemateparts.com.au" },
+      body: JSON.stringify({ email: "worker@example.com", password: "Correct-Password-123!" }),
+    }));
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      ok: false,
+      code: "auth_service_unavailable",
+      message: "Sign-in service is temporarily unavailable. Please try again later.",
+    });
+  });
+
   it.each([
     { account_status: "disabled", requires_reauthentication: true },
     { account_status: "active", requires_reauthentication: true },
