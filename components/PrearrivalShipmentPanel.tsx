@@ -404,7 +404,7 @@ export function PrearrivalShipmentPanel() {
   }
 
   async function confirmRevision() {
-    if (!draftPayload || !shipment) return;
+    if (!draftPayload || !shipment || reconciliationRequired) return;
     const mutationShipmentId = shipment.shipmentId;
     if (!pendingRevisionId) {
       const validation = validatePackingListDraft(draftPayload, shipment.productMasterSkus);

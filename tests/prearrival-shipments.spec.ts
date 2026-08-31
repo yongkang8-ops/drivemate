@@ -392,8 +392,19 @@ test("an unknown create result requires shipment reconciliation", async ({
   await expect(page.getByRole("button", { name: "Cancel working copy" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Create first Packing List" })).toHaveCount(0);
   await page.getByRole("button", { name: "Confirm Packing List" }).evaluate(
-    (button) => (button as HTMLButtonElement).click(),
+    (button) => {
+      (button as HTMLButtonElement).disabled = false;
+      (button as HTMLButtonElement).click();
+      const reactPropsKey = Object.keys(button).find((key) => key.startsWith("__reactProps$"));
+      const reactProps = reactPropsKey
+        ? (button as unknown as Record<string, { onClick?: () => void }>)[reactPropsKey]
+        : undefined;
+      reactProps?.onClick?.();
+    },
   );
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
   expect(createPostCount).toBe(1);
   expect(pageErrors).toEqual([]);
 
