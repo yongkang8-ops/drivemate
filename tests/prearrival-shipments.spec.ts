@@ -413,7 +413,7 @@ test("a saved draft retries confirmation without creating another revision", asy
   releaseCreate();
   await expect(page.getByText("Temporary confirmation failure.", { exact: true })).toBeVisible();
   await expect(page.getByText(
-    "Packing List draft saved. Editing is locked until confirmation or reload.",
+    "Packing List draft saved. Editing is locked until confirmation, correction or reload.",
     { exact: true },
   )).toBeVisible();
   await expect(page.getByRole("button", { name: "Confirm Packing List" })).toBeEnabled();
@@ -456,7 +456,7 @@ test("a saved draft retries confirmation without creating another revision", asy
   await expect(page.getByLabel("SKU 2")).toHaveValue("DM-GWM-AF-002");
   await expect(page.getByLabel("SKU 3")).toHaveCount(0);
   await expect(page.getByText(
-    "Packing List draft saved. Editing is locked until confirmation or reload.",
+    "Packing List draft saved. Editing is locked until confirmation, correction or reload.",
     { exact: true },
   )).toBeVisible();
   await expect(page.getByLabel("Shipment")).toHaveValue("shipment-test-1");
@@ -466,6 +466,54 @@ test("a saved draft retries confirmation without creating another revision", asy
   await expect(page.getByText("Packing List v2 confirmed", { exact: true })).toBeVisible();
   await expect(page.getByText("13 Ready", { exact: true })).toBeVisible();
   expect(createPostCount).toBe(1);
+  expect(confirmPostCount).toBe(2);
+});
+
+test("a deterministically rejected saved draft can start a corrected revision", async ({
+  page,
+  request,
+}) => {
+  await request.post("/api/test/reset?packingList=empty");
+  let createPostCount = 0;
+  let confirmPostCount = 0;
+  await page.route(/\/api\/prearrival\/shipments\/[^/]+\/revisions$/, async (route) => {
+    createPostCount += 1;
+    await route.continue();
+  });
+  await page.route(/\/api\/prearrival\/revisions\/[^/]+\/confirm$/, async (route) => {
+    confirmPostCount += 1;
+    if (confirmPostCount === 1) {
+      await route.fulfill({
+        status: 422,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: false, message: "Packing List does not match the Shipment purchase order." }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto("/prearrival");
+  await page.getByRole("button", { name: "Create first Packing List" }).click();
+  await page.getByLabel("Pallet number").fill("P001");
+  await page.getByLabel("Carton number").fill("C001");
+  await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
+  await page.getByLabel("Expected quantity", { exact: true }).fill("12");
+  await page.getByRole("button", { name: "Confirm Packing List" }).click();
+
+  await expect(page.getByText(
+    "Packing List does not match the Shipment purchase order.",
+    { exact: true },
+  )).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start corrected revision" })).toBeEnabled();
+  await page.getByRole("button", { name: "Start corrected revision" }).click();
+  await expect(page.getByLabel("Expected quantity", { exact: true })).toBeEnabled();
+  await page.getByLabel("Expected quantity", { exact: true }).fill("14");
+  await page.getByRole("button", { name: "Confirm Packing List" }).click();
+
+  await expect(page.getByText("Packing List v2 confirmed", { exact: true })).toBeVisible();
+  await expect(page.getByText("14 Ready", { exact: true })).toBeVisible();
+  expect(createPostCount).toBe(2);
   expect(confirmPostCount).toBe(2);
 });
 
@@ -497,7 +545,7 @@ test("reload recovers a server-saved draft when the create response is lost", as
 
   await page.getByRole("button", { name: "Reload shipment status" }).click();
   await expect(page.getByText(
-    "Packing List draft saved. Editing is locked until confirmation or reload.",
+    "Packing List draft saved. Editing is locked until confirmation, correction or reload.",
     { exact: true },
   )).toBeVisible();
   await expect(page.getByLabel("Pallet number")).toHaveValue("P001");
@@ -546,7 +594,7 @@ test("reload resolves an unknown confirm response from server truth", async ({
   await expect(page.locator(".prearrival-version-row")).toContainText("v1 confirmed");
   await expect(page.getByRole("link", { name: "Prepare AU labels" })).toBeVisible();
   await expect(page.getByText(
-    "Packing List draft saved. Editing is locked until confirmation or reload.",
+    "Packing List draft saved. Editing is locked until confirmation, correction or reload.",
     { exact: true },
   )).toHaveCount(0);
   expect(createPostCount).toBe(1);

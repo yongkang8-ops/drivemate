@@ -201,6 +201,13 @@ export function PrearrivalShipmentPanel() {
     if (shipment) setMessage(shipmentStatusMessage(shipment));
   }
 
+  function startCorrectedRevision() {
+    if (!draftPayload || !pendingRevisionId || busy || reconciliationRequired) return;
+    setPendingRevisionId(null);
+    clearDraftErrors();
+    setMessage("Saved draft retained for audit. Edit this working copy to create a corrected revision.");
+  }
+
   async function loadShipment(shipmentId: string) {
     const requestToken = ++loadRequestToken.current;
     try {
@@ -706,7 +713,8 @@ export function PrearrivalShipmentPanel() {
                     ? "Confirming this copy creates a new immutable version. The existing confirmed record remains unchanged."
                     : "Build the complete export structure here. Confirmation creates immutable Packing List v1 and unlocks Warehouse."}</p>
                   {errorSummary ? <div className="prearrival-error-summary" role="alert">{errorSummary}</div> : null}
-                  {pendingRevisionId ? <p className="prearrival-message">Packing List draft saved. Editing is locked until confirmation or reload.</p> : null}
+                  {pendingRevisionId ? <p className="prearrival-message">Packing List draft saved. Editing is locked until confirmation, correction or reload.</p> : null}
+                  {pendingRevisionId && !reconciliationRequired ? <button className="secondary-button" type="button" onClick={startCorrectedRevision} disabled={busy}>Start corrected revision</button> : null}
                   {pendingRevisionId || reconciliationRequired ? <button className="secondary-button prearrival-reconcile" type="button" onClick={() => void loadShipment(shipment.shipmentId)} disabled={busy}>Reload shipment status</button> : null}
                   <div className="prearrival-editor-grid">
                     <div className="prearrival-field"><label htmlFor={fieldId(palletField)}>Pallet number</label><input id={fieldId(palletField)} ref={(element) => { fieldRefs.current[palletField] = element; }} aria-invalid={Boolean(fieldErrors[palletField])} aria-describedby={fieldErrors[palletField] ? errorId(palletField) : undefined} disabled={editorLocked} value={selectedCarton.draftPallet.sourcePalletNumber} onChange={(event) => { clearFieldError(palletField); updateSelectedCarton("pallet", event.target.value); }} />{fieldErrors[palletField] ? <span className="prearrival-field-error" id={errorId(palletField)}>{fieldErrors[palletField]}</span> : null}</div>
