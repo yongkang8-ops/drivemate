@@ -46,6 +46,7 @@ import type {
 } from "./warehouseReceiving";
 import type { WarehouseHistoryEvent } from "./warehouseHistory";
 import {
+  mapReceiptProductBarcodes,
   receiptFromPackingListRevision,
   summarizePackingListReadiness,
   validatePackingListRevision,
@@ -2984,7 +2985,6 @@ export class SupabaseRepository implements DrivemateRepository {
     const receipt = revision
       ? receiptFromPackingListRevision(revision.payloadSnapshot)
       : { shipmentId, pallets: [], cartons: [], lines: [] };
-    const receiptSkus = new Set(receipt.lines.map((line) => line.sku));
     const products = await supabase.from("products").select("sku, barcode");
     if (products.error) throw products.error;
     const productRecords = (products.data ?? []) as Array<Pick<ProductRecord, "sku" | "barcode">>;
@@ -2995,13 +2995,7 @@ export class SupabaseRepository implements DrivemateRepository {
         ...receipt,
         ...readiness,
         revisions,
-        productBarcodes: Object.fromEntries(
-          productRecords.flatMap((product) => {
-            return receiptSkus.has(product.sku) && product.barcode
-              ? [[product.sku, product.barcode]]
-              : [];
-          }),
-        ),
+        productBarcodes: mapReceiptProductBarcodes(receipt.lines, productRecords),
         productMasterSkus: [
           ...new Set(productRecords.map((product) => product.sku.trim().toUpperCase()).filter(Boolean)),
         ],

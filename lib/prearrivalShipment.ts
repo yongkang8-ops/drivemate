@@ -93,6 +93,22 @@ export function receiptFromPackingListRevision(
   };
 }
 
+export function mapReceiptProductBarcodes(
+  receiptLines: readonly { sku: string }[],
+  productRecords: readonly { sku: string; barcode?: string | null }[],
+): Record<string, string> {
+  const productsBySku = new Map(
+    productRecords.map((product) => [product.sku.trim().toUpperCase(), product]),
+  );
+
+  return Object.fromEntries(
+    receiptLines.flatMap((line) => {
+      const barcode = productsBySku.get(line.sku.trim().toUpperCase())?.barcode;
+      return barcode ? [[line.sku, barcode]] : [];
+    }),
+  );
+}
+
 function normalizeIdentifier(value: string): string {
   return value.trim().toUpperCase().replace(/\s+/g, " ");
 }

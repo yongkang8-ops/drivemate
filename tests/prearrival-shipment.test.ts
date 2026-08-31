@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MemoryRepository } from "../lib/memoryRepository";
 import {
+  mapReceiptProductBarcodes,
   receiptFromPackingListRevision,
   validatePackingListRevision,
   type PackingListRevisionInput,
@@ -24,6 +25,19 @@ const validInput: PackingListRevisionInput = {
 };
 
 describe("pre-arrival packing-list revisions", () => {
+  it("maps product barcodes by normalized SKU while preserving the receipt SKU key", () => {
+    expect(
+      mapReceiptProductBarcodes(
+        [{ sku: "dm-gwm-of-001" }, { sku: "DM-GWM-AF-002" }],
+        [
+          { sku: "DM-GWM-OF-001", barcode: "DMPGWMOF001" },
+          { sku: "DM-GWM-AF-002", barcode: null },
+          { sku: "DM-GWM-BP-003", barcode: "DMPGWMBP003" },
+        ],
+      ),
+    ).toEqual({ "dm-gwm-of-001": "DMPGWMOF001" });
+  });
+
   it("keeps an existing shipment actionable before its first packing-list revision", async () => {
     const repository = new MemoryRepository();
     await repository.resetForTests({ packingList: "empty" });
@@ -241,6 +255,31 @@ describe("pre-arrival packing-list revisions", () => {
         lines: expect.arrayContaining([
           expect.objectContaining({ sku: "DM-GWM-OF-001", expectedQuantity: 13 }),
         ]),
+      },
+    });
+  });
+
+  it("returns a product barcode keyed by the original lowercase and padded receipt SKU", async () => {
+    const repository = new MemoryRepository();
+    await repository.resetForTests({ packingList: "empty" });
+    const lowercaseInput = structuredClone(validInput);
+    lowercaseInput.pallets[0].cartons[0].lines[0].sku = " dm-gwm-of-001 ";
+
+    const draft = await repository.createPackingListRevision(lowercaseInput, {
+      actorId: "demo-partner-user",
+    });
+    expect(draft).toMatchObject({ ok: true });
+    if (!draft.ok) return;
+
+    const confirmed = await repository.confirmPackingListRevision(draft.revision.id, {
+      actorId: "demo-partner-user",
+    });
+    expect(confirmed).toMatchObject({ ok: true });
+
+    await expect(repository.getPrearrivalShipment("shipment-test-1")).resolves.toMatchObject({
+      ok: true,
+      shipment: {
+        productBarcodes: { " dm-gwm-of-001 ": "DMPGWMOF001" },
       },
     });
   });

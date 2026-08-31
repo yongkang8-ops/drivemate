@@ -100,6 +100,7 @@ import { filterWarehouseExpectedReceipt, type WarehouseExpectedReceipt, type War
 import { RECEIVING_STAGING_LOCATION, type WarehouseReceiptScope } from "./warehouseReceiving";
 import { type WarehouseHistoryEvent } from "./warehouseHistory";
 import {
+  mapReceiptProductBarcodes,
   summarizePackingListReadiness,
   validatePackingListRevision,
   type ValidatedPackingListRevision,
@@ -461,12 +462,7 @@ function latestConfirmedPackingListRevision(shipmentId: string): PackingListRevi
 }
 
 function productBarcodesFor(receipt: WarehouseExpectedReceipt): Record<string, string> {
-  return Object.fromEntries(
-    receipt.lines.flatMap((line) => {
-      const product = findProductBySku(line.sku);
-      return product?.barcode ? [[line.sku, product.barcode]] : [];
-    }),
-  );
+  return mapReceiptProductBarcodes(receipt.lines, products);
 }
 
 function productMasterSkus(): string[] {
