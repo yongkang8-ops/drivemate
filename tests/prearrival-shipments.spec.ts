@@ -223,12 +223,20 @@ test("Packing List SKU rows keep identity while a scanner types", async ({
   await page.goto("/prearrival");
   await page.getByRole("button", { name: "Create first Packing List" }).click();
   await page.getByRole("button", { name: "Add SKU line" }).click();
+  await page.getByRole("button", { name: "Add SKU line" }).click();
 
-  const secondSku = page.getByLabel("SKU 2");
-  await secondSku.pressSequentially("DM-GWM-AF-002");
+  const thirdSku = page.getByLabel("SKU 3");
+  await thirdSku.pressSequentially("DM-GWM-AF-002");
+  await expect(thirdSku).toHaveValue("DM-GWM-AF-002");
+  await expect(thirdSku).toBeFocused();
 
-  await expect(secondSku).toHaveValue("DM-GWM-AF-002");
-  await expect(secondSku).toBeFocused();
+  await page.getByRole("button", { name: "Remove SKU line 2" }).evaluate(
+    (button) => (button as HTMLButtonElement).click(),
+  );
+
+  const preservedSku = page.getByLabel("SKU 2");
+  await expect(preservedSku).toHaveValue("DM-GWM-AF-002");
+  await expect(preservedSku).toBeFocused();
   expect(duplicateKeyErrors).toEqual([]);
 });
 
@@ -365,8 +373,10 @@ test("an unknown create result requires shipment reconciliation", async ({
 }) => {
   await request.post("/api/test/reset?packingList=empty");
   const pageErrors: string[] = [];
+  let createPostCount = 0;
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.route(/\/api\/prearrival\/shipments\/[^/]+\/revisions$/, async (route) => {
+    createPostCount += 1;
     await route.abort("failed");
   });
 
@@ -379,11 +389,17 @@ test("an unknown create result requires shipment reconciliation", async ({
 
   await expect(page.getByRole("button", { name: "Reload shipment status" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Confirm Packing List" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Cancel working copy" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Create first Packing List" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Confirm Packing List" }).evaluate(
+    (button) => (button as HTMLButtonElement).click(),
+  );
+  expect(createPostCount).toBe(1);
   expect(pageErrors).toEqual([]);
 
   await page.unroute(/\/api\/prearrival\/shipments\/[^/]+\/revisions$/);
   await page.getByRole("button", { name: "Reload shipment status" }).click();
-  await expect(page.getByRole("button", { name: "Create first Packing List" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create first Packing List" })).toBeEnabled();
 });
 
 test("operations copy does not describe saved records as sample data", async ({ page }) => {
