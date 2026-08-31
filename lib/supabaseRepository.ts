@@ -46,7 +46,10 @@ import type {
 } from "./warehouseReceiving";
 import type { WarehouseHistoryEvent } from "./warehouseHistory";
 import {
+  assertCompleteShipmentProductRecords,
   buildShipmentProductScope,
+  chunkShipmentProductIds,
+  loadCompleteShipmentProductPages,
   mapReceiptProductBarcodes,
   receiptFromPackingListRevision,
   summarizePackingListReadiness,
@@ -794,28 +797,39 @@ export class SupabaseRepository implements DrivemateRepository {
     if (!purchaseOrderId) return buildShipmentProductScope([], []);
 
     const supabase = this.client();
-    const { data: lines, error: linesError } = await supabase
-      .from("purchase_order_lines")
-      .select("product_id")
-      .eq("purchase_order_id", purchaseOrderId);
-    if (linesError) throw linesError;
-
-    const purchaseOrderLines = (lines ?? []).map((line) => ({
-      productId: (line as { product_id: string }).product_id,
-    }));
+    const purchaseOrderLines = await loadCompleteShipmentProductPages(async (from, to) => {
+      const { data, error, count } = await supabase
+        .from("purchase_order_lines")
+        .select("id, product_id", { count: "exact" })
+        .eq("purchase_order_id", purchaseOrderId)
+        .order("id", { ascending: true })
+        .range(from, to);
+      if (error) throw error;
+      return {
+        rows: (data ?? []).map((line) => ({
+          productId: (line as { product_id: string }).product_id,
+        })),
+        count,
+      };
+    });
     const productIds = [
       ...new Set(purchaseOrderLines.map((line) => line.productId).filter(Boolean)),
     ];
     if (!productIds.length) return buildShipmentProductScope(purchaseOrderLines, []);
 
-    const { data: products, error: productsError } = await supabase
-      .from("products")
-      .select("id, sku, barcode")
-      .in("id", productIds);
-    if (productsError) throw productsError;
+    const products: Array<Pick<ProductRecord, "id" | "sku" | "barcode">> = [];
+    for (const chunk of chunkShipmentProductIds(productIds)) {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, sku, barcode")
+        .in("id", chunk);
+      if (error) throw error;
+      products.push(...((data ?? []) as Array<Pick<ProductRecord, "id" | "sku" | "barcode">>));
+    }
+    assertCompleteShipmentProductRecords(productIds, products);
     return buildShipmentProductScope(
       purchaseOrderLines,
-      (products ?? []) as Array<Pick<ProductRecord, "id" | "sku" | "barcode">>,
+      products,
     );
   }
 

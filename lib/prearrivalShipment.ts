@@ -35,6 +35,60 @@ export type ShipmentProductRecord = {
   barcode?: string | null;
 };
 
+const SHIPMENT_SCOPE_PAGE_SIZE = 500;
+const SHIPMENT_PRODUCT_CHUNK_SIZE = 100;
+
+export async function loadCompleteShipmentProductPages<T>(
+  loadPage: (from: number, to: number) => Promise<{ rows: T[]; count: number | null }>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  let expectedCount: number | undefined;
+
+  while (expectedCount === undefined || rows.length < expectedCount) {
+    const page = await loadPage(rows.length, rows.length + SHIPMENT_SCOPE_PAGE_SIZE - 1);
+    if (page.count === null || (expectedCount !== undefined && page.count !== expectedCount)) {
+      throw new Error("Purchase-order line scope count was unavailable or changed.");
+    }
+    expectedCount ??= page.count;
+    if (!page.rows.length && rows.length < expectedCount) {
+      throw new Error("Purchase-order line scope was incomplete.");
+    }
+    rows.push(...page.rows);
+    if (rows.length > expectedCount) {
+      throw new Error("Purchase-order line scope exceeded its exact count.");
+    }
+  }
+
+  return rows;
+}
+
+export function chunkShipmentProductIds(
+  productIds: readonly string[],
+): string[][] {
+  const chunks: string[][] = [];
+  for (let index = 0; index < productIds.length; index += SHIPMENT_PRODUCT_CHUNK_SIZE) {
+    chunks.push(productIds.slice(index, index + SHIPMENT_PRODUCT_CHUNK_SIZE));
+  }
+  return chunks;
+}
+
+export function assertCompleteShipmentProductRecords(
+  requestedIds: readonly string[],
+  productRecords: readonly ShipmentProductRecord[],
+): void {
+  const requested = new Set(requestedIds);
+  const returned = new Set<string>();
+  for (const product of productRecords) {
+    if (!requested.has(product.id) || returned.has(product.id)) {
+      throw new Error("Shipment product scope was incomplete.");
+    }
+    returned.add(product.id);
+  }
+  if (returned.size !== requested.size) {
+    throw new Error("Shipment product scope was incomplete.");
+  }
+}
+
 export function buildShipmentProductScope(
   purchaseOrderLines: readonly { productId: string }[],
   products: readonly ShipmentProductRecord[],
@@ -46,6 +100,7 @@ export function buildShipmentProductScope(
   const matchedLines = purchaseOrderLines.flatMap((line) => {
     const product = productsById.get(line.productId);
     if (!product) return [];
+    if (product.sku !== product.sku.trim()) return [];
     const normalizedSku = product.sku.trim().toUpperCase();
     return normalizedSku ? [{ normalizedSku, product }] : [];
   });

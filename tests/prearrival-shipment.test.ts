@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { MemoryRepository } from "../lib/memoryRepository";
 import {
+  assertCompleteShipmentProductRecords,
   buildShipmentProductScope,
+  chunkShipmentProductIds,
+  loadCompleteShipmentProductPages,
   mapReceiptProductBarcodes,
   receiptFromPackingListRevision,
   validatePackingListRevision,
@@ -26,18 +29,59 @@ const validInput: PackingListRevisionInput = {
 };
 
 describe("pre-arrival packing-list revisions", () => {
+  it("loads every purchase-order line page before building the shipment scope", async () => {
+    const rows = Array.from({ length: 1_200 }, (_, index) => ({
+      productId: index === 1_199 ? "product-0" : `product-${index}`,
+    }));
+    const ranges: Array<[number, number]> = [];
+
+    const loaded = await loadCompleteShipmentProductPages(async (from, to) => {
+      ranges.push([from, to]);
+      return { rows: rows.slice(from, to + 1), count: rows.length };
+    });
+
+    expect(ranges).toEqual([[0, 499], [500, 999], [1_000, 1_499]]);
+    expect(loaded).toHaveLength(1_200);
+    expect(buildShipmentProductScope(loaded, [
+      { id: "product-0", sku: "DM-GWM-OF-001" },
+    ])).toEqual({ allowedSkus: [], productRecords: [] });
+  });
+
+  it("fails closed when an exact page count cannot be fully loaded", async () => {
+    await expect(loadCompleteShipmentProductPages(async (from) => ({
+      rows: from === 0 ? [{ productId: "product-1" }] : [],
+      count: 2,
+    }))).rejects.toThrow("Purchase-order line scope was incomplete.");
+  });
+
+  it("chunks product ids and rejects an incomplete product response", () => {
+    const ids = Array.from({ length: 205 }, (_, index) => `product-${index}`);
+    expect(chunkShipmentProductIds(ids).map((chunk) => chunk.length)).toEqual([100, 100, 5]);
+    expect(() => assertCompleteShipmentProductRecords(
+      ["product-1", "product-2"],
+      [{ id: "product-1", sku: "DM-GWM-OF-001" }],
+    )).toThrow("Shipment product scope was incomplete.");
+  });
+
   it("allows a product whose normalized SKU appears once on the purchase order", () => {
     expect(
       buildShipmentProductScope(
         [{ productId: "product-of" }],
-        [{ id: "product-of", sku: " dm-gwm-of-001 ", barcode: "DMPGWMOF001" }],
+        [{ id: "product-of", sku: "dm-gwm-of-001", barcode: "DMPGWMOF001" }],
       ),
     ).toEqual({
       allowedSkus: ["DM-GWM-OF-001"],
       productRecords: [
-        { id: "product-of", sku: " dm-gwm-of-001 ", barcode: "DMPGWMOF001" },
+        { id: "product-of", sku: "dm-gwm-of-001", barcode: "DMPGWMOF001" },
       ],
     });
+  });
+
+  it("excludes a product master SKU with leading or trailing whitespace", () => {
+    expect(buildShipmentProductScope(
+      [{ productId: "product-of" }],
+      [{ id: "product-of", sku: " DM-GWM-OF-001 ", barcode: "DMPGWMOF001" }],
+    )).toEqual({ allowedSkus: [], productRecords: [] });
   });
 
   it("excludes an SKU when its product appears more than once on the purchase order", () => {
@@ -64,7 +108,7 @@ describe("pre-arrival packing-list revisions", () => {
         [{ productId: "product-of-1" }, { productId: "product-of-2" }],
         [
           { id: "product-of-1", sku: "DM-GWM-OF-001" },
-          { id: "product-of-2", sku: " dm-gwm-of-001 " },
+          { id: "product-of-2", sku: "dm-gwm-of-001" },
         ],
       ),
     ).toEqual({ allowedSkus: [], productRecords: [] });
