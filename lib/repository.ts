@@ -301,6 +301,7 @@ export type PackingListRevisionResult =
 export type PrearrivalShipment = WarehouseExpectedReceipt & {
   revisions: PackingListRevision[];
   productBarcodes: Record<string, string>;
+  productMasterSkus: string[];
   packingListStatus: PackingListReadiness;
   latestPackingListVersion?: number;
   confirmedPackingListVersion?: number;

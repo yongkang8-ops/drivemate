@@ -2984,11 +2984,10 @@ export class SupabaseRepository implements DrivemateRepository {
     const receipt = revision
       ? receiptFromPackingListRevision(revision.payloadSnapshot)
       : { shipmentId, pallets: [], cartons: [], lines: [] };
-    const skus = [...new Set(receipt.lines.map((line) => line.sku))];
-    const products = skus.length
-      ? await supabase.from("products").select("sku, barcode").in("sku", skus)
-      : { data: [], error: null };
+    const receiptSkus = new Set(receipt.lines.map((line) => line.sku));
+    const products = await supabase.from("products").select("sku, barcode");
     if (products.error) throw products.error;
+    const productRecords = (products.data ?? []) as Array<Pick<ProductRecord, "sku" | "barcode">>;
 
     return {
       ok: true,
@@ -2997,11 +2996,15 @@ export class SupabaseRepository implements DrivemateRepository {
         ...readiness,
         revisions,
         productBarcodes: Object.fromEntries(
-          (products.data ?? []).flatMap((product) => {
-            const record = product as Pick<ProductRecord, "sku" | "barcode">;
-            return record.barcode ? [[record.sku, record.barcode]] : [];
+          productRecords.flatMap((product) => {
+            return receiptSkus.has(product.sku) && product.barcode
+              ? [[product.sku, product.barcode]]
+              : [];
           }),
         ),
+        productMasterSkus: [
+          ...new Set(productRecords.map((product) => product.sku.trim().toUpperCase()).filter(Boolean)),
+        ],
       },
     };
   }

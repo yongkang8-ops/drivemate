@@ -55,7 +55,34 @@ describe("pre-arrival packing-list revisions", () => {
         cartons: [],
         lines: [],
         productBarcodes: {},
+        productMasterSkus: expect.arrayContaining([
+          "DM-GWM-OF-001",
+          "DM-GWM-AF-002",
+        ]),
         revisions: [],
+      },
+    });
+  });
+
+  it("includes runtime-created products in the product-master SKU contract", async () => {
+    const repository = new MemoryRepository();
+    await repository.resetForTests({ packingList: "empty" });
+    await repository.createProductMaster({
+      sku: "DM-GWM-NEW-099",
+      brand: "GWM",
+      name: "Genuine Test Service Part",
+      category: "Service Filter",
+      barcode: "DMPGWMNEW099",
+      status: "active",
+    });
+
+    const result = await repository.getPrearrivalShipment("shipment-test-1");
+
+    expect(result).toMatchObject({
+      ok: true,
+      shipment: {
+        productBarcodes: {},
+        productMasterSkus: expect.arrayContaining(["DM-GWM-NEW-099"]),
       },
     });
   });

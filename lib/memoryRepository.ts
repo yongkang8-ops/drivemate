@@ -11,6 +11,7 @@ import {
   fitmentRules,
   findProductBySku,
   getCatalogueWithAvailability,
+  products,
   resetProductMasterData,
   resolveSkuIdentifier,
   updateProductMasterData,
@@ -466,6 +467,10 @@ function productBarcodesFor(receipt: WarehouseExpectedReceipt): Record<string, s
       return product?.barcode ? [[line.sku, product.barcode]] : [];
     }),
   );
+}
+
+function productMasterSkus(): string[] {
+  return [...new Set(products.map((product) => product.sku.trim().toUpperCase()).filter(Boolean))];
 }
 
 function knownSkusFor(input: ValidatedPackingListRevision): string[] {
@@ -1167,6 +1172,7 @@ export class MemoryRepository implements DrivemateRepository {
         ...receipt,
         ...readiness,
         productBarcodes: productBarcodesFor(receipt),
+        productMasterSkus: productMasterSkus(),
         revisions: revisions.map(clonePackingListRevision),
       },
     };
