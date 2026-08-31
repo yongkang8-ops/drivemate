@@ -161,6 +161,10 @@ function normalizeIdentifier(value: string): string {
   return value.trim().toUpperCase().replace(/\s+/g, " ");
 }
 
+function normalizeSkuIdentifier(value: string): string {
+  return value.trim().toUpperCase();
+}
+
 function hasIdentifier(value: string): boolean {
   return Boolean(normalizeIdentifier(value));
 }
@@ -177,7 +181,7 @@ export function validatePackingListRevision(
   }
 
   const knownSkus = options.knownSkus
-    ? new Set(options.knownSkus.map(normalizeIdentifier).filter(Boolean))
+    ? new Set(options.knownSkus.map(normalizeSkuIdentifier).filter(Boolean))
     : undefined;
   const palletNumbers = new Set<string>();
   const cartonNumbers = new Set<string>();
@@ -209,7 +213,7 @@ export function validatePackingListRevision(
 
       const cartonSkus = new Set<string>();
       for (const line of carton.lines) {
-        const sku = normalizeIdentifier(line.sku);
+        const sku = normalizeSkuIdentifier(line.sku);
         if (!sku) return { ok: false, message: `Carton ${carton.sourceCartonNumber} has a blank SKU.` };
         if (cartonSkus.has(sku)) {
           return { ok: false, message: `Duplicate SKU ${line.sku} in carton ${carton.sourceCartonNumber}.` };
@@ -229,7 +233,7 @@ export function validatePackingListRevision(
   const revision = structuredClone(input);
   for (const pallet of revision.pallets) {
     for (const carton of pallet.cartons) {
-      for (const line of carton.lines) line.sku = normalizeIdentifier(line.sku);
+      for (const line of carton.lines) line.sku = normalizeSkuIdentifier(line.sku);
     }
   }
 

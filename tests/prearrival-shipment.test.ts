@@ -227,6 +227,22 @@ describe("pre-arrival packing-list revisions", () => {
     expect(rawInput).toEqual(originalInput);
   });
 
+  it("preserves internal SKU spacing while trimming and uppercasing the revision", () => {
+    const rawInput = structuredClone(validInput);
+    rawInput.pallets[0].cartons[0].lines[0].sku = " dm  x ";
+    const originalInput = structuredClone(rawInput);
+
+    const result = validatePackingListRevision(rawInput, {
+      knownSkus: ["DM  X"],
+    });
+
+    expect(result).toMatchObject({ ok: true });
+    if (!result.ok) return;
+    expect(result.revision.pallets[0].cartons[0].lines[0].sku).toBe("DM  X");
+    expect(result.revision.pallets[0].cartons[0].lines[0].sku).not.toBe("DM X");
+    expect(rawInput).toEqual(originalInput);
+  });
+
   it("rejects an empty packing list", () => {
     expect(
       validatePackingListRevision(
