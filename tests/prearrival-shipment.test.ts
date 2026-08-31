@@ -28,11 +28,42 @@ describe("pre-arrival packing-list revisions", () => {
   it("maps product barcodes by normalized SKU while preserving the receipt SKU key", () => {
     expect(
       mapReceiptProductBarcodes(
-        [{ sku: "dm-gwm-of-001" }, { sku: "DM-GWM-AF-002" }],
+        [
+          { sku: "dm-gwm-of-001" },
+          { sku: "DM-GWM-AF-002" },
+          { sku: "DM-GWM-BLANK-003" },
+          { sku: "DM-GWM-EMPTY-004" },
+        ],
+        [
+          { sku: "DM-GWM-OF-001", barcode: " DMPGWMOF001 " },
+          { sku: "DM-GWM-AF-002", barcode: null },
+          { sku: "DM-GWM-BLANK-003", barcode: "   " },
+          { sku: "DM-GWM-EMPTY-004", barcode: "" },
+          { sku: "DM-GWM-BP-003", barcode: "DMPGWMBP003" },
+        ],
+      ),
+    ).toEqual({ "dm-gwm-of-001": "DMPGWMOF001" });
+  });
+
+  it("rejects conflicting product barcodes for the same normalized SKU", () => {
+    expect(() =>
+      mapReceiptProductBarcodes(
+        [{ sku: "dm-gwm-of-001" }],
         [
           { sku: "DM-GWM-OF-001", barcode: "DMPGWMOF001" },
-          { sku: "DM-GWM-AF-002", barcode: null },
-          { sku: "DM-GWM-BP-003", barcode: "DMPGWMBP003" },
+          { sku: " dm-gwm-of-001 ", barcode: "DMPGWMOF999" },
+        ],
+      ),
+    ).toThrowError("Conflicting product barcodes for normalized SKU DM-GWM-OF-001.");
+  });
+
+  it("allows duplicate normalized product SKUs when their normalized barcodes agree", () => {
+    expect(
+      mapReceiptProductBarcodes(
+        [{ sku: "dm-gwm-of-001" }],
+        [
+          { sku: "DM-GWM-OF-001", barcode: "DMPGWMOF001" },
+          { sku: " dm-gwm-of-001 ", barcode: " dmpgwmof001 " },
         ],
       ),
     ).toEqual({ "dm-gwm-of-001": "DMPGWMOF001" });

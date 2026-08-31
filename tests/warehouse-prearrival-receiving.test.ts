@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildWarehouseLabelPrintScope, buildWarehouseReceiptScope } from "../lib/warehouseLabels";
 import { MemoryRepository } from "../lib/memoryRepository";
+import { prepareWarehouseReceipt } from "../lib/warehouseReceiving";
 
 describe("pre-arrival shipment receipt scope", () => {
   const repository = new MemoryRepository();
@@ -60,6 +61,63 @@ describe("pre-arrival shipment receipt scope", () => {
           expectedQuantity: 36,
         },
       ]),
+    });
+  });
+
+  it("aggregates differently formatted receipt SKUs before preparing the receipt", () => {
+    const receipt = {
+      shipmentId: "shipment-test-1",
+      pallets: [{ sourcePalletNumber: "P001" }],
+      cartons: [
+        { sourceCartonNumber: "C001", sourcePalletNumber: "P001" },
+        { sourceCartonNumber: "C002", sourcePalletNumber: "P001" },
+      ],
+      lines: [
+        {
+          sourcePalletNumber: "P001",
+          sourceCartonNumber: "C001",
+          sku: "dm-gwm-of-001",
+          expectedQuantity: 1,
+        },
+        {
+          sourcePalletNumber: "P001",
+          sourceCartonNumber: "C002",
+          sku: " DM-GWM-OF-001 ",
+          expectedQuantity: 2,
+        },
+      ],
+    };
+    const scope = buildWarehouseReceiptScope(receipt, {
+      "dm-gwm-of-001": "DMPGWMOF001",
+      " DM-GWM-OF-001 ": " dmpgwmof001 ",
+    });
+
+    expect(scope).toEqual({
+      shipmentId: "shipment-test-1",
+      cartonNumbers: ["C001", "C002"],
+      lines: [
+        {
+          sku: "DM-GWM-OF-001",
+          expectedQuantity: 3,
+          productBarcode: "DMPGWMOF001",
+        },
+      ],
+    });
+    expect(
+      prepareWarehouseReceipt({
+        expectedScope: scope,
+        mode: "scan_each",
+        scannedProductBarcodes: ["DMPGWMOF001", "DMPGWMOF001", "DMPGWMOF001"],
+      }),
+    ).toMatchObject({
+      ok: true,
+      lines: [
+        {
+          sku: "DM-GWM-OF-001",
+          expectedQuantity: 3,
+          actualQuantity: 3,
+        },
+      ],
     });
   });
 });

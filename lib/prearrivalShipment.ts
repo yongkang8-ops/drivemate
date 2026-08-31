@@ -97,9 +97,19 @@ export function mapReceiptProductBarcodes(
   receiptLines: readonly { sku: string }[],
   productRecords: readonly { sku: string; barcode?: string | null }[],
 ): Record<string, string> {
-  const productsBySku = new Map(
-    productRecords.map((product) => [product.sku.trim().toUpperCase(), product]),
-  );
+  const productsBySku = new Map<string, { barcode: string; normalizedBarcode: string }>();
+  for (const product of productRecords) {
+    const barcode = product.barcode?.trim();
+    if (!barcode) continue;
+
+    const sku = product.sku.trim().toUpperCase();
+    const normalizedBarcode = barcode.toUpperCase();
+    const existing = productsBySku.get(sku);
+    if (existing && existing.normalizedBarcode !== normalizedBarcode) {
+      throw new Error(`Conflicting product barcodes for normalized SKU ${sku}.`);
+    }
+    if (!existing) productsBySku.set(sku, { barcode, normalizedBarcode });
+  }
 
   return Object.fromEntries(
     receiptLines.flatMap((line) => {

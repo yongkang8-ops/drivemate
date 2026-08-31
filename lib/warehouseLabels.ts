@@ -211,12 +211,14 @@ export function buildWarehouseReceiptScope(
     if (!productBarcode?.trim()) {
       throw new Error(`Expected receipt SKU ${line.sku} does not have a product barcode.`);
     }
-    const key = `${line.sku}\u0000${productBarcode.trim().toUpperCase()}`;
+    const sku = line.sku.trim().toUpperCase();
+    const normalizedProductBarcode = productBarcode.trim().toUpperCase();
+    const key = `${sku}\u0000${normalizedProductBarcode}`;
     const existing = lines.get(key);
     lines.set(key, {
-      sku: line.sku,
+      sku,
       expectedQuantity: (existing?.expectedQuantity ?? 0) + line.expectedQuantity,
-      productBarcode,
+      productBarcode: normalizedProductBarcode,
     });
   }
 
