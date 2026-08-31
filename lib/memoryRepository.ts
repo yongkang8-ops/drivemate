@@ -9,7 +9,6 @@ import {
   createFitmentRuleData,
   createProductMasterData,
   fitmentRules,
-  findProductBySku,
   getCatalogueWithAvailability,
   products,
   resetProductMasterData,
@@ -426,6 +425,11 @@ const prearrivalTestShipmentReferences: Record<string, string> = {
   "shipment-test-2": "TEST-FIXTURE-002",
 };
 
+const prearrivalAllowedSkusByShipment: Record<string, readonly string[]> = {
+  "shipment-test-1": ["DM-GWM-OF-001", "DM-GWM-AF-002"],
+  "shipment-test-2": ["DM-GWM-OF-001", "DM-GWM-AF-002"],
+};
+
 function clonePackingListRevision(revision: PackingListRevision): PackingListRevision {
   return { ...revision, payloadSnapshot: structuredClone(revision.payloadSnapshot) };
 }
@@ -461,20 +465,23 @@ function latestConfirmedPackingListRevision(shipmentId: string): PackingListRevi
     .sort((left, right) => right.version - left.version)[0];
 }
 
-function productBarcodesFor(receipt: WarehouseExpectedReceipt): Record<string, string> {
-  return mapReceiptProductBarcodes(receipt.lines, products);
+function shipmentProductRecords(shipmentId: string) {
+  const allowedSkus = new Set(prearrivalAllowedSkusByShipment[shipmentId] ?? []);
+  return products.filter((product) => allowedSkus.has(product.sku.trim().toUpperCase()));
 }
 
-function productMasterSkus(): string[] {
-  return [...new Set(products.map((product) => product.sku.trim().toUpperCase()).filter(Boolean))];
+function productBarcodesFor(
+  receipt: WarehouseExpectedReceipt,
+  shipmentId: string,
+): Record<string, string> {
+  return mapReceiptProductBarcodes(receipt.lines, shipmentProductRecords(shipmentId));
 }
 
-function knownSkusFor(input: ValidatedPackingListRevision): string[] {
-  return input.pallets
-    .flatMap((pallet) => pallet.cartons)
-    .flatMap((carton) => carton.lines)
-    .map((line) => line.sku.trim().toUpperCase())
-    .filter((sku) => Boolean(findProductBySku(sku)));
+function productMasterSkusFor(shipmentId: string): string[] {
+  const existingSkus = new Set(
+    shipmentProductRecords(shipmentId).map((product) => product.sku.trim().toUpperCase()),
+  );
+  return (prearrivalAllowedSkusByShipment[shipmentId] ?? []).filter((sku) => existingSkus.has(sku));
 }
 
 export class MemoryRepository implements DrivemateRepository {
@@ -1167,8 +1174,8 @@ export class MemoryRepository implements DrivemateRepository {
       shipment: {
         ...receipt,
         ...readiness,
-        productBarcodes: productBarcodesFor(receipt),
-        productMasterSkus: productMasterSkus(),
+        productBarcodes: productBarcodesFor(receipt, shipmentId),
+        productMasterSkus: productMasterSkusFor(shipmentId),
         revisions: revisions.map(clonePackingListRevision),
       },
     };
@@ -1178,11 +1185,11 @@ export class MemoryRepository implements DrivemateRepository {
     input: ValidatedPackingListRevision,
     context: RepositoryWriteContext = {},
   ): Promise<PackingListRevisionResult> {
-    if (input.shipmentId !== "shipment-test-1") {
+    if (!prearrivalTestShipmentIds.includes(input.shipmentId)) {
       return { ok: false, message: "Pre-arrival shipment was not found." };
     }
     const validation = validatePackingListRevision(input, {
-      knownSkus: knownSkusFor(input),
+      knownSkus: productMasterSkusFor(input.shipmentId),
     });
     if (!validation.ok) return validation;
 

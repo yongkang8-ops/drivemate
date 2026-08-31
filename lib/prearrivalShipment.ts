@@ -29,6 +29,44 @@ export type PackingListRevisionValidationOptions = {
   knownSkus?: readonly string[];
 };
 
+export type ShipmentProductRecord = {
+  id: string;
+  sku: string;
+  barcode?: string | null;
+};
+
+export function buildShipmentProductScope(
+  purchaseOrderLines: readonly { productId: string }[],
+  products: readonly ShipmentProductRecord[],
+): {
+  allowedSkus: string[];
+  productRecords: ShipmentProductRecord[];
+} {
+  const productsById = new Map(products.map((product) => [product.id, product]));
+  const matchedLines = purchaseOrderLines.flatMap((line) => {
+    const product = productsById.get(line.productId);
+    if (!product) return [];
+    const normalizedSku = product.sku.trim().toUpperCase();
+    return normalizedSku ? [{ normalizedSku, product }] : [];
+  });
+  const lineCountBySku = new Map<string, number>();
+  for (const { normalizedSku } of matchedLines) {
+    lineCountBySku.set(normalizedSku, (lineCountBySku.get(normalizedSku) ?? 0) + 1);
+  }
+
+  const allowedSkus: string[] = [];
+  const productRecords: ShipmentProductRecord[] = [];
+  const addedSkus = new Set<string>();
+  for (const { normalizedSku, product } of matchedLines) {
+    if (lineCountBySku.get(normalizedSku) !== 1 || addedSkus.has(normalizedSku)) continue;
+    addedSkus.add(normalizedSku);
+    allowedSkus.push(normalizedSku);
+    productRecords.push(product);
+  }
+
+  return { allowedSkus, productRecords };
+}
+
 export type PackingListReadiness = "not_started" | "draft" | "confirmed";
 
 export type PackingListRevisionReadiness = {

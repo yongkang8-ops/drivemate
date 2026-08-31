@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MemoryRepository } from "../lib/memoryRepository";
 import {
+  buildShipmentProductScope,
   mapReceiptProductBarcodes,
   receiptFromPackingListRevision,
   validatePackingListRevision,
@@ -25,6 +26,50 @@ const validInput: PackingListRevisionInput = {
 };
 
 describe("pre-arrival packing-list revisions", () => {
+  it("allows a product whose normalized SKU appears once on the purchase order", () => {
+    expect(
+      buildShipmentProductScope(
+        [{ productId: "product-of" }],
+        [{ id: "product-of", sku: " dm-gwm-of-001 ", barcode: "DMPGWMOF001" }],
+      ),
+    ).toEqual({
+      allowedSkus: ["DM-GWM-OF-001"],
+      productRecords: [
+        { id: "product-of", sku: " dm-gwm-of-001 ", barcode: "DMPGWMOF001" },
+      ],
+    });
+  });
+
+  it("excludes an SKU when its product appears more than once on the purchase order", () => {
+    expect(
+      buildShipmentProductScope(
+        [{ productId: "product-of" }, { productId: "product-of" }],
+        [{ id: "product-of", sku: "DM-GWM-OF-001" }],
+      ),
+    ).toEqual({ allowedSkus: [], productRecords: [] });
+  });
+
+  it("excludes a purchase-order line whose product record is missing", () => {
+    expect(
+      buildShipmentProductScope(
+        [{ productId: "missing-product" }],
+        [{ id: "product-of", sku: "DM-GWM-OF-001" }],
+      ),
+    ).toEqual({ allowedSkus: [], productRecords: [] });
+  });
+
+  it("excludes a normalized SKU represented by multiple purchase-order lines", () => {
+    expect(
+      buildShipmentProductScope(
+        [{ productId: "product-of-1" }, { productId: "product-of-2" }],
+        [
+          { id: "product-of-1", sku: "DM-GWM-OF-001" },
+          { id: "product-of-2", sku: " dm-gwm-of-001 " },
+        ],
+      ),
+    ).toEqual({ allowedSkus: [], productRecords: [] });
+  });
+
   it("maps product barcodes by normalized SKU while preserving the receipt SKU key", () => {
     expect(
       mapReceiptProductBarcodes(
@@ -109,7 +154,7 @@ describe("pre-arrival packing-list revisions", () => {
     });
   });
 
-  it("includes runtime-created products in the product-master SKU contract", async () => {
+  it("does not add runtime-created products to a shipment purchase-order SKU scope", async () => {
     const repository = new MemoryRepository();
     await repository.resetForTests({ packingList: "empty" });
     await repository.createProductMaster({
@@ -127,7 +172,7 @@ describe("pre-arrival packing-list revisions", () => {
       ok: true,
       shipment: {
         productBarcodes: {},
-        productMasterSkus: expect.arrayContaining(["DM-GWM-NEW-099"]),
+        productMasterSkus: ["DM-GWM-OF-001", "DM-GWM-AF-002"],
       },
     });
   });
@@ -315,7 +360,45 @@ describe("pre-arrival packing-list revisions", () => {
     });
   });
 
-  it("does not confirm a revision twice or accept an SKU outside the product master", async () => {
+  it("creates and confirms a revision containing the shipment purchase-order SKUs", async () => {
+    const repository = new MemoryRepository();
+    await repository.resetForTests({ packingList: "empty" });
+    const purchaseOrderInput = structuredClone(validInput);
+    purchaseOrderInput.pallets[0].cartons[0].lines.push({
+      sku: "DM-GWM-AF-002",
+      expectedQuantity: 6,
+    });
+
+    const draft = await repository.createPackingListRevision(purchaseOrderInput, {
+      actorId: "demo-partner-user",
+    });
+    expect(draft).toMatchObject({ ok: true, revision: { status: "draft" } });
+    if (!draft.ok) return;
+
+    await expect(repository.confirmPackingListRevision(draft.revision.id, {
+      actorId: "demo-partner-user",
+    })).resolves.toMatchObject({ ok: true, revision: { status: "confirmed" } });
+  });
+
+  it("rejects a product-master SKU outside the shipment purchase order without saving a draft", async () => {
+    const repository = new MemoryRepository();
+    await repository.resetForTests({ packingList: "empty" });
+    const outsidePurchaseOrder = structuredClone(validInput);
+    outsidePurchaseOrder.pallets[0].cartons[0].lines[0].sku = "DM-GWM-CF-003";
+
+    await expect(repository.createPackingListRevision(outsidePurchaseOrder, {
+      actorId: "demo-partner-user",
+    })).resolves.toMatchObject({
+      ok: false,
+      message: expect.stringMatching(/approved|allowed/i),
+    });
+    await expect(repository.getPrearrivalShipment("shipment-test-1")).resolves.toMatchObject({
+      ok: true,
+      shipment: { revisions: [] },
+    });
+  });
+
+  it("does not confirm a revision twice or accept an unknown SKU", async () => {
     const repository = new MemoryRepository();
     await repository.resetForTests();
 

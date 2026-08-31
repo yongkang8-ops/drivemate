@@ -46,6 +46,7 @@ import type {
 } from "./warehouseReceiving";
 import type { WarehouseHistoryEvent } from "./warehouseHistory";
 import {
+  buildShipmentProductScope,
   mapReceiptProductBarcodes,
   receiptFromPackingListRevision,
   summarizePackingListReadiness,
@@ -787,6 +788,35 @@ export class SupabaseRepository implements DrivemateRepository {
 
   private client() {
     return createServiceSupabaseClient();
+  }
+
+  private async shipmentProductScope(purchaseOrderId?: string | null) {
+    if (!purchaseOrderId) return buildShipmentProductScope([], []);
+
+    const supabase = this.client();
+    const { data: lines, error: linesError } = await supabase
+      .from("purchase_order_lines")
+      .select("product_id")
+      .eq("purchase_order_id", purchaseOrderId);
+    if (linesError) throw linesError;
+
+    const purchaseOrderLines = (lines ?? []).map((line) => ({
+      productId: (line as { product_id: string }).product_id,
+    }));
+    const productIds = [
+      ...new Set(purchaseOrderLines.map((line) => line.productId).filter(Boolean)),
+    ];
+    if (!productIds.length) return buildShipmentProductScope(purchaseOrderLines, []);
+
+    const { data: products, error: productsError } = await supabase
+      .from("products")
+      .select("id, sku, barcode")
+      .in("id", productIds);
+    if (productsError) throw productsError;
+    return buildShipmentProductScope(
+      purchaseOrderLines,
+      (products ?? []) as Array<Pick<ProductRecord, "id" | "sku" | "barcode">>,
+    );
   }
 
   private async inventoryLocationBalances(locationIds: string[]): Promise<Map<string, number>> {
@@ -2965,7 +2995,7 @@ export class SupabaseRepository implements DrivemateRepository {
   async getPrearrivalShipment(shipmentId: string): Promise<PrearrivalShipmentResult> {
     const supabase = this.client();
     const [{ data: shipment, error: shipmentError }, { data, error }] = await Promise.all([
-      supabase.from("shipments").select("id").eq("id", shipmentId).maybeSingle(),
+      supabase.from("shipments").select("id, purchase_order_id").eq("id", shipmentId).maybeSingle(),
       supabase
         .from("shipment_packing_list_versions")
         .select("id, shipment_id, version, status, payload_snapshot, created_by, created_at, confirmed_by, confirmed_at")
@@ -2985,9 +3015,9 @@ export class SupabaseRepository implements DrivemateRepository {
     const receipt = revision
       ? receiptFromPackingListRevision(revision.payloadSnapshot)
       : { shipmentId, pallets: [], cartons: [], lines: [] };
-    const products = await supabase.from("products").select("sku, barcode");
-    if (products.error) throw products.error;
-    const productRecords = (products.data ?? []) as Array<Pick<ProductRecord, "sku" | "barcode">>;
+    const scope = await this.shipmentProductScope(
+      (shipment as { purchase_order_id?: string | null }).purchase_order_id,
+    );
 
     return {
       ok: true,
@@ -2995,10 +3025,8 @@ export class SupabaseRepository implements DrivemateRepository {
         ...receipt,
         ...readiness,
         revisions,
-        productBarcodes: mapReceiptProductBarcodes(receipt.lines, productRecords),
-        productMasterSkus: [
-          ...new Set(productRecords.map((product) => product.sku.trim().toUpperCase()).filter(Boolean)),
-        ],
+        productBarcodes: mapReceiptProductBarcodes(receipt.lines, scope.productRecords),
+        productMasterSkus: scope.allowedSkus,
       },
     };
   }
@@ -3011,24 +3039,20 @@ export class SupabaseRepository implements DrivemateRepository {
     if (!structuralValidation.ok) return structuralValidation;
 
     const supabase = this.client();
-    const requestedSkus = [
-      ...new Set(
-        input.pallets
-          .flatMap((pallet) => pallet.cartons)
-          .flatMap((carton) => carton.lines)
-          .map((line) => line.sku.trim().toUpperCase()),
-      ),
-    ];
-    const [{ data: shipment, error: shipmentError }, { data: products, error: productsError }] = await Promise.all([
-      supabase.from("shipments").select("id").eq("id", input.shipmentId).maybeSingle(),
-      supabase.from("products").select("sku").in("sku", requestedSkus),
-    ]);
+    const { data: shipment, error: shipmentError } = await supabase
+      .from("shipments")
+      .select("id, purchase_order_id")
+      .eq("id", input.shipmentId)
+      .maybeSingle();
     if (shipmentError) throw shipmentError;
     if (!shipment) return { ok: false, message: "Pre-arrival shipment was not found." };
-    if (productsError) throw productsError;
+
+    const scope = await this.shipmentProductScope(
+      (shipment as { purchase_order_id?: string | null }).purchase_order_id,
+    );
 
     const validation = validatePackingListRevision(structuralValidation.revision, {
-      knownSkus: (products ?? []).map((product) => (product as { sku: string }).sku),
+      knownSkus: scope.allowedSkus,
     });
     if (!validation.ok) return validation;
 

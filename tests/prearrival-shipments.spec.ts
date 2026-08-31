@@ -232,6 +232,38 @@ test("first Packing List validation stays local and cancel clears errors", async
   ).toHaveCount(0);
 });
 
+test("first Packing List rejects an existing SKU outside the shipment purchase order locally", async ({
+  page,
+  request,
+}) => {
+  const reset = await request.post("/api/test/reset?packingList=empty");
+  expect(reset.ok()).toBeTruthy();
+
+  let revisionPostCount = 0;
+  page.on("request", (pendingRequest) => {
+    if (
+      pendingRequest.method() === "POST"
+      && /\/api\/prearrival\/shipments\/[^/]+\/revisions$/.test(
+        new URL(pendingRequest.url()).pathname,
+      )
+    ) revisionPostCount += 1;
+  });
+
+  await page.goto("/prearrival");
+  await page.getByRole("button", { name: "Create first Packing List" }).click();
+  await page.getByLabel("Pallet number").fill("P001");
+  await page.getByLabel("Carton number").fill("C001");
+  await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-CF-003");
+  await page.getByLabel("Expected quantity", { exact: true }).fill("1");
+  await page.getByRole("button", { name: "Confirm Packing List" }).click();
+
+  await expect(page.getByText(
+    "Select an SKU from the product master.",
+    { exact: true },
+  )).toBeVisible();
+  expect(revisionPostCount).toBe(0);
+});
+
 test("Packing List SKU rows keep identity while a scanner types", async ({
   page,
   request,
