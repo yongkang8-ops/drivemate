@@ -7,6 +7,7 @@ describe("partner warehouse dashboard projection", () => {
       {
         shipmentId: "shipment-test-1",
         shipmentReference: "BNE-TEST-001",
+        packingListConfirmed: true,
         packingListVersion: 1,
         palletCount: 1,
         cartonCount: 1,
@@ -20,6 +21,7 @@ describe("partner warehouse dashboard projection", () => {
       {
         shipmentId: "shipment-test-2",
         shipmentReference: "BNE-TEST-002",
+        packingListConfirmed: true,
         packingListVersion: 2,
         palletCount: 2,
         cartonCount: 3,
@@ -29,6 +31,20 @@ describe("partner warehouse dashboard projection", () => {
         stagingQuantity: 0,
         locatedQuantity: 0,
         lastEventAt: "2026-08-29T00:24:00.000Z",
+      },
+      {
+        shipmentId: "shipment-test-3",
+        shipmentReference: "BNE-TEST-003",
+        packingListConfirmed: false,
+        packingListVersion: 0,
+        palletCount: 0,
+        cartonCount: 0,
+        expectedQuantity: 0,
+        labelConfirmed: false,
+        receiptQuantity: 0,
+        stagingQuantity: 0,
+        locatedQuantity: 0,
+        lastEventAt: "2026-08-29T00:12:00.000Z",
       },
     ],
     events: [
@@ -91,6 +107,40 @@ describe("partner warehouse dashboard projection", () => {
       type: "receipt_difference",
       reference: "DM-GWM-OF-001",
     });
+  });
+
+  it("keeps an unconfirmed packing list before label preparation", () => {
+    expect(dashboard.pipeline).toMatchObject({
+      activeShipments: 2,
+      printConfirmationRequired: 1,
+    });
+
+    expect(dashboard.shipments).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        shipmentReference: "BNE-TEST-003",
+        stage: "packing_list_required",
+        stageLabel: "Packing List required",
+        labelStatus: "not_ready",
+        receiptStatus: "blocked",
+        putawayStatus: "blocked",
+        nextAction: "Open pre-arrival",
+        nextActionHref: "/prearrival?shipmentId=shipment-test-3",
+      }),
+    ]));
+
+    expect(dashboard.attention).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: "packing_list_required",
+        shipmentId: "shipment-test-3",
+        href: "/prearrival?shipmentId=shipment-test-3",
+      }),
+    ]));
+    expect(dashboard.attention).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: "print_gate",
+        shipmentId: "shipment-test-3",
+      }),
+    ]));
   });
 
   it("formats saved activity in the selected display timezone without changing UTC storage", () => {

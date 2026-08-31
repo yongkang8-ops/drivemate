@@ -4,6 +4,7 @@ import { buildWarehouseHistory, type WarehouseHistoryEvent, type WarehouseHistor
 export type PartnerDashboardShipmentSource = {
   shipmentId: string;
   shipmentReference: string;
+  packingListConfirmed: boolean;
   packingListVersion: number;
   palletCount: number;
   cartonCount: number;
@@ -17,11 +18,12 @@ export type PartnerDashboardShipmentSource = {
 
 export type PartnerDashboardAttention = {
   id: string;
-  type: "receipt_difference" | "print_gate" | "staging_pending";
+  type: "receipt_difference" | "print_gate" | "staging_pending" | "packing_list_required";
   shipmentId: string;
   reference: string;
   title: string;
   detail: string;
+  href: string;
   createdAt?: string;
 };
 
@@ -36,6 +38,18 @@ function mostRecent(values: Array<string | undefined>) {
 }
 
 function worklistStatus(source: PartnerDashboardShipmentSource) {
+  if (!source.packingListConfirmed) {
+    return {
+      stage: "packing_list_required",
+      stageLabel: "Packing List required",
+      labelStatus: "not_ready",
+      receiptStatus: "blocked",
+      putawayStatus: "blocked",
+      nextAction: "Open pre-arrival",
+      nextActionHref: `/prearrival?shipmentId=${encodeURIComponent(source.shipmentId)}`,
+    } as const;
+  }
+
   if (source.stagingQuantity > 0) {
     return {
       stage: "staging",
@@ -44,6 +58,7 @@ function worklistStatus(source: PartnerDashboardShipmentSource) {
       receiptStatus: "confirmed",
       putawayStatus: "pending",
       nextAction: "Open putaway",
+      nextActionHref: `/warehouse?shipmentId=${encodeURIComponent(source.shipmentId)}`,
     } as const;
   }
 
@@ -55,6 +70,7 @@ function worklistStatus(source: PartnerDashboardShipmentSource) {
       receiptStatus: "confirmed",
       putawayStatus: "complete",
       nextAction: "Review history",
+      nextActionHref: `/warehouse?shipmentId=${encodeURIComponent(source.shipmentId)}`,
     } as const;
   }
 
@@ -66,6 +82,7 @@ function worklistStatus(source: PartnerDashboardShipmentSource) {
       receiptStatus: "confirmed",
       putawayStatus: "waiting",
       nextAction: "Open putaway",
+      nextActionHref: `/warehouse?shipmentId=${encodeURIComponent(source.shipmentId)}`,
     } as const;
   }
 
@@ -77,6 +94,7 @@ function worklistStatus(source: PartnerDashboardShipmentSource) {
       receiptStatus: "waiting",
       putawayStatus: "waiting",
       nextAction: "Receive stock",
+      nextActionHref: `/warehouse?shipmentId=${encodeURIComponent(source.shipmentId)}`,
     } as const;
   }
 
@@ -87,6 +105,7 @@ function worklistStatus(source: PartnerDashboardShipmentSource) {
     receiptStatus: "waiting",
     putawayStatus: "waiting",
     nextAction: "Prepare labels",
+    nextActionHref: `/warehouse?shipmentId=${encodeURIComponent(source.shipmentId)}`,
   } as const;
 }
 
@@ -141,6 +160,7 @@ export function buildPartnerDashboard(input: {
       reference: event.sku ?? event.reference,
       title: "Receipt difference",
       detail: event.outcome,
+      href: "/warehouse",
       createdAt: event.createdAt,
     }))
     .sort((left, right) => (right.createdAt ?? "").localeCompare(left.createdAt ?? ""));
@@ -148,7 +168,19 @@ export function buildPartnerDashboard(input: {
   const attention: PartnerDashboardAttention[] = [
     ...exceptions,
     ...shipments
-      .filter((shipment) => shipment.labelStatus === "pending")
+      .filter((shipment) => !shipment.packingListConfirmed)
+      .map((shipment) => ({
+        id: `packing-list-${shipment.shipmentId}`,
+        type: "packing_list_required" as const,
+        shipmentId: shipment.shipmentId,
+        reference: shipment.shipmentReference,
+        title: "Packing List confirmation required",
+        detail: "Create and confirm the first Packing List before label preparation.",
+        href: `/prearrival?shipmentId=${encodeURIComponent(shipment.shipmentId)}`,
+        createdAt: shipment.lastEventAt,
+      })),
+    ...shipments
+      .filter((shipment) => shipment.packingListConfirmed && shipment.labelStatus === "pending")
       .map((shipment) => ({
         id: `print-gate-${shipment.shipmentId}`,
         type: "print_gate" as const,
@@ -156,6 +188,7 @@ export function buildPartnerDashboard(input: {
         reference: shipment.shipmentReference,
         title: "Label print confirmation required",
         detail: `Packing List v${shipment.packingListVersion} is ready for label preparation.`,
+        href: `/warehouse?shipmentId=${encodeURIComponent(shipment.shipmentId)}`,
         createdAt: shipment.lastEventAt,
       })),
     ...shipments
@@ -167,16 +200,21 @@ export function buildPartnerDashboard(input: {
         reference: shipment.shipmentReference,
         title: "Putaway required",
         detail: `${shipment.stagingQuantity} units remain in BNE-RECEIVING-STAGING.`,
+        href: `/warehouse?shipmentId=${encodeURIComponent(shipment.shipmentId)}`,
         createdAt: shipment.lastEventAt,
       })),
   ];
+
+  const confirmedShipments = shipments.filter((shipment) => shipment.packingListConfirmed);
 
   return {
     generatedAt: input.generatedAt,
     displayTimeZone: input.displayTimeZone,
     pipeline: {
-      activeShipments: shipments.length,
-      printConfirmationRequired: shipments.filter((shipment) => shipment.labelStatus === "pending").length,
+      activeShipments: confirmedShipments.length,
+      printConfirmationRequired: confirmedShipments.filter(
+        (shipment) => shipment.labelStatus === "pending",
+      ).length,
       stagingUnits: shipments.reduce((total, shipment) => total + shipment.stagingQuantity, 0),
       locatedUnits: shipments.reduce((total, shipment) => total + shipment.locatedQuantity, 0),
       openExceptions: exceptions.length,
@@ -209,6 +247,7 @@ export async function loadPartnerDashboardSource(
     return {
       shipmentId: summary.shipmentId,
       shipmentReference: summary.shipmentReference ?? summary.shipmentId,
+      packingListConfirmed: Boolean(confirmedRevision),
       packingListVersion: confirmedRevision?.version ?? 0,
       palletCount: result.shipment.pallets.length,
       cartonCount: result.shipment.cartons.length,
