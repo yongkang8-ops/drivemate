@@ -8,6 +8,9 @@ import {
   CheckCircle,
   ClipboardText,
   Package,
+  Plus,
+  Trash,
+  WarningCircle,
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { buildApiHeaders } from "../lib/clientAuth";
@@ -51,7 +54,7 @@ function payloadFromShipment(shipment: PrearrivalShipment): PackingListRevisionI
     const pallet = carton.sourcePalletNumber ?? "UNASSIGNED";
     cartonsByPallet.set(pallet, [...(cartonsByPallet.get(pallet) ?? []), carton]);
   }
-  return {
+  const payload = {
     shipmentId: shipment.shipmentId,
     pallets: [...cartonsByPallet.entries()].map(([sourcePalletNumber, cartons]) => ({
       sourcePalletNumber,
@@ -65,6 +68,32 @@ function payloadFromShipment(shipment: PrearrivalShipment): PackingListRevisionI
           })),
       })),
     })),
+  };
+  return payload.pallets.length ? payload : initialPackingListPayload(shipment.shipmentId);
+}
+
+function blankPackingListLine() {
+  return { sku: "", expectedQuantity: 1 };
+}
+
+function blankPackingListCarton() {
+  return {
+    sourceCartonNumber: "",
+    lines: [blankPackingListLine()],
+  };
+}
+
+function blankPackingListPallet() {
+  return {
+    sourcePalletNumber: "",
+    cartons: [blankPackingListCarton()],
+  };
+}
+
+function initialPackingListPayload(shipmentId: string): PackingListRevisionInput {
+  return {
+    shipmentId,
+    pallets: [blankPackingListPallet()],
   };
 }
 
@@ -97,8 +126,13 @@ export function PrearrivalShipmentPanel() {
       return;
     }
     setShipment(body.shipment);
+    setDraftPayload(null);
     setSelection({ palletIndex: 0, cartonIndex: 0 });
-    setMessage("Export packing data confirmed. Create a revision before changing any source quantity.");
+    setMessage(body.shipment.packingListStatus === "confirmed"
+      ? "Export packing data confirmed. Create a revision before changing any source quantity."
+      : body.shipment.packingListStatus === "draft"
+        ? "A prior immutable draft exists. Open a new working copy to complete and confirm the Packing List."
+        : "Create and confirm the first Packing List before Australian warehouse work begins.");
   }
 
   async function loadWorkspace() {
@@ -153,7 +187,79 @@ export function PrearrivalShipmentPanel() {
   function startRevision() {
     if (!shipment) return;
     setDraftPayload(payloadFromShipment(shipment));
-    setMessage("Working revision opened. Confirming creates a new immutable packing-list version.");
+    setSelection({ palletIndex: 0, cartonIndex: 0 });
+    setMessage(shipment.packingListStatus === "not_started"
+      ? "First Packing List working copy opened. Add the complete pallet, carton and SKU structure before confirmation."
+      : "Working revision opened. Confirming creates a new immutable Packing List version.");
+  }
+
+  function addPallet() {
+    setDraftPayload((current) => {
+      if (!current) return current;
+      const next = structuredClone(current);
+      next.pallets.push(blankPackingListPallet());
+      setSelection({ palletIndex: next.pallets.length - 1, cartonIndex: 0 });
+      return next;
+    });
+  }
+
+  function addCarton() {
+    setDraftPayload((current) => {
+      if (!current) return current;
+      const next = structuredClone(current);
+      const pallet = next.pallets[selection.palletIndex];
+      if (!pallet) return current;
+      pallet.cartons.push(blankPackingListCarton());
+      setSelection({ palletIndex: selection.palletIndex, cartonIndex: pallet.cartons.length - 1 });
+      return next;
+    });
+  }
+
+  function addSkuLine() {
+    setDraftPayload((current) => {
+      if (!current) return current;
+      const next = structuredClone(current);
+      const carton = next.pallets[selection.palletIndex]?.cartons[selection.cartonIndex];
+      if (!carton) return current;
+      carton.lines.push(blankPackingListLine());
+      return next;
+    });
+  }
+
+  function removeSkuLine(lineIndex: number) {
+    setDraftPayload((current) => {
+      if (!current) return current;
+      const next = structuredClone(current);
+      const carton = next.pallets[selection.palletIndex]?.cartons[selection.cartonIndex];
+      if (!carton || carton.lines.length === 1) return current;
+      carton.lines.splice(lineIndex, 1);
+      return next;
+    });
+  }
+
+  function removeSelectedCarton() {
+    setDraftPayload((current) => {
+      if (!current) return current;
+      const next = structuredClone(current);
+      const pallet = next.pallets[selection.palletIndex];
+      if (!pallet || pallet.cartons.length === 1) return current;
+      pallet.cartons.splice(selection.cartonIndex, 1);
+      setSelection({
+        palletIndex: selection.palletIndex,
+        cartonIndex: Math.max(0, selection.cartonIndex - 1),
+      });
+      return next;
+    });
+  }
+
+  function removeSelectedPallet() {
+    setDraftPayload((current) => {
+      if (!current || current.pallets.length === 1) return current;
+      const next = structuredClone(current);
+      next.pallets.splice(selection.palletIndex, 1);
+      setSelection({ palletIndex: Math.max(0, selection.palletIndex - 1), cartonIndex: 0 });
+      return next;
+    });
   }
 
   function updateSelectedCarton(
@@ -210,7 +316,7 @@ export function PrearrivalShipmentPanel() {
 
       setDraftPayload(null);
       await loadShipment(shipment.shipmentId);
-      setMessage(`Packing list v${confirmedRevision.revision.version} confirmed`);
+      setMessage(`Packing List v${confirmedRevision.revision.version} confirmed`);
     } finally {
       setBusy(false);
     }
@@ -226,6 +332,20 @@ export function PrearrivalShipmentPanel() {
       sourceCartonNumber: selectedCarton.sourceCartonNumber,
     }))
     : selectedLines;
+  const structurePallets = draftPayload
+    ? draftPayload.pallets
+    : shipment.pallets.map((pallet) => ({
+        sourcePalletNumber: pallet.sourcePalletNumber,
+        cartons: shipment.cartons
+          .filter((carton) => carton.sourcePalletNumber === pallet.sourcePalletNumber)
+          .map((carton) => ({
+            sourceCartonNumber: carton.sourceCartonNumber,
+            lines: shipment.lines.filter(
+              (line) => line.sourceCartonNumber === carton.sourceCartonNumber,
+            ),
+          })),
+      }));
+  const packingListConfirmed = shipment.packingListStatus === "confirmed";
 
   return (
     <div className="prearrival-app" id="prearrival-workspace">
@@ -264,7 +384,9 @@ export function PrearrivalShipmentPanel() {
               <span>Pre-arrival shipment</span>
               <strong>{shipments.find((item) => item.shipmentId === shipment.shipmentId)?.shipmentReference ?? shipment.shipmentId}</strong>
             </div>
-            <p>Packing List v{confirmed?.version ?? 0} / {shipment.pallets.length} pallets / {shipment.cartons.length} cartons</p>
+            <p>{packingListConfirmed
+              ? `Packing List v${confirmed?.version ?? shipment.confirmedPackingListVersion ?? 0} / ${shipment.pallets.length} pallets / ${shipment.cartons.length} cartons`
+              : `${shipment.packingListStatus === "draft" ? "Draft exists" : "Packing List not started"} / Warehouse locked until confirmation`}</p>
             <select
               aria-label="Shipment"
               value={shipment.shipmentId}
@@ -278,10 +400,25 @@ export function PrearrivalShipmentPanel() {
             </select>
           </section>
 
-          <section className="prearrival-confirmation" role="status">
-            <CheckCircle size={26} weight="fill" />
-            <div><strong>Export packing data confirmed</strong><p>The Australia warehouse can select this shipment for label preparation and receiving. A revision creates a new auditable version.</p></div>
-            <span>Ready for AU</span>
+          <section className={`prearrival-confirmation ${packingListConfirmed ? "" : "is-required"}`} role="status">
+            {packingListConfirmed
+              ? <CheckCircle size={26} weight="fill" />
+              : <WarningCircle size={26} weight="fill" />}
+            <div>
+              {packingListConfirmed
+                ? <strong>Export packing data confirmed</strong>
+                : <h2>Packing List setup required</h2>}
+              <p>{packingListConfirmed
+                ? "The Australia warehouse can select this shipment for label preparation and receiving. A revision creates a new auditable version."
+                : "Enter the export pallet, carton and SKU structure, then confirm the first immutable Packing List to unlock Warehouse."}</p>
+            </div>
+            {packingListConfirmed
+              ? <span>Ready for AU</span>
+              : draftPayload
+                ? <span>Working copy open</span>
+                : <button className="button button-primary" type="button" onClick={startRevision}>
+                    Create first Packing List
+                  </button>}
           </section>
 
           <div className="prearrival-workgrid">
@@ -289,30 +426,34 @@ export function PrearrivalShipmentPanel() {
               <h2>Packing structure</h2>
               <p>Original source numbers are retained.</p>
               <span className="prearrival-section-label">Pallets and cartons</span>
-              {shipment.pallets.map((pallet, palletIndex) => {
-                const cartons = shipment.cartons.filter((carton) => carton.sourcePalletNumber === pallet.sourcePalletNumber);
+              {!structurePallets.length ? (
+                <div className="prearrival-structure-empty">
+                  <Package size={22} weight="duotone" />
+                  <p>No pallet or carton lines are confirmed for this Shipment.</p>
+                </div>
+              ) : null}
+              {structurePallets.map((pallet, palletIndex) => {
+                const cartons = pallet.cartons;
                 return (
-                  <div className="prearrival-pallet" key={pallet.sourcePalletNumber}>
+                  <div className="prearrival-pallet" key={`${pallet.sourcePalletNumber}-${palletIndex}`}>
                     <button
                       className={selection.palletIndex === palletIndex ? "is-selected" : ""}
                       type="button"
                       onClick={() => setSelection({ palletIndex, cartonIndex: 0 })}
                     >
-                      <strong>Pallet {pallet.sourcePalletNumber}</strong><span>{cartons.length} carton{cartons.length === 1 ? "" : "s"}</span>
+                      <strong>Pallet {pallet.sourcePalletNumber || `New ${palletIndex + 1}`}</strong><span>{cartons.length} carton{cartons.length === 1 ? "" : "s"}</span>
                     </button>
                     <div>
                       {cartons.map((carton, cartonIndex) => {
-                        const quantity = shipment.lines
-                          .filter((line) => line.sourceCartonNumber === carton.sourceCartonNumber)
-                          .reduce((sum, line) => sum + line.expectedQuantity, 0);
+                        const quantity = carton.lines.reduce((sum, line) => sum + line.expectedQuantity, 0);
                         return (
                           <button
                             className={selection.palletIndex === palletIndex && selection.cartonIndex === cartonIndex ? "is-selected" : ""}
-                            key={carton.sourceCartonNumber}
+                            key={`${carton.sourceCartonNumber}-${cartonIndex}`}
                             type="button"
                             onClick={() => setSelection({ palletIndex, cartonIndex })}
                           >
-                            <CaretRight size={14} /><strong>{carton.sourceCartonNumber}</strong><span>{quantity} units</span>
+                            <CaretRight size={14} /><strong>{carton.sourceCartonNumber || `New ${cartonIndex + 1}`}</strong><span>{quantity} units</span>
                           </button>
                         );
                       })}
@@ -320,27 +461,49 @@ export function PrearrivalShipmentPanel() {
                   </div>
                 );
               })}
+              {draftPayload ? (
+                <div className="prearrival-structure-actions" aria-label="Packing List structure actions">
+                  <button className="secondary-button" type="button" onClick={addCarton}><Plus size={15} />Add carton</button>
+                  <button className="secondary-button" type="button" onClick={addPallet}><Plus size={15} />Add pallet</button>
+                  <button className="prearrival-remove-button" type="button" onClick={removeSelectedCarton} disabled={(selectedCarton?.draftPallet?.cartons.length ?? 0) <= 1}><Trash size={14} />Remove carton</button>
+                  <button className="prearrival-remove-button" type="button" onClick={removeSelectedPallet} disabled={draftPayload.pallets.length <= 1}><Trash size={14} />Remove pallet</button>
+                </div>
+              ) : null}
               <div className="prearrival-phase-copy"><span>Phase 1 label position</span><p>No DriveMate label is required in China. Australian printing is prepared from this data.</p></div>
             </section>
 
             <section className="prearrival-detail" id="shipment-contents">
               <div className="prearrival-detail-heading">
                 <div>
-                  <h2>Carton {selectedCarton?.sourceCartonNumber} expected contents</h2>
-                  <p>The selected carton determines Australian label quantities and receipt validation.</p>
+                  <h2>{selectedCarton
+                    ? `Carton ${selectedCarton.sourceCartonNumber || "working copy"} expected contents`
+                    : "Packing List contents"}</h2>
+                  <p>{packingListConfirmed
+                    ? "The selected carton determines Australian label quantities and receipt validation."
+                    : "Complete every source identifier and SKU quantity before confirming the first Packing List."}</p>
                 </div>
                 <ClipboardText size={28} weight="duotone" />
               </div>
 
               <div className="prearrival-version-row" id="packing-list-history">
-                <div><span>Packing list version</span><strong>v{confirmed?.version ?? 0} confirmed on {formatChinaTime(confirmed?.confirmedAt)} China Standard Time</strong></div>
-                <button className="secondary-button" type="button" onClick={startRevision} disabled={busy}>Create revision</button>
+                <div><span>Packing List version</span><strong>{packingListConfirmed
+                  ? `v${confirmed?.version ?? shipment.confirmedPackingListVersion ?? 0} confirmed on ${formatChinaTime(confirmed?.confirmedAt)} China Standard Time`
+                  : shipment.packingListStatus === "draft"
+                    ? `Draft v${shipment.latestPackingListVersion ?? 1} exists. Warehouse remains locked until a revision is confirmed.`
+                    : "No confirmed version. Warehouse remains locked."}</strong></div>
+                {packingListConfirmed
+                  ? <button className="secondary-button" type="button" onClick={startRevision} disabled={busy}>Create revision</button>
+                  : !draftPayload
+                    ? <button className="secondary-button" type="button" onClick={startRevision} disabled={busy}>Open working copy</button>
+                    : null}
               </div>
 
               {draftPayload && selectedCarton?.draftPallet && selectedCarton.draftCarton ? (
                 <section className="prearrival-editor" aria-label="Packing list revision editor">
-                  <h3>Working revision</h3>
-                  <p>Confirming this copy creates a new immutable version. The existing confirmed record remains unchanged.</p>
+                  <h3>{packingListConfirmed ? "Working revision" : "First Packing List working copy"}</h3>
+                  <p>{packingListConfirmed
+                    ? "Confirming this copy creates a new immutable version. The existing confirmed record remains unchanged."
+                    : "Build the complete export structure here. Confirmation creates immutable Packing List v1 and unlocks Warehouse."}</p>
                   <div className="prearrival-editor-grid">
                     <label>Pallet number<input value={selectedCarton.draftPallet.sourcePalletNumber} onChange={(event) => updateSelectedCarton("pallet", event.target.value)} /></label>
                     <label>Carton number<input value={selectedCarton.draftCarton.sourceCartonNumber} onChange={(event) => updateSelectedCarton("carton", event.target.value)} /></label>
@@ -348,22 +511,31 @@ export function PrearrivalShipmentPanel() {
                       <div className="prearrival-line-editor" key={`${line.sku}-${lineIndex}`}>
                         <label>{lineIndex === 0 ? "SKU" : `SKU ${lineIndex + 1}`}<input value={line.sku} onChange={(event) => updateSelectedCarton("sku", event.target.value, lineIndex)} /></label>
                         <label>{lineIndex === 0 ? "Expected quantity" : `Expected quantity ${lineIndex + 1}`}<input min="1" type="number" value={line.expectedQuantity} onChange={(event) => updateSelectedCarton("quantity", event.target.value, lineIndex)} /></label>
+                        {lineIndex > 0 ? <button className="prearrival-remove-button" type="button" aria-label={`Remove SKU line ${lineIndex + 1}`} onClick={() => removeSkuLine(lineIndex)}><Trash size={14} />Remove line</button> : null}
                       </div>
                     ))}
                   </div>
-                  <div className="prearrival-editor-actions"><button className="button button-primary" type="button" onClick={() => void confirmRevision()} disabled={busy}>{busy ? "Confirming..." : "Confirm packing list"}</button><button className="button button-secondary" type="button" onClick={() => setDraftPayload(null)} disabled={busy}>Cancel working copy</button></div>
+                  <button className="secondary-button prearrival-add-line" type="button" onClick={addSkuLine}><Plus size={15} />Add SKU line</button>
+                  <div className="prearrival-editor-actions"><button className="button button-primary" type="button" onClick={() => void confirmRevision()} disabled={busy}>{busy ? "Confirming..." : "Confirm Packing List"}</button><button className="button button-secondary" type="button" onClick={() => setDraftPayload(null)} disabled={busy}>Cancel working copy</button></div>
                 </section>
               ) : null}
 
-              <div className="prearrival-table-shell">
-                <table>
-                  <thead><tr><th>SKU</th><th>Product barcode</th><th>Expected qty</th><th>Label preparation</th></tr></thead>
-                  <tbody>{activeLines.map((line) => <tr key={`${line.sku}-${line.sourceCartonNumber}`}><td data-label="SKU"><code>{line.sku}</code></td><td data-label="Product barcode"><code>{shipment.productBarcodes[line.sku] ?? "Not assigned"}</code></td><td data-label="Expected qty"><strong>{line.expectedQuantity}</strong></td><td data-label="Label preparation"><strong className="prearrival-ready">{line.expectedQuantity} Ready</strong></td></tr>)}</tbody>
-                </table>
-              </div>
+              {activeLines.length ? (
+                <div className="prearrival-table-shell">
+                  <table>
+                    <thead><tr><th>SKU</th><th>Product barcode</th><th>Expected qty</th><th>Label preparation</th></tr></thead>
+                    <tbody>{activeLines.map((line) => <tr key={`${line.sku}-${line.sourceCartonNumber}`}><td data-label="SKU"><code>{line.sku || "Pending"}</code></td><td data-label="Product barcode"><code>{shipment.productBarcodes[line.sku] ?? "Not assigned"}</code></td><td data-label="Expected qty"><strong>{line.expectedQuantity}</strong></td><td data-label="Label preparation"><strong className="prearrival-ready">{line.sku ? `${line.expectedQuantity} Ready` : "Pending"}</strong></td></tr>)}</tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="prearrival-lines-empty">
+                  <ClipboardText size={22} weight="duotone" />
+                  <div><strong>No SKU lines are available until a working copy is opened.</strong><p>Use Create first Packing List to enter the export structure for this Shipment.</p></div>
+                </div>
+              )}
 
               <div className="prearrival-validation"><span>Validation before export confirmation</span><strong>Every carton must belong to one pallet and contain recognised SKU plus a positive expected quantity.</strong></div>
-              <div className="prearrival-actions"><button className="secondary-button" type="button" onClick={() => setMessage("The current confirmed packing list is shown in this workspace.")}>View packing list</button><Link className="button button-primary" href={`/warehouse?shipmentId=${encodeURIComponent(shipment.shipmentId)}`}>Prepare AU labels <ArrowRight size={18} /></Link></div>
+              <div className="prearrival-actions"><button className="secondary-button" type="button" onClick={() => setMessage(packingListConfirmed ? "The current confirmed Packing List is shown in this workspace." : "Confirm the first Packing List to make Australian label quantities available.")}>View Packing List</button>{packingListConfirmed ? <Link className="button button-primary" href={`/warehouse?shipmentId=${encodeURIComponent(shipment.shipmentId)}`}>Prepare AU labels <ArrowRight size={18} /></Link> : null}</div>
               <p className="prearrival-message" role="status">{message}</p>
             </section>
           </div>

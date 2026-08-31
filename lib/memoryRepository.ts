@@ -93,11 +93,16 @@ import type {
   UpdateInventoryLocationNotesResult,
   SetInventoryLocationStatusInput,
   SetInventoryLocationStatusResult,
+  RepositoryTestResetOptions,
 } from "./repository";
 import { filterWarehouseExpectedReceipt, type WarehouseExpectedReceipt, type WarehouseInboundSelection, type WarehouseLabelPrintScope } from "./warehouseLabels";
 import { RECEIVING_STAGING_LOCATION, type WarehouseReceiptScope } from "./warehouseReceiving";
 import { type WarehouseHistoryEvent } from "./warehouseHistory";
-import { validatePackingListRevision, type ValidatedPackingListRevision } from "./prearrivalShipment";
+import {
+  summarizePackingListReadiness,
+  validatePackingListRevision,
+  type ValidatedPackingListRevision,
+} from "./prearrivalShipment";
 import type {
   TradeAccountApplicationInput,
   TradeAccountStatus,
@@ -1124,6 +1129,7 @@ export class MemoryRepository implements DrivemateRepository {
   }
 
   async listPrearrivalShipments(): Promise<PrearrivalShipmentListResult> {
+    const readiness = summarizePackingListReadiness(packingListRevisions);
     return {
       ok: true,
       shipments: [
@@ -1131,23 +1137,32 @@ export class MemoryRepository implements DrivemateRepository {
           shipmentId: "shipment-test-1",
           shipmentReference: "BNE-TEST-001",
           status: "planned",
+          ...readiness,
         },
       ],
     };
   }
 
   async getPrearrivalShipment(shipmentId: string): Promise<PrearrivalShipmentResult> {
-    const revision = latestConfirmedPackingListRevision(shipmentId);
-    if (!revision) return { ok: false, message: "Pre-arrival shipment was not found." };
+    if (shipmentId !== "shipment-test-1") {
+      return { ok: false, message: "Pre-arrival shipment was not found." };
+    }
+    const revisions = packingListRevisions
+      .filter((candidate) => candidate.shipmentId === shipmentId)
+      .sort((left, right) => left.version - right.version);
+    const readiness = summarizePackingListReadiness(revisions);
+    const revision = latestConfirmedPackingListRevision(shipmentId)
+      ?? revisions.at(-1);
+    const receipt = revision
+      ? receiptFromPackingListRevision(revision)
+      : { shipmentId, pallets: [], cartons: [], lines: [] };
     return {
       ok: true,
       shipment: {
-        ...receiptFromPackingListRevision(revision),
-        productBarcodes: productBarcodesFor(receiptFromPackingListRevision(revision)),
-        revisions: packingListRevisions
-          .filter((candidate) => candidate.shipmentId === shipmentId)
-          .sort((left, right) => left.version - right.version)
-          .map(clonePackingListRevision),
+        ...receipt,
+        ...readiness,
+        productBarcodes: productBarcodesFor(receipt),
+        revisions: revisions.map(clonePackingListRevision),
       },
     };
   }
@@ -1496,7 +1511,7 @@ export class MemoryRepository implements DrivemateRepository {
     return { ok: true as const, rule };
   }
 
-  async resetForTests(): Promise<void> {
+  async resetForTests(options: RepositoryTestResetOptions = {}): Promise<void> {
     resetProductMasterData();
     resetStoreForTests();
     warehouseLabelJobSequence = 0;
@@ -1509,6 +1524,8 @@ export class MemoryRepository implements DrivemateRepository {
     warehousePutaways = [];
     resetInventoryLocationMaster();
     packingListRevisionSequence = 1;
-    packingListRevisions = [initialPackingListRevision()];
+    packingListRevisions = options.packingList === "empty"
+      ? []
+      : [initialPackingListRevision()];
   }
 }

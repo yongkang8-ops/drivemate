@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import JsBarcode from "jsbarcode";
 import {
   ArrowRight,
@@ -91,6 +92,79 @@ function makeScopeUrl(shipmentId: string, palletNumbers: string[]) {
   return `/api/warehouse/labels?${params.toString()}`;
 }
 
+function WarehousePackingListGate({
+  shipments,
+  shipmentId,
+  onShipmentChange,
+}: {
+  shipments: PrearrivalShipmentSummary[];
+  shipmentId: string;
+  onShipmentChange: (shipmentId: string) => void;
+}) {
+  const selectedShipment = shipments.find((shipment) => shipment.shipmentId === shipmentId);
+  const statusCopy = selectedShipment?.packingListStatus === "draft"
+    ? `Draft v${selectedShipment.latestPackingListVersion ?? 1} exists, but it has not been confirmed.`
+    : "No Packing List revision has been confirmed for this Shipment.";
+
+  return (
+    <div className="inbound-app" id="inbound-operations">
+      <aside className="inbound-sidebar" aria-label="Inbound operations navigation">
+        <div className="inbound-brand">
+          <Image src="/assets/brand/DriveMate_Parts_Primary_Lockup_v2.0.svg" alt="DriveMate Parts" width={135} height={34} priority />
+          <p>Warehouse</p>
+          <span>Internal operations</span>
+        </div>
+        <div className="inbound-section-title">Inbound operations</div>
+        <nav className="inbound-nav" aria-label="Locked inbound operations">
+          <span>Current work</span>
+          <a aria-disabled="true" href="#packing-list-gate">Label print</a>
+          <a aria-disabled="true" href="#packing-list-gate">Receive stock</a>
+          <a aria-disabled="true" href="#packing-list-gate">Put away</a>
+          <a aria-disabled="true" href="#packing-list-gate">Receipt history</a>
+        </nav>
+        <div className="inbound-rules">
+          <span>Required source data</span>
+          <p>Confirmed Packing List</p>
+          <p>Pallet and carton structure</p>
+          <p>Recognised SKU quantities</p>
+        </div>
+        <div className="inbound-phase-note"><span>Warehouse gate</span><p>Source data pending</p></div>
+      </aside>
+
+      <section className="inbound-content">
+        <header className="inbound-topbar"><h1>Inbound operations</h1><div><span>Warehouse only</span><b>W</b></div></header>
+        <main className="inbound-main" id="packing-list-gate">
+          <section className="inbound-scope-bar">
+            <div><span>Selected Shipment</span><strong>{selectedShipment?.shipmentReference ?? shipmentId}</strong></div>
+            <p>Warehouse operations are unavailable until source quantities are confirmed.</p>
+            <select aria-label="Shipment" value={shipmentId} onChange={(event) => onShipmentChange(event.target.value)}>
+              {shipments.map((shipment) => <option key={shipment.shipmentId} value={shipment.shipmentId}>{shipment.shipmentReference ?? shipment.shipmentId}</option>)}
+            </select>
+          </section>
+
+          <section className="inbound-packing-list-gate" role="status">
+            <WarningCircle size={30} weight="fill" />
+            <div>
+              <span>Source data required</span>
+              <h2>Packing List confirmation required</h2>
+              <p>{statusCopy} Complete the export pallet, carton and SKU structure in Pre-arrival before printing or receiving stock.</p>
+            </div>
+            <Link className="button button-primary" href={`/prearrival?shipmentId=${encodeURIComponent(shipmentId)}`}>
+              Open Pre-arrival <ArrowRight size={18} />
+            </Link>
+          </section>
+
+          <section className="inbound-setup-explanation" aria-label="Warehouse unlock requirements">
+            <div><strong>Confirm source structure</strong><p>Record every pallet, carton, SKU and expected quantity in an immutable Packing List version.</p></div>
+            <div><strong>Prepare product labels</strong><p>Warehouse label selection becomes available from the confirmed quantities.</p></div>
+            <div><strong>Receive and put away</strong><p>Print confirmation unlocks receipt, then confirmed receipt unlocks destination scanning.</p></div>
+          </section>
+        </main>
+      </section>
+    </div>
+  );
+}
+
 export function PartnerInboundWorkspace() {
   const [shipments, setShipments] = useState<PrearrivalShipmentSummary[]>([]);
   const [shipmentId, setShipmentId] = useState("");
@@ -169,8 +243,22 @@ export function PartnerInboundWorkspace() {
       return;
     }
     setShipments(body.shipments);
-    const firstShipmentId = body.shipments[0].shipmentId;
+    const requestedShipmentId = new URLSearchParams(window.location.search).get("shipmentId");
+    const requestedShipment = body.shipments.find(
+      (shipment) => shipment.shipmentId === requestedShipmentId,
+    );
+    const firstShipment = requestedShipment
+      ?? body.shipments.find((shipment) => shipment.packingListStatus === "confirmed")
+      ?? body.shipments[0];
+    const firstShipmentId = firstShipment.shipmentId;
     setShipmentId(firstShipmentId);
+
+    if (firstShipment.packingListStatus !== "confirmed") {
+      setPreview(null);
+      setSelectedPallets([]);
+      setMessage("Confirm the Shipment Packing List in Pre-arrival to unlock Warehouse.");
+      return;
+    }
 
     const allScopeResponse = await fetch(makeScopeUrl(firstShipmentId, []), {
       cache: "no-store",
@@ -197,6 +285,13 @@ export function PartnerInboundWorkspace() {
     setPrintState("select");
     setPutawayReady(false);
     setPutawayResult(null);
+    const nextShipment = shipments.find((shipment) => shipment.shipmentId === nextShipmentId);
+    if (nextShipment?.packingListStatus !== "confirmed") {
+      setPreview(null);
+      setSelectedPallets([]);
+      setMessage("Confirm the Shipment Packing List in Pre-arrival to unlock Warehouse.");
+      return;
+    }
     void (async () => {
       const response = await fetch(makeScopeUrl(nextShipmentId, []), {
         cache: "no-store",
@@ -424,6 +519,11 @@ export function PartnerInboundWorkspace() {
     } finally {
       setBusy(false);
     }
+  }
+
+  const selectedShipment = shipments.find((item) => item.shipmentId === shipmentId);
+  if (!preview && selectedShipment && selectedShipment.packingListStatus !== "confirmed") {
+    return <WarehousePackingListGate shipments={shipments} shipmentId={shipmentId} onShipmentChange={switchShipment} />;
   }
 
   if (!preview) {

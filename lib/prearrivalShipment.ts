@@ -29,6 +29,43 @@ export type PackingListRevisionValidationOptions = {
   knownSkus?: readonly string[];
 };
 
+export type PackingListReadiness = "not_started" | "draft" | "confirmed";
+
+export type PackingListRevisionReadiness = {
+  version: number;
+  status: "draft" | "confirmed" | "superseded";
+};
+
+export function summarizePackingListReadiness(
+  revisions: readonly PackingListRevisionReadiness[],
+): {
+  packingListStatus: PackingListReadiness;
+  latestPackingListVersion?: number;
+  confirmedPackingListVersion?: number;
+} {
+  const latestPackingListVersion = revisions.length
+    ? Math.max(...revisions.map((revision) => revision.version))
+    : undefined;
+  const confirmedPackingListVersion = revisions
+    .filter((revision) => revision.status === "confirmed")
+    .reduce<number | undefined>(
+      (latest, revision) => latest === undefined || revision.version > latest
+        ? revision.version
+        : latest,
+      undefined,
+    );
+
+  return {
+    packingListStatus: confirmedPackingListVersion !== undefined
+      ? "confirmed"
+      : revisions.some((revision) => revision.status === "draft")
+        ? "draft"
+        : "not_started",
+    latestPackingListVersion,
+    confirmedPackingListVersion,
+  };
+}
+
 export function receiptFromPackingListRevision(
   revision: ValidatedPackingListRevision,
 ): WarehouseExpectedReceipt {

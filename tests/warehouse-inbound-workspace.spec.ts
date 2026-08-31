@@ -4,6 +4,24 @@ test.beforeEach(async ({ request }) => {
   await request.post("/api/test/reset");
 });
 
+test("Warehouse routes an unconfirmed shipment back to Packing List setup", async ({
+  page,
+  request,
+}) => {
+  await request.post("/api/test/reset?packingList=empty");
+  await page.goto("/warehouse");
+
+  await expect(
+    page.getByRole("heading", { name: "Packing List confirmation required" }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open Pre-arrival" })).toHaveAttribute(
+    "href",
+    "/prearrival?shipmentId=shipment-test-1",
+  );
+  await expect(page.getByRole("button", { name: "Print labels" })).toHaveCount(0);
+  await expect(page.getByText("Pre-arrival shipment was not found.")).toHaveCount(0);
+});
+
 async function confirmReceipt(page: Page) {
   await page.goto("/warehouse");
   await page.getByRole("button", { name: "Preview labels" }).click();

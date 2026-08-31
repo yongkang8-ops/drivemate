@@ -24,6 +24,42 @@ const validInput: PackingListRevisionInput = {
 };
 
 describe("pre-arrival packing-list revisions", () => {
+  it("keeps an existing shipment actionable before its first packing-list revision", async () => {
+    const repository = new MemoryRepository();
+    await repository.resetForTests({ packingList: "empty" });
+
+    await expect(repository.listPrearrivalShipments()).resolves.toEqual({
+      ok: true,
+      shipments: [
+        {
+          shipmentId: "shipment-test-1",
+          shipmentReference: "BNE-TEST-001",
+          status: "planned",
+          packingListStatus: "not_started",
+          latestPackingListVersion: undefined,
+          confirmedPackingListVersion: undefined,
+        },
+      ],
+    });
+
+    await expect(
+      repository.getPrearrivalShipment("shipment-test-1"),
+    ).resolves.toEqual({
+      ok: true,
+      shipment: {
+        shipmentId: "shipment-test-1",
+        packingListStatus: "not_started",
+        latestPackingListVersion: undefined,
+        confirmedPackingListVersion: undefined,
+        pallets: [],
+        cartons: [],
+        lines: [],
+        productBarcodes: {},
+        revisions: [],
+      },
+    });
+  });
+
   it("projects the confirmed packing-list snapshot into the receipt scope without reading mutable shipment rows", () => {
     expect(receiptFromPackingListRevision(validInput)).toEqual({
       shipmentId: "shipment-test-1",

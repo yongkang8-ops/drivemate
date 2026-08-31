@@ -19,7 +19,7 @@ import type {
   WarehouseReceiptScope,
 } from "./warehouseReceiving";
 import type { WarehouseHistoryAction, WarehouseHistoryEvent } from "./warehouseHistory";
-import type { ValidatedPackingListRevision } from "./prearrivalShipment";
+import type { PackingListReadiness, ValidatedPackingListRevision } from "./prearrivalShipment";
 import type {
   ApproveTradeAccountApplicationResult,
   ProvisionTradeAccountLoginResult,
@@ -301,6 +301,9 @@ export type PackingListRevisionResult =
 export type PrearrivalShipment = WarehouseExpectedReceipt & {
   revisions: PackingListRevision[];
   productBarcodes: Record<string, string>;
+  packingListStatus: PackingListReadiness;
+  latestPackingListVersion?: number;
+  confirmedPackingListVersion?: number;
 };
 
 export type PrearrivalShipmentResult =
@@ -311,6 +314,13 @@ export type PrearrivalShipmentSummary = {
   shipmentId: string;
   shipmentReference?: string;
   status?: string;
+  packingListStatus: PackingListReadiness;
+  latestPackingListVersion?: number;
+  confirmedPackingListVersion?: number;
+};
+
+export type RepositoryTestResetOptions = {
+  packingList?: "confirmed" | "empty";
 };
 
 export type PrearrivalShipmentListResult = {
@@ -670,7 +680,7 @@ export interface DrivemateRepository {
     input: CreateFitmentRuleInput,
     context?: RepositoryWriteContext,
   ): Promise<CreateFitmentRuleResult>;
-  resetForTests(): Promise<void>;
+  resetForTests(options?: RepositoryTestResetOptions): Promise<void>;
 }
 
 declare global {

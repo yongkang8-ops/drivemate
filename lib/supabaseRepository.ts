@@ -47,6 +47,7 @@ import type {
 import type { WarehouseHistoryEvent } from "./warehouseHistory";
 import {
   receiptFromPackingListRevision,
+  summarizePackingListReadiness,
   validatePackingListRevision,
   type ValidatedPackingListRevision,
 } from "./prearrivalShipment";
@@ -109,6 +110,7 @@ import type {
   UpdateInventoryLocationNotesResult,
   SetInventoryLocationStatusInput,
   SetInventoryLocationStatusResult,
+  RepositoryTestResetOptions,
 } from "./repository";
 import { createServiceSupabaseClient } from "./supabaseClient";
 
@@ -2918,11 +2920,21 @@ export class SupabaseRepository implements DrivemateRepository {
   }
 
   async listPrearrivalShipments(): Promise<PrearrivalShipmentListResult> {
-    const { data, error } = await this.client()
+    const supabase = this.client();
+    const { data, error } = await supabase
       .from("shipments")
       .select("id, shipment_reference, status")
       .order("created_at", { ascending: false });
     if (error) throw error;
+    const shipmentIds = (data ?? []).map((shipment) => (shipment as { id: string }).id);
+    if (!shipmentIds.length) return { ok: true, shipments: [] };
+
+    const { data: versions, error: versionsError } = await supabase
+      .from("shipment_packing_list_versions")
+      .select("shipment_id, version, status")
+      .in("shipment_id", shipmentIds);
+    if (versionsError) throw versionsError;
+
     return {
       ok: true,
       shipments: (data ?? []).map((shipment) => {
@@ -2931,38 +2943,61 @@ export class SupabaseRepository implements DrivemateRepository {
           shipment_reference?: string | null;
           status?: string | null;
         };
+        const readiness = summarizePackingListReadiness(
+          (versions ?? [])
+            .filter((version) => (version as { shipment_id: string }).shipment_id === record.id)
+            .map((version) => version as {
+              version: number;
+              status: "draft" | "confirmed" | "superseded";
+            }),
+        );
         return {
           shipmentId: record.id,
           shipmentReference: record.shipment_reference ?? undefined,
           status: record.status ?? undefined,
+          ...readiness,
         };
       }),
     };
   }
 
   async getPrearrivalShipment(shipmentId: string): Promise<PrearrivalShipmentResult> {
-    const expected = await this.getWarehouseExpectedReceipt({ shipmentId });
-    if (!expected.ok) return { ok: false, message: "Pre-arrival shipment was not found." };
-
-    const skus = [...new Set(expected.receipt.lines.map((line) => line.sku))];
-    const [{ data, error }, { data: products, error: productsError }] = await Promise.all([
-      this.client()
+    const supabase = this.client();
+    const [{ data: shipment, error: shipmentError }, { data, error }] = await Promise.all([
+      supabase.from("shipments").select("id").eq("id", shipmentId).maybeSingle(),
+      supabase
         .from("shipment_packing_list_versions")
         .select("id, shipment_id, version, status, payload_snapshot, created_by, created_at, confirmed_by, confirmed_at")
         .eq("shipment_id", shipmentId)
         .order("version", { ascending: true }),
-      this.client().from("products").select("sku, barcode").in("sku", skus),
     ]);
+    if (shipmentError) throw shipmentError;
+    if (!shipment) return { ok: false, message: "Pre-arrival shipment was not found." };
     if (error) throw error;
-    if (productsError) throw productsError;
+
+    const revisions = ((data ?? []) as PackingListRevisionRecord[]).map(toPackingListRevision);
+    const readiness = summarizePackingListReadiness(revisions);
+    const revision = revisions
+      .filter((candidate) => candidate.status === "confirmed")
+      .sort((left, right) => right.version - left.version)[0]
+      ?? revisions.at(-1);
+    const receipt = revision
+      ? receiptFromPackingListRevision(revision.payloadSnapshot)
+      : { shipmentId, pallets: [], cartons: [], lines: [] };
+    const skus = [...new Set(receipt.lines.map((line) => line.sku))];
+    const products = skus.length
+      ? await supabase.from("products").select("sku, barcode").in("sku", skus)
+      : { data: [], error: null };
+    if (products.error) throw products.error;
 
     return {
       ok: true,
       shipment: {
-        ...expected.receipt,
-        revisions: ((data ?? []) as PackingListRevisionRecord[]).map(toPackingListRevision),
+        ...receipt,
+        ...readiness,
+        revisions,
         productBarcodes: Object.fromEntries(
-          (products ?? []).flatMap((product) => {
+          (products.data ?? []).flatMap((product) => {
             const record = product as Pick<ProductRecord, "sku" | "barcode">;
             return record.barcode ? [[record.sku, record.barcode]] : [];
           }),
@@ -3642,7 +3677,7 @@ export class SupabaseRepository implements DrivemateRepository {
     };
   }
 
-  async resetForTests(): Promise<void> {
+  async resetForTests(_options?: RepositoryTestResetOptions): Promise<void> {
     throw new Error(
       "Supabase repository reset is not available from the application runtime.",
     );
