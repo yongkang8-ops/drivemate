@@ -69,3 +69,17 @@ test("an unconfirmed Packing List stays visible but blocked before label prepara
   await expect(page.locator(".partner-metric-grid article").nth(0).getByText("0", { exact: true })).toBeVisible();
   await expect(page.locator(".partner-metric-grid article").nth(1).getByText("0", { exact: true })).toBeVisible();
 });
+
+test("the dashboard keeps private module navigation inside its workspace chrome", async ({ page }) => {
+  await page.goto("/partner");
+
+  await expect(page.getByRole("heading", { name: "Operations dashboard" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Partner modules" })).toHaveCount(0);
+
+  const operationsNavigation = page.getByRole("navigation", {
+    name: "Partner operations navigation",
+  });
+  await expect(
+    operationsNavigation.getByRole("link", { name: "Staff management" }),
+  ).toHaveAttribute("href", "/admin/staff");
+});
