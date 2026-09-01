@@ -83,3 +83,74 @@ test("the dashboard keeps private module navigation inside its workspace chrome"
     operationsNavigation.getByRole("link", { name: "Staff management" }),
   ).toHaveAttribute("href", "/admin/staff");
 });
+
+test("shipment actions stay inside the worklist at a narrow desktop width", async ({
+  page,
+  request,
+}) => {
+  await request.post("/api/test/reset?packingList=empty");
+  await page.setViewportSize({ width: 1150, height: 900 });
+  await page.goto("/partner");
+
+  const shipmentPanel = page.locator(".partner-shipment-panel");
+  const attentionPanel = page.locator(".partner-attention-panel");
+  const action = page.getByRole("link", { name: "Open pre-arrival", exact: true });
+
+  await expect(action).toBeVisible();
+  const shipmentBox = await shipmentPanel.boundingBox();
+  const attentionBox = await attentionPanel.boundingBox();
+  const actionBox = await action.boundingBox();
+
+  expect(shipmentBox).not.toBeNull();
+  expect(attentionBox).not.toBeNull();
+  expect(actionBox).not.toBeNull();
+
+  expect(actionBox!.x).toBeGreaterThanOrEqual(shipmentBox!.x);
+  expect(actionBox!.x + actionBox!.width).toBeLessThanOrEqual(
+    shipmentBox!.x + shipmentBox!.width,
+  );
+  expect(actionBox!.x + actionBox!.width).toBeLessThanOrEqual(attentionBox!.x);
+});
+
+test("the dashboard avoids page-level horizontal overflow at supported widths", async ({
+  page,
+  request,
+}) => {
+  await request.post("/api/test/reset?packingList=empty");
+  await page.goto("/partner");
+  await expect(page.getByRole("heading", { name: "Operations dashboard" })).toBeVisible();
+
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1280, height: 900 },
+    { width: 1150, height: 900 },
+    { width: 1040, height: 900 },
+    { width: 768, height: 844 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const layout = await page.evaluate(() => {
+      const clientWidth = document.documentElement.clientWidth;
+      return {
+        overflow: document.documentElement.scrollWidth - clientWidth,
+        offenders: [...document.querySelectorAll<HTMLElement>("body *")]
+          .map((element) => {
+            const rect = element.getBoundingClientRect();
+            return {
+              className: element.className,
+              parentClassName: element.parentElement?.className ?? "",
+              right: Math.round(rect.right),
+              tagName: element.tagName,
+              text: element.textContent?.trim().slice(0, 80) ?? "",
+            };
+          })
+          .filter((element) => element.right > clientWidth + 1)
+          .slice(0, 8),
+      };
+    });
+    expect(
+      layout.overflow,
+      `horizontal overflow at ${viewport.width}px: ${JSON.stringify(layout.offenders)}`,
+    ).toBeLessThanOrEqual(1);
+  }
+});

@@ -677,6 +677,21 @@ body:has(.partner-dashboard-app) .site-shell { min-height: 100vh; }
   .account-cta { background: #061f1d; }
 }
 
+@media (min-width: 1041px) and (max-width: 1240px) {
+  .partner-shipment-row {
+    grid-template-columns: minmax(0, 1fr) max-content;
+    grid-template-areas:
+      "reference action"
+      "stage statuses";
+    gap: 12px 16px;
+    padding: 14px 0;
+  }
+  .partner-shipment-reference { grid-area: reference; min-width: 0; }
+  .partner-shipment-stage { grid-area: stage; }
+  .partner-shipment-statuses { grid-area: statuses; justify-items: end; }
+  .partner-open-action { grid-area: action; align-self: start; }
+}
+
 @media (max-width: 1040px) {
   .site-header { grid-template-columns: auto 1fr; gap: 10px 18px; }
   .site-nav { order: 3; grid-column: 1 / -1; justify-content: flex-start; overflow-x: auto; }
@@ -706,6 +721,10 @@ body:has(.partner-dashboard-app) .site-shell { min-height: 100vh; }
   .partner-dashboard-grid, .partner-dashboard-lower-grid { grid-template-columns: minmax(0, 1fr); }
   .partner-shipment-row { grid-template-columns: minmax(150px, 1fr) minmax(130px, .8fr) auto; }
   .partner-shipment-statuses { grid-column: 1 / -1; grid-template-columns: repeat(3, max-content); padding-bottom: 14px; }
+}
+
+@media (max-width: 800px) {
+  .partner-dashboard-toolbar > span { display: none; }
 }
 
 @media (max-width: 700px) {
