@@ -101,10 +101,23 @@ function WarehousePackingListGate({
   shipmentId: string;
   onShipmentChange: (shipmentId: string) => void;
 }) {
+  const [view, setView] = useState<WorkspaceView>("label_print");
   const selectedShipment = shipments.find((shipment) => shipment.shipmentId === shipmentId);
   const statusCopy = selectedShipment?.packingListStatus === "draft"
     ? `Draft v${selectedShipment.latestPackingListVersion ?? 1} exists, but it has not been confirmed.`
     : "No Packing List revision has been confirmed for this Shipment.";
+  const isHistoryView = view === "receipt_history";
+  const moduleTitle = view === "label_print" ? "Label print" : view === "receive_stock" ? "Receive stock" : "Put away";
+  const moduleCopy = view === "label_print"
+    ? "Confirm this Shipment's Packing List to make product-label quantities available."
+    : view === "receive_stock"
+      ? "Confirmed source quantities and a physically confirmed label print are required before receipt can be recorded."
+      : "A confirmed receipt in BNE-RECEIVING-STAGING is required before destination scanning can begin.";
+  const moduleNextStep = view === "label_print"
+    ? "Complete the pallet, carton, recognised SKU and expected quantity structure in Pre-arrival."
+    : view === "receive_stock"
+      ? "Confirm the Packing List, prepare the selected labels and record the physical print outcome."
+      : "Confirm receipt into system staging before scanning a product and its active DMLOC destination.";
 
   return (
     <div className="inbound-app" id="inbound-operations">
@@ -115,20 +128,18 @@ function WarehousePackingListGate({
           <span>Internal operations</span>
         </div>
         <div className="inbound-section-title">Inbound operations</div>
-        <nav className="inbound-nav" aria-label="Locked inbound operations">
+        <nav className="inbound-nav" aria-label="Inbound operations navigation">
           <span>Current work</span>
-          <a aria-disabled="true" href="#packing-list-gate">Label print</a>
-          <a aria-disabled="true" href="#packing-list-gate">Receive stock</a>
-          <a aria-disabled="true" href="#packing-list-gate">Put away</a>
-          <a aria-disabled="true" href="#packing-list-gate">Receipt history</a>
+          <a className={view === "label_print" ? "is-active" : ""} href="#label-print" onClick={(event) => { event.preventDefault(); setView("label_print"); }}>Label print</a>
+          <a className={view === "receive_stock" ? "is-active" : ""} href="#receive-stock" onClick={(event) => { event.preventDefault(); setView("receive_stock"); }}>Receive stock</a>
+          <a className={view === "put_away" ? "is-active" : ""} href="#put-away" onClick={(event) => { event.preventDefault(); setView("put_away"); }}>Put away</a>
+          <a className={view === "receipt_history" ? "is-active" : ""} href="#receipt-history" onClick={(event) => { event.preventDefault(); setView("receipt_history"); }}>Receipt history</a>
         </nav>
         <div className="inbound-rules">
-          <span>Required source data</span>
-          <p>Confirmed Packing List</p>
-          <p>Pallet and carton structure</p>
-          <p>Recognised SKU quantities</p>
+          <span>{isHistoryView ? "Audit rule" : "Required operational record"}</span>
+          {isHistoryView ? <><p>Read-only records</p><p>Timezone display choice</p><p>Filters never change stock</p></> : <><p>Module remains accessible</p><p>Write controls need source data</p><p>Server validation remains active</p></>}
         </div>
-        <div className="inbound-phase-note"><span>Warehouse control</span><p>Receipt remains locked until product-label print confirmation.</p></div>
+        <div className="inbound-phase-note"><span>Warehouse control</span><p>Pages stay open. Inventory writes remain sequence controlled.</p></div>
       </aside>
 
       <section className="inbound-content">
@@ -136,29 +147,49 @@ function WarehousePackingListGate({
         <main className="inbound-main" id="packing-list-gate">
           <section className="inbound-scope-bar">
             <div><span>Selected Shipment</span><strong>{selectedShipment?.shipmentReference ?? shipmentId}</strong></div>
-            <p>Warehouse operations are unavailable until source quantities are confirmed.</p>
+            <p>All modules are available. Write controls appear when their required operational records exist.</p>
             <select aria-label="Shipment" value={shipmentId} onChange={(event) => onShipmentChange(event.target.value)}>
               {shipments.map((shipment) => <option key={shipment.shipmentId} value={shipment.shipmentId}>{shipment.shipmentReference ?? shipment.shipmentId}</option>)}
             </select>
           </section>
 
-          <section className="inbound-packing-list-gate" role="status">
-            <WarningCircle size={30} weight="fill" />
-            <div>
-              <span>Source data required</span>
-              <h2>Packing List confirmation required</h2>
-              <p>{statusCopy} Complete the export pallet, carton and SKU structure in Pre-arrival before printing or receiving stock.</p>
-            </div>
-            <Link className="button button-primary" href={`/prearrival?shipmentId=${encodeURIComponent(shipmentId)}`}>
-              Open Pre-arrival <ArrowRight size={18} />
-            </Link>
-          </section>
+          {isHistoryView ? <>
+            <section className="inbound-gate is-neutral" role="status">
+              <ClipboardText size={25} weight="duotone" />
+              <div><strong>Warehouse audit remains available</strong><p>Filtering changes the view only. Historical records are retained as the event occurred.</p></div>
+              <span>Read only</span>
+            </section>
+            <ReceiptHistoryPanel selection={{ shipmentId, cartonNumbers: [] }} />
+          </> : <>
+            <section className="inbound-packing-list-gate" role="status">
+              <WarningCircle size={30} weight="fill" />
+              <div>
+                <span>Source data required</span>
+                <h2>Packing List confirmation required</h2>
+                <p>{statusCopy} Complete the export pallet, carton and SKU structure in Pre-arrival before recording this operation.</p>
+              </div>
+              <Link className="button button-primary" href={`/prearrival?shipmentId=${encodeURIComponent(shipmentId)}`}>
+                Open Pre-arrival <ArrowRight size={18} />
+              </Link>
+            </section>
 
-          <section className="inbound-setup-explanation" aria-label="Warehouse unlock requirements">
-            <div><strong>Confirm source structure</strong><p>Record every pallet, carton, SKU and expected quantity in an immutable Packing List version.</p></div>
-            <div><strong>Prepare product labels</strong><p>Warehouse label selection becomes available from the confirmed quantities.</p></div>
-            <div><strong>Receive and put away</strong><p>Print confirmation unlocks receipt, then confirmed receipt unlocks destination scanning.</p></div>
-          </section>
+            <div className="inbound-workgrid" id={view === "label_print" ? "label-print" : view === "receive_stock" ? "receive-stock" : "put-away"}>
+              <section className="inbound-work-panel">
+                <div className="inbound-work-heading"><div><h2>{moduleTitle}</h2><p>The workspace is available while the required source record is prepared.</p></div>{view === "label_print" ? <Printer size={27} weight="duotone" /> : view === "receive_stock" ? <ClipboardText size={27} weight="duotone" /> : <Package size={27} weight="duotone" />}</div>
+                <section className="inbound-awaiting-line"><strong>{moduleCopy}</strong><p>{moduleNextStep}</p></section>
+                <div className="inbound-actions"><Link className="button button-primary" href={`/prearrival?shipmentId=${encodeURIComponent(shipmentId)}`}>Prepare source data <ArrowRight size={18} /></Link></div>
+              </section>
+              <aside className="inbound-summary-panel">
+                <h2>Operational prerequisites</h2>
+                <p>Each completed record unlocks the next write control without hiding the workspace.</p>
+                <span className="inbound-section-label">Current sequence</span>
+                <div className="inbound-staging-note"><strong>Packing List → Printed labels → Receipt → Put away</strong><p>Existing API and inventory validation remains authoritative.</p></div>
+              </aside>
+            </div>
+          </>}
+
+          <section className="inbound-bottom-note"><div><span>Data integrity</span><strong>{isHistoryView ? "This history records warehouse operations without changing stock." : "The module is open. Write controls appear when the required operational record exists."}</strong><p>{isHistoryView ? "It does not create orders, invoices, GST, payment or dispatch activity." : "No label job, receipt session or inventory movement has been created from this empty state."}</p></div>{!isHistoryView ? <button className="button button-secondary" type="button" onClick={() => setView("receipt_history")}>View receipt history</button> : null}</section>
+          <p className="inbound-message" role="status">{isHistoryView ? "Read-only audit view." : `${moduleTitle} workspace available. Prerequisite pending.`}</p>
         </main>
       </section>
     </div>

@@ -22,6 +22,39 @@ test("Warehouse routes an unconfirmed shipment back to Packing List setup", asyn
   await expect(page.getByText("Pre-arrival shipment was not found.")).toHaveCount(0);
 });
 
+test("keeps every Warehouse module accessible before Packing List confirmation", async ({
+  page,
+  request,
+}) => {
+  await request.post("/api/test/reset?packingList=empty");
+  await page.goto("/warehouse");
+
+  for (const name of ["Label print", "Receive stock", "Put away", "Receipt history"]) {
+    await expect(page.getByRole("link", { name })).not.toHaveAttribute("aria-disabled", "true");
+  }
+
+  await page.getByRole("link", { name: "Label print" }).click();
+  await expect(page.getByRole("heading", { name: "Label print" })).toBeVisible();
+  await expect(page.getByText("Confirm this Shipment's Packing List to make product-label quantities available.")).toBeVisible();
+
+  await page.getByRole("link", { name: "Receive stock" }).click();
+  await expect(page.getByRole("heading", { name: "Receive stock" })).toBeVisible();
+  await expect(page.getByText("Confirmed source quantities and a physically confirmed label print are required before receipt can be recorded.")).toBeVisible();
+
+  await page.getByRole("link", { name: "Put away" }).click();
+  await expect(page.getByRole("heading", { name: "Put away" })).toBeVisible();
+  await expect(page.getByText("A confirmed receipt in BNE-RECEIVING-STAGING is required before destination scanning can begin.")).toBeVisible();
+
+  await page.getByRole("link", { name: "Receipt history" }).click();
+  await expect(page.getByRole("heading", { name: "Receipt history" })).toBeVisible();
+  await expect(page.getByText("No audit events match this view")).toBeVisible();
+  await expect(page.getByLabel("Carton")).toHaveValue("");
+
+  await expect(page.getByRole("button", { name: "Print labels" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Confirm receipt" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Confirm put away" })).toHaveCount(0);
+});
+
 async function confirmReceipt(page: Page) {
   await page.goto("/warehouse");
   await page.getByRole("button", { name: "Preview labels" }).click();
