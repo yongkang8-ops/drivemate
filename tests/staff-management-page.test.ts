@@ -20,11 +20,15 @@ describe("private Staff management route", () => {
 
   it("links the module only from authenticated Admin and Partner workspaces", () => {
     const admin = read("app/admin/page.tsx");
-    const partner = read("app/partner/page.tsx");
+    const partnerRoute = read("app/partner/page.tsx");
+    const partnerDashboard = read("components/PartnerDashboard.tsx");
     expect(admin).toContain('href="/admin/staff"');
-    expect(partner).toContain('href="/admin/staff"');
+    expect(partnerDashboard).toContain('href="/admin/staff"');
     expect(admin.indexOf('href="/admin/staff"')).toBeGreaterThan(admin.indexOf('<RoleGate expectedRole="admin">'));
-    expect(partner.indexOf('href="/admin/staff"')).toBeGreaterThan(partner.indexOf('<RoleGate expectedRole="partner">'));
+    expect(partnerRoute).toContain('<RoleGate expectedRole="partner">');
+    expect(partnerRoute.indexOf("<PartnerDashboard />")).toBeGreaterThan(
+      partnerRoute.indexOf('<RoleGate expectedRole="partner">'),
+    );
   });
 
   it("covers the approved register, filters, metrics and collection states", () => {
