@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
 
+const tradingEnabledForE2e =
+  process.env.DRIVEMATE_TRADING_ENABLED === "true" &&
+  process.env.DRIVEMATE_GST_REGISTERED === "true";
+const tradingTest = tradingEnabledForE2e ? test : test.skip;
+
 let requestSequence = 0;
 function roleHeaders(role: "trade" | "partner" | "admin") {
   requestSequence += 1;
@@ -97,7 +102,7 @@ test("health API reports deployment readiness without exposing secrets", async (
   expect(JSON.stringify(body)).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
 });
 
-test("orders API creates a submitted order", async ({ request }) => {
+tradingTest("orders API creates a submitted order", async ({ request }) => {
   const response = await request.post("/api/orders", {
     headers: roleHeaders("trade"),
     data: {
@@ -123,7 +128,7 @@ test("orders API creates a submitted order", async ({ request }) => {
   expect(body.order.totalIncGstCents).toBe(3794);
 });
 
-test("orders API rejects draft or paused SKUs from trade ordering", async ({
+tradingTest("orders API rejects draft or paused SKUs from trade ordering", async ({
   request,
 }) => {
   const pause = await request.patch("/api/products/DM-GWM-OF-001", {
@@ -161,7 +166,7 @@ test("orders API rejects draft or paused SKUs from trade ordering", async ({
   expect(warehouseReceive.ok()).toBeTruthy();
 });
 
-test("trade state API returns only the current trade account records", async ({
+tradingTest("trade state API returns only the current trade account records", async ({
   request,
 }) => {
   await request.post("/api/orders", {
@@ -223,7 +228,7 @@ test("trade state API returns only the current trade account records", async ({
   expect(documentText).toContain("- DM-GWM-AF-002 x 1");
 });
 
-test("order dispatch API confirms a warehouse dispatch", async ({
+tradingTest("order dispatch API confirms a warehouse dispatch", async ({
   request,
 }) => {
   const orderResponse = await request.post("/api/orders", {
@@ -289,7 +294,7 @@ test("order dispatch API confirms a warehouse dispatch", async ({
   expect(deliveryText).toContain("- DM-GWM-OF-001 x 1");
 });
 
-test("order dispatch API requires scanned lines that match the order", async ({
+tradingTest("order dispatch API requires scanned lines that match the order", async ({
   request,
 }) => {
   const orderResponse = await request.post("/api/orders", {
@@ -332,7 +337,7 @@ test("order dispatch API requires scanned lines that match the order", async ({
   expect(barcodeScan.ok()).toBeTruthy();
 });
 
-test("order cancel API releases reserved stock before dispatch", async ({
+tradingTest("order cancel API releases reserved stock before dispatch", async ({
   request,
 }) => {
   const orderResponse = await request.post("/api/orders", {
@@ -387,7 +392,7 @@ test("order cancel API releases reserved stock before dispatch", async ({
   expect(dispatchCancelled.status()).toBe(422);
 });
 
-test("orders API ignores a forged trade account from trade users", async ({
+tradingTest("orders API ignores a forged trade account from trade users", async ({
   request,
 }) => {
   const response = await request.post("/api/orders", {
@@ -405,7 +410,7 @@ test("orders API ignores a forged trade account from trade users", async ({
   expect(body.order.createdBy).toBe("demo-trade-user");
 });
 
-test("orders API requires a trade account for staff-created orders", async ({
+tradingTest("orders API requires a trade account for staff-created orders", async ({
   request,
 }) => {
   const response = await request.post("/api/orders", {
@@ -423,7 +428,7 @@ test("orders API requires a trade account for staff-created orders", async ({
   );
 });
 
-test("orders API requires an approved trade account", async ({ request }) => {
+tradingTest("orders API requires an approved trade account", async ({ request }) => {
   const application = await request.post("/api/trade-account-applications", {
     headers: publicHeaders(),
     data: tradeApplication({
@@ -610,7 +615,7 @@ test("inventory movement API records and reviews quarantine stock", async ({
   expect(writeoffRow).toMatchObject({ onHand: 41, reserved: 1, quarantine: 1 });
 });
 
-test("inventory movement API records putaway transfers", async ({
+test("inventory movement API directs putaway to the receipt-scoped workflow", async ({
   request,
 }) => {
   const response = await request.post("/api/inventory-movement", {
@@ -625,14 +630,11 @@ test("inventory movement API records putaway transfers", async ({
     },
   });
 
-  expect(response.ok()).toBeTruthy();
+  expect(response.status()).toBe(422);
   const body = await response.json();
-  expect(body.movement).toMatchObject({
-    sku: "DM-GWM-OF-001",
-    movement: "Putaway",
-    reference: "PUT-API",
-    location: "BNE-A01-03",
-    createdBy: "demo-partner-user",
+  expect(body).toEqual({
+    ok: false,
+    message: "Putaway must use the receipt-scoped Warehouse Put away workflow.",
   });
 });
 
@@ -736,7 +738,7 @@ test("inventory movement import API records bulk inbound receiving", async ({
   );
 });
 
-test("warehouse state API returns inventory and pick orders for warehouse users", async ({
+tradingTest("warehouse state API returns inventory and pick orders for warehouse users", async ({
   request,
 }) => {
   await request.post("/api/orders", {
@@ -951,7 +953,7 @@ test("admin state API returns metrics, catalogue and operating records", async (
   ).toBeTruthy();
 });
 
-test("admin export API returns operating CSV snapshots", async ({
+tradingTest("admin export API returns operating CSV snapshots", async ({
   request,
 }) => {
   await request.post("/api/orders", {
@@ -1401,7 +1403,13 @@ test("protected APIs reject public requests", async ({ request }) => {
       lines: [{ sku: "DM-GWM-OF-001", quantity: 1 }],
     },
   });
-  expect(order.status()).toBe(403);
+  expect(order.status()).toBe(tradingEnabledForE2e ? 403 : 503);
+  if (!tradingEnabledForE2e) {
+    await expect(order.json()).resolves.toMatchObject({
+      ok: false,
+      code: "TRADING_DISABLED",
+    });
+  }
 
   const movement = await request.post("/api/inventory-movement", {
     data: {
@@ -1443,7 +1451,13 @@ test("protected APIs reject public requests", async ({ request }) => {
   expect(documentAccess.status()).toBe(403);
 
   const dispatch = await request.post("/api/orders/SO-404/dispatch");
-  expect(dispatch.status()).toBe(403);
+  expect(dispatch.status()).toBe(tradingEnabledForE2e ? 403 : 503);
+  if (!tradingEnabledForE2e) {
+    await expect(dispatch.json()).resolves.toMatchObject({
+      ok: false,
+      code: "TRADING_DISABLED",
+    });
+  }
 
   const cancel = await request.post("/api/orders/SO-404/cancel");
   expect(cancel.status()).toBe(403);

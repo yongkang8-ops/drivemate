@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
 
+test("declares smooth route-transition behavior on the document root", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.locator("html")).toHaveAttribute("data-scroll-behavior", "smooth");
+});
+
 test("public home sections remain visible when motion observers do not fire", async ({
   page,
 }) => {

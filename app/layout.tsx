@@ -29,7 +29,7 @@ const internalNavItems = [
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const showInternalNav = process.env.NEXT_PUBLIC_SHOW_INTERNAL_NAV === "true" || process.env.NODE_ENV !== "production";
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
       <body className={`${geist.variable} ${geistMono.variable}`}>
         <div className="site-shell">
           <header className="site-header">
