@@ -134,3 +134,36 @@ test("the location workspace remains visible at a 390px mobile viewport", async 
   await expect(page.getByLabel("Location code batch")).toBeVisible();
   await expect(page.getByRole("table", { name: "Location register" })).toBeVisible();
 });
+
+test("disabled location actions look unavailable and recover enabled styling", async ({ page }) => {
+  await page.goto("/inventory");
+
+  const createButton = page.getByRole("button", { name: "Create locations" });
+  await expect(createButton).toBeDisabled();
+
+  const disabledStyle = await createButton.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      backgroundColor: style.backgroundColor,
+      color: style.color,
+      cursor: style.cursor,
+    };
+  });
+  expect(disabledStyle.cursor).toBe("not-allowed");
+
+  await page.getByLabel("Location code batch").fill("BNE-A01-03");
+  await page.getByRole("button", { name: "Preview exact codes" }).click();
+  await expect(createButton).toBeEnabled();
+
+  const enabledStyle = await createButton.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      backgroundColor: style.backgroundColor,
+      color: style.color,
+      cursor: style.cursor,
+    };
+  });
+  expect(enabledStyle.cursor).toBe("pointer");
+  expect(disabledStyle.backgroundColor).not.toBe(enabledStyle.backgroundColor);
+  expect(disabledStyle.color).not.toBe(enabledStyle.color);
+});

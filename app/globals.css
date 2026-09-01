@@ -938,6 +938,19 @@ body:has(.partner-dashboard-app) .site-shell { min-height: 100vh; }
 .inventory-location-create-form textarea { min-height: 108px; padding: 11px 12px; resize: vertical; line-height: 1.5; }
 .inventory-location-create-actions, .inventory-location-print-actions > div:last-child, .inventory-location-editor > div:last-child, .inventory-location-audit-actions { display: flex; flex-wrap: wrap; gap: 9px; }
 .inventory-location-create-actions .button, .inventory-location-print-actions .button, .inventory-location-editor .button, .inventory-location-audit-actions .button, .inventory-location-reprint .button { min-height: 37px; font-size: 12px; }
+.inventory-location-app .button:disabled {
+  border-color: #d5e1df;
+  background: #e7edeb;
+  color: #728587;
+  cursor: not-allowed;
+  opacity: 1;
+  box-shadow: none;
+}
+.inventory-location-app .button:disabled:hover {
+  border-color: #d5e1df;
+  background: #e7edeb;
+  color: #728587;
+}
 .inventory-location-batch-preview { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; padding-top: 4px; }
 .inventory-location-batch-preview > div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid #d4e8e4; border-radius: 6px; background: #f3faf8; }
 .inventory-location-batch-preview code, .inventory-location-table-shell code, .inventory-location-audit-panel code { color: #175b5c; font: 650 11px var(--font-geist-mono), Consolas, monospace; }
