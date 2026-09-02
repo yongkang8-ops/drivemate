@@ -1,0 +1,4891 @@
+{
+  "p1dDraftVersion": 1,
+  "generatedAt": "2026-09-02T16:47:49.818Z",
+  "status": "review_required",
+  "importReady": false,
+  "shipment": {
+    "shipmentId": "c49dad78-2ffc-406a-ac50-3c1e4ffec434",
+    "shipmentReference": "AJG-YJ-GWM-202608-01-PACKING",
+    "physicalPalletCount": 4,
+    "palletMappingStatus": "not_recorded",
+    "mappedPalletCount": 0,
+    "cartonGroupCount": 35,
+    "physicalCartonCount": 38,
+    "skuLineCount": 119,
+    "expectedQuantity": 706
+  },
+  "controls": {
+    "authoritativePiSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+    "packingListSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+    "authoritativeLineCount": 119,
+    "expectedQuantity": 706,
+    "readdedShockAbsorberQuantity": 40,
+    "nonSaleableWarehouseEquipmentIncluded": false,
+    "productBarcodeResolution": "Resolve existing products.barcode by sku at label/receipt time; no barcode is generated in this draft."
+  },
+  "blockingReviewItems": [
+    "Carton groups 7#8#9# and 10#11# represent multiple physical cartons and require individual carton allocation before Production confirmation.",
+    "The current 4-pallet carton allocation is unknown; all sourcePalletNumber values remain null.",
+    "The local PI workbook hash 83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999 differs from the system-locked import hash F7C6F6BB4576CCCA62221E50D27E2FCCF3CAB3C46F9889404F87C0B59E9ABB4C; its 119 Part Numbers and 706 quantities were semantically cross-checked against final_order_data_20260820.json and the 706-unit Packing List."
+  ],
+  "sourceFiles": [
+    {
+      "path": "D:/AI HUB/Codex agent/Australia car parts project/outputs/final_trade_documents_20260820/附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+      "sha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+      "systemExpectedSha256": "F7C6F6BB4576CCCA62221E50D27E2FCCF3CAB3C46F9889404F87C0B59E9ABB4C",
+      "hashMatch": false,
+      "role": "Local 119-line PI copy and SKU sequence source; semantic match verified"
+    },
+    {
+      "path": "D:/AI HUB/Codex agent/Australia car parts project/final_order_data_20260820.json",
+      "sha256": "98CB621C202CA5675BEF0D24E329685215F2C993575B5C9EEB86C960D0A514A1",
+      "role": "119-line / 706-unit semantic control source used by the original purchase import workflow"
+    },
+    {
+      "path": "D:/AI HUB/Codex agent/Australia car parts project/outputs/final_trade_documents_20260820/GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+      "sha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+      "role": "706-unit carton and quantity source; historic pallet mapping deliberately ignored"
+    }
+  ],
+  "cartonGroups": [
+    {
+      "sourceCartonNumber": "1#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 32,
+      "widthCm": 26,
+      "heightCm": 30,
+      "grossWeightKg": 2.46,
+      "expectedQuantity": 16,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0106",
+          "partNumber": "2803106XKN01A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0107",
+          "partNumber": "2803107XKN01A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0108",
+          "partNumber": "2803101XST01A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0109",
+          "partNumber": "2803102XST01A",
+          "expectedQuantity": 4
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "2#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 29,
+      "widthCm": 24,
+      "heightCm": 15,
+      "grossWeightKg": 5.26,
+      "expectedQuantity": 8,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0006",
+          "partNumber": "3701200XED61",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0007",
+          "partNumber": "1025100XEC06",
+          "expectedQuantity": 4
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "3#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 52,
+      "widthCm": 27,
+      "heightCm": 15,
+      "grossWeightKg": 23.85,
+      "expectedQuantity": 38,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0055",
+          "partNumber": "AQAC000357",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0056",
+          "partNumber": "3401102XGW02A",
+          "expectedQuantity": 3
+        },
+        {
+          "sku": "DM-GWM-0057",
+          "partNumber": "3401103XGW02A",
+          "expectedQuantity": 3
+        },
+        {
+          "sku": "DM-GWM-0058",
+          "partNumber": "2906102XGW02A",
+          "expectedQuantity": 6
+        },
+        {
+          "sku": "DM-GWM-0071",
+          "partNumber": "3401108XGW01A",
+          "expectedQuantity": 6
+        },
+        {
+          "sku": "DM-GWM-0072",
+          "partNumber": "2906101XGW01A",
+          "expectedQuantity": 6
+        },
+        {
+          "sku": "DM-GWM-0074",
+          "partNumber": "3401101XPW01A",
+          "expectedQuantity": 6
+        },
+        {
+          "sku": "DM-GWM-0102",
+          "partNumber": "3401101XKV3AA",
+          "expectedQuantity": 4
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "4#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 54,
+      "widthCm": 40,
+      "heightCm": 34,
+      "grossWeightKg": 12.14,
+      "expectedQuantity": 6,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0044",
+          "partNumber": "ZF1500101",
+          "expectedQuantity": 6
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "5#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 69,
+      "widthCm": 46,
+      "heightCm": 26,
+      "grossWeightKg": 42,
+      "expectedQuantity": 10,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0067",
+          "partNumber": "2904101XGW02A",
+          "expectedQuantity": 10
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "6#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 69,
+      "widthCm": 46,
+      "heightCm": 25,
+      "grossWeightKg": 41.66,
+      "expectedQuantity": 10,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0066",
+          "partNumber": "2904100XGW02A",
+          "expectedQuantity": 10
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "7#8#9#",
+      "sourceCartonCount": 3,
+      "sourcePalletNumber": null,
+      "lengthCm": 65,
+      "widthCm": 47,
+      "heightCm": 19,
+      "grossWeightKg": 32.61,
+      "expectedQuantity": 10,
+      "requiresIndividualCartonAllocation": true,
+      "lines": [
+        {
+          "sku": "DM-GWM-0064",
+          "partNumber": "2904103XGW01A",
+          "expectedQuantity": 10
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "10#11#",
+      "sourceCartonCount": 2,
+      "sourcePalletNumber": null,
+      "lengthCm": 67,
+      "widthCm": 45,
+      "heightCm": 31,
+      "grossWeightKg": 32.61,
+      "expectedQuantity": 10,
+      "requiresIndividualCartonAllocation": true,
+      "lines": [
+        {
+          "sku": "DM-GWM-0065",
+          "partNumber": "2904104XGW01A",
+          "expectedQuantity": 10
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "12#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 45,
+      "widthCm": 37,
+      "heightCm": 25,
+      "grossWeightKg": 29.9,
+      "expectedQuantity": 20,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0088",
+          "partNumber": "1001120XGW04A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0089",
+          "partNumber": "1001100XKM01A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0090",
+          "partNumber": "1001101XKM01A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0091",
+          "partNumber": "1001123XGW04A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0092",
+          "partNumber": "1001122XGW04A",
+          "expectedQuantity": 4
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "13#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 44,
+      "widthCm": 34,
+      "heightCm": 29,
+      "grossWeightKg": 21.59,
+      "expectedQuantity": 40,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0042",
+          "partNumber": "1001115AGW01A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0059",
+          "partNumber": "2905101XPW01B",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0073",
+          "partNumber": "2905136XGW01A",
+          "expectedQuantity": 10
+        },
+        {
+          "sku": "DM-GWM-0075",
+          "partNumber": "2905117XPW01A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0076",
+          "partNumber": "2905108XKM01A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0087",
+          "partNumber": "1001119XGW04A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0103",
+          "partNumber": "2905302XGW04A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0104",
+          "partNumber": "2904500XKV08A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0105",
+          "partNumber": "2905107XPW01A",
+          "expectedQuantity": 2
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "14#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 45,
+      "widthCm": 35,
+      "heightCm": 28,
+      "grossWeightKg": 23.21,
+      "expectedQuantity": 12,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0043",
+          "partNumber": "1001116AGW01A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0045",
+          "partNumber": "1001100XGW02A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0047",
+          "partNumber": "1001103XGW02A",
+          "expectedQuantity": 4
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "15#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 44,
+      "widthCm": 34,
+      "heightCm": 26,
+      "grossWeightKg": 18.25,
+      "expectedQuantity": 34,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0049",
+          "partNumber": "2905127XGW01A",
+          "expectedQuantity": 10
+        },
+        {
+          "sku": "DM-GWM-0050",
+          "partNumber": "2905137XGW01A",
+          "expectedQuantity": 10
+        },
+        {
+          "sku": "DM-GWM-0051",
+          "partNumber": "2905108XPW01A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0054",
+          "partNumber": "2905377XGW02A",
+          "expectedQuantity": 10
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "16#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 53,
+      "widthCm": 32,
+      "heightCm": 40,
+      "grossWeightKg": 9.26,
+      "expectedQuantity": 4,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0113",
+          "partNumber": "1307100XED95",
+          "expectedQuantity": 4
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "17#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 41,
+      "widthCm": 27,
+      "heightCm": 18,
+      "grossWeightKg": 4.57,
+      "expectedQuantity": 6,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0115",
+          "partNumber": "1307100-EG01B",
+          "expectedQuantity": 6
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "18#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 58,
+      "widthCm": 40,
+      "heightCm": 20,
+      "grossWeightKg": 23.3,
+      "expectedQuantity": 12,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0097",
+          "partNumber": "2904201XKV1BB",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0098",
+          "partNumber": "2904202XKV1BA",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0110",
+          "partNumber": "1001117AGW01A",
+          "expectedQuantity": 4
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "19#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 67,
+      "widthCm": 37,
+      "heightCm": 35,
+      "grossWeightKg": 22.77,
+      "expectedQuantity": 98,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0001",
+          "partNumber": "1117100XKW09A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0003",
+          "partNumber": "1111402XED96",
+          "expectedQuantity": 10
+        },
+        {
+          "sku": "DM-GWM-0004",
+          "partNumber": "1017110XEN01",
+          "expectedQuantity": 20
+        },
+        {
+          "sku": "DM-GWM-0009",
+          "partNumber": "1017100EG01",
+          "expectedQuantity": 20
+        },
+        {
+          "sku": "DM-GWM-0021",
+          "partNumber": "1017100-EG01",
+          "expectedQuantity": 20
+        },
+        {
+          "sku": "DM-GWM-0027",
+          "partNumber": "1017100XEC01",
+          "expectedQuantity": 8
+        },
+        {
+          "sku": "DM-GWM-0028",
+          "partNumber": "1017110XED95",
+          "expectedQuantity": 8
+        },
+        {
+          "sku": "DM-GWM-0029",
+          "partNumber": "1017100XED95",
+          "expectedQuantity": 8
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "20#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 38,
+      "widthCm": 23,
+      "heightCm": 27,
+      "grossWeightKg": 3.77,
+      "expectedQuantity": 28,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0008",
+          "partNumber": "3701011XEG71",
+          "expectedQuantity": 6
+        },
+        {
+          "sku": "DM-GWM-0011",
+          "partNumber": "3701011XED95",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0014",
+          "partNumber": "1025011XEN01",
+          "expectedQuantity": 6
+        },
+        {
+          "sku": "DM-GWM-0019",
+          "partNumber": "1021013XED61",
+          "expectedQuantity": 2
+        },
+        {
+          "sku": "DM-GWM-0020",
+          "partNumber": "1021801XED10",
+          "expectedQuantity": 2
+        },
+        {
+          "sku": "DM-GWM-0024",
+          "partNumber": "1025014XEDA8",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0025",
+          "partNumber": "1025011XEC06",
+          "expectedQuantity": 4
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "21#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 52,
+      "widthCm": 51,
+      "heightCm": 30,
+      "grossWeightKg": 35.86,
+      "expectedQuantity": 4,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0082",
+          "partNumber": "2904104XPW01A",
+          "expectedQuantity": 4
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "22#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 52,
+      "widthCm": 51,
+      "heightCm": 30,
+      "grossWeightKg": 35.81,
+      "expectedQuantity": 4,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0081",
+          "partNumber": "2904103XPW01A",
+          "expectedQuantity": 4
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "23#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 52,
+      "widthCm": 51,
+      "heightCm": 31,
+      "grossWeightKg": 35.89,
+      "expectedQuantity": 4,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0080",
+          "partNumber": "2904104XKV1BA",
+          "expectedQuantity": 4
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "24#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 52,
+      "widthCm": 52,
+      "heightCm": 31,
+      "grossWeightKg": 35.85,
+      "expectedQuantity": 4,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0079",
+          "partNumber": "2904103XKV1BA",
+          "expectedQuantity": 4
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "25#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 54,
+      "widthCm": 39,
+      "heightCm": 22,
+      "grossWeightKg": 25.74,
+      "expectedQuantity": 8,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0070",
+          "partNumber": "2904101XPW01A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0093",
+          "partNumber": "2904102XPW01A",
+          "expectedQuantity": 4
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "26#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 67,
+      "widthCm": 67,
+      "heightCm": 34,
+      "grossWeightKg": 12.37,
+      "expectedQuantity": 46,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0002",
+          "partNumber": "8104400XKZ96A",
+          "expectedQuantity": 10
+        },
+        {
+          "sku": "DM-GWM-0005",
+          "partNumber": "1109103XKM01A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0010",
+          "partNumber": "1109104XGW02A",
+          "expectedQuantity": 10
+        },
+        {
+          "sku": "DM-GWM-0012",
+          "partNumber": "8104300XKR02A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0013",
+          "partNumber": "8100422XNZ01A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0018",
+          "partNumber": "1109101AGW01A",
+          "expectedQuantity": 10
+        },
+        {
+          "sku": "DM-GWM-0032",
+          "partNumber": "8104430XKV3AA",
+          "expectedQuantity": 4
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "27#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 53,
+      "widthCm": 26,
+      "heightCm": 20,
+      "grossWeightKg": 8.3,
+      "expectedQuantity": 32,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0016",
+          "partNumber": "1017100XEB02",
+          "expectedQuantity": 20
+        },
+        {
+          "sku": "DM-GWM-0041",
+          "partNumber": "151100002",
+          "expectedQuantity": 6
+        },
+        {
+          "sku": "DM-GWM-0048",
+          "partNumber": "151100008",
+          "expectedQuantity": 6
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "28#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 110,
+      "widthCm": 83,
+      "heightCm": 115,
+      "grossWeightKg": 269.24,
+      "expectedQuantity": 44,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0060",
+          "partNumber": "2905102XGW01A",
+          "expectedQuantity": 10
+        },
+        {
+          "sku": "DM-GWM-0061",
+          "partNumber": "2905103XGW01A",
+          "expectedQuantity": 10
+        },
+        {
+          "sku": "DM-GWM-0062",
+          "partNumber": "2905401XGW02A",
+          "expectedQuantity": 10
+        },
+        {
+          "sku": "DM-GWM-0063",
+          "partNumber": "2905402XGW02A",
+          "expectedQuantity": 10
+        },
+        {
+          "sku": "DM-GWM-0084",
+          "partNumber": "2905101XPW04A",
+          "expectedQuantity": 4
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "29#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 102,
+      "widthCm": 101,
+      "heightCm": 95,
+      "grossWeightKg": 339.92,
+      "expectedQuantity": 40,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0052",
+          "partNumber": "2905121XPW01A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0053",
+          "partNumber": "2905120XPW01A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0077",
+          "partNumber": "2905104XGW02A",
+          "expectedQuantity": 10
+        },
+        {
+          "sku": "DM-GWM-0078",
+          "partNumber": "2905105XGW02A",
+          "expectedQuantity": 10
+        },
+        {
+          "sku": "DM-GWM-0083",
+          "partNumber": "2905100XPW04A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0085",
+          "partNumber": "2905550XGW04A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0086",
+          "partNumber": "2905553XGW04A",
+          "expectedQuantity": 4
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "30#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 54,
+      "widthCm": 63,
+      "heightCm": 43,
+      "grossWeightKg": 10.96,
+      "expectedQuantity": 20,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0022",
+          "partNumber": "1109107XGW02A",
+          "expectedQuantity": 10
+        },
+        {
+          "sku": "DM-GWM-0023",
+          "partNumber": "1109132XGW01A",
+          "expectedQuantity": 10
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "31#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 45,
+      "widthCm": 56,
+      "heightCm": 30,
+      "grossWeightKg": 10.09,
+      "expectedQuantity": 22,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0015",
+          "partNumber": "1025200XEB55",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0017",
+          "partNumber": "1025011XEB55",
+          "expectedQuantity": 6
+        },
+        {
+          "sku": "DM-GWM-0026",
+          "partNumber": "1025100XEDA8",
+          "expectedQuantity": 2
+        },
+        {
+          "sku": "DM-GWM-0030",
+          "partNumber": "1109110XP6EXA",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0031",
+          "partNumber": "1109110XPE6EXA",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0046",
+          "partNumber": "151100057",
+          "expectedQuantity": 2
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "32#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 43,
+      "widthCm": 40,
+      "heightCm": 28,
+      "grossWeightKg": 43.29,
+      "expectedQuantity": 16,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0112",
+          "partNumber": "3103100XPW01A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0114",
+          "partNumber": "3103100XGW02A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0117",
+          "partNumber": "3103100XGW01A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0118",
+          "partNumber": "3103100XGW04A",
+          "expectedQuantity": 4
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "33#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 51,
+      "widthCm": 34,
+      "heightCm": 14,
+      "grossWeightKg": 5.16,
+      "expectedQuantity": 16,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0111",
+          "partNumber": "1306100-ED01",
+          "expectedQuantity": 6
+        },
+        {
+          "sku": "DM-GWM-0116",
+          "partNumber": "1306100-EG01",
+          "expectedQuantity": 6
+        },
+        {
+          "sku": "DM-GWM-0119",
+          "partNumber": "1307100XEC71",
+          "expectedQuantity": 4
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "34#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 70,
+      "widthCm": 16,
+      "heightCm": 18,
+      "grossWeightKg": 6.89,
+      "expectedQuantity": 2,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0100",
+          "partNumber": "2915100XPW04A",
+          "expectedQuantity": 2
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "35#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 70,
+      "widthCm": 26,
+      "heightCm": 45,
+      "grossWeightKg": 29.3,
+      "expectedQuantity": 10,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0095",
+          "partNumber": "2915370XGW02A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0096",
+          "partNumber": "2915105XGW02A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0101",
+          "partNumber": "2915101XPW01A",
+          "expectedQuantity": 2
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "36#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 70,
+      "widthCm": 26,
+      "heightCm": 45,
+      "grossWeightKg": 27.89,
+      "expectedQuantity": 8,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0094",
+          "partNumber": "2915101XGW02A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0099",
+          "partNumber": "2915507XGW04A",
+          "expectedQuantity": 4
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "37#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 70,
+      "widthCm": 26,
+      "heightCm": 45,
+      "grossWeightKg": 24.22,
+      "expectedQuantity": 8,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0068",
+          "partNumber": "2915102XGW01A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0069",
+          "partNumber": "2915103XGW04A",
+          "expectedQuantity": 4
+        }
+      ]
+    },
+    {
+      "sourceCartonNumber": "38#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "lengthCm": 105,
+      "widthCm": 70,
+      "heightCm": 45,
+      "grossWeightKg": 453,
+      "expectedQuantity": 56,
+      "requiresIndividualCartonAllocation": false,
+      "lines": [
+        {
+          "sku": "DM-GWM-0033",
+          "partNumber": "3502108XPW01A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0034",
+          "partNumber": "3501104XPW01A",
+          "expectedQuantity": 10
+        },
+        {
+          "sku": "DM-GWM-0035",
+          "partNumber": "3502102XGW02A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0036",
+          "partNumber": "3501112XGW01A",
+          "expectedQuantity": 10
+        },
+        {
+          "sku": "DM-GWM-0037",
+          "partNumber": "3501107XGW02A",
+          "expectedQuantity": 10
+        },
+        {
+          "sku": "DM-GWM-0038",
+          "partNumber": "3502105XGW01A",
+          "expectedQuantity": 4
+        },
+        {
+          "sku": "DM-GWM-0039",
+          "partNumber": "3501100XGW02A",
+          "expectedQuantity": 10
+        },
+        {
+          "sku": "DM-GWM-0040",
+          "partNumber": "3501302XGW04A",
+          "expectedQuantity": 4
+        }
+      ]
+    }
+  ],
+  "masterDataLines": [
+    {
+      "lineNumber": 1,
+      "sourceCartonNumber": "1#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0106",
+      "partNumber": "2803106XKN01A",
+      "nameZh": "保险杠支架（左)",
+      "nameEn": "Left Bumper Bracket",
+      "category": "车体/事故小件 / Body / Collision Repair Small Parts",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 10.6,
+      "lineAmountCny": 42.4,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 112,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 4
+      }
+    },
+    {
+      "lineNumber": 2,
+      "sourceCartonNumber": "1#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0107",
+      "partNumber": "2803107XKN01A",
+      "nameZh": "保险杠支架（右)",
+      "nameEn": "Right Bumper Bracket",
+      "category": "车体/事故小件 / Body / Collision Repair Small Parts",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 10.6,
+      "lineAmountCny": 42.4,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 113,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 5
+      }
+    },
+    {
+      "lineNumber": 3,
+      "sourceCartonNumber": "1#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0108",
+      "partNumber": "2803101XST01A",
+      "nameZh": "保险杠支架（左）",
+      "nameEn": "Left Bumper Bracket",
+      "category": "车体/事故小件 / Body / Collision Repair Small Parts",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 10.6,
+      "lineAmountCny": 42.4,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 114,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 6
+      }
+    },
+    {
+      "lineNumber": 4,
+      "sourceCartonNumber": "1#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0109",
+      "partNumber": "2803102XST01A",
+      "nameZh": "保险杠支架（右)",
+      "nameEn": "Right Bumper Bracket",
+      "category": "车体/事故小件 / Body / Collision Repair Small Parts",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 10.6,
+      "lineAmountCny": 42.4,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 115,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 7
+      }
+    },
+    {
+      "lineNumber": 5,
+      "sourceCartonNumber": "2#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0006",
+      "partNumber": "3701200XED61",
+      "nameZh": "皮带张紧器",
+      "nameEn": "Drive Belt Tensioner",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 100.7,
+      "lineAmountCny": 402.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 12,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 8
+      }
+    },
+    {
+      "lineNumber": 6,
+      "sourceCartonNumber": "2#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0007",
+      "partNumber": "1025100XEC06",
+      "nameZh": "皮带张紧器",
+      "nameEn": "Drive Belt Tensioner",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 100.7,
+      "lineAmountCny": 402.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 13,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 9
+      }
+    },
+    {
+      "lineNumber": 7,
+      "sourceCartonNumber": "3#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0055",
+      "partNumber": "AQAC000357",
+      "nameZh": "方向机内球头",
+      "nameEn": "Inner Tie Rod End",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 26.5,
+      "lineAmountCny": 106,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 61,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 10
+      }
+    },
+    {
+      "lineNumber": 8,
+      "sourceCartonNumber": "3#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0056",
+      "partNumber": "3401102XGW02A",
+      "nameZh": "方向机外球头（左）",
+      "nameEn": "Outer Tie Rod End (LH)",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 3,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 21.2,
+      "lineAmountCny": 63.599999999999994,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 62,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 11
+      }
+    },
+    {
+      "lineNumber": 9,
+      "sourceCartonNumber": "3#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0057",
+      "partNumber": "3401103XGW02A",
+      "nameZh": "方向机外球头（右）",
+      "nameEn": "Outer Tie Rod End (RH)",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 3,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 21.2,
+      "lineAmountCny": 63.599999999999994,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 63,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 12
+      }
+    },
+    {
+      "lineNumber": 10,
+      "sourceCartonNumber": "3#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0058",
+      "partNumber": "2906102XGW02A",
+      "nameZh": "前平衡杆球头",
+      "nameEn": "Front Stabilizer Link",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 6,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 21.2,
+      "lineAmountCny": 127.19999999999999,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 64,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 13
+      }
+    },
+    {
+      "lineNumber": 11,
+      "sourceCartonNumber": "3#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0071",
+      "partNumber": "3401108XGW01A",
+      "nameZh": "方向机外球头",
+      "nameEn": "Outer Tie Rod End",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 6,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 26.5,
+      "lineAmountCny": 159,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 77,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 14
+      }
+    },
+    {
+      "lineNumber": 12,
+      "sourceCartonNumber": "3#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0072",
+      "partNumber": "2906101XGW01A",
+      "nameZh": "前平衡杆球头",
+      "nameEn": "Front Stabilizer Link",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 6,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 26.5,
+      "lineAmountCny": 159,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 78,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 15
+      }
+    },
+    {
+      "lineNumber": 13,
+      "sourceCartonNumber": "3#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0074",
+      "partNumber": "3401101XPW01A",
+      "nameZh": "方向机外球头",
+      "nameEn": "Outer Tie Rod End",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 6,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 26.5,
+      "lineAmountCny": 159,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 80,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 16
+      }
+    },
+    {
+      "lineNumber": 14,
+      "sourceCartonNumber": "3#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0102",
+      "partNumber": "3401101XKV3AA",
+      "nameZh": "方向机外球头",
+      "nameEn": "Outer Tie Rod End",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 26.5,
+      "lineAmountCny": 106,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 108,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 17
+      }
+    },
+    {
+      "lineNumber": 15,
+      "sourceCartonNumber": "4#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0044",
+      "partNumber": "ZF1500101",
+      "nameZh": "变速箱油底壳",
+      "nameEn": "Transmission Oil Pan",
+      "category": "传动系统 / Drivetrain",
+      "expectedQuantity": 6,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 159,
+      "lineAmountCny": 954,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 50,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 18
+      }
+    },
+    {
+      "lineNumber": 16,
+      "sourceCartonNumber": "5#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0067",
+      "partNumber": "2904101XGW02A",
+      "nameZh": "前下摆臂（右）",
+      "nameEn": "Right Front Lower Control Arm",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 79.5,
+      "lineAmountCny": 795,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 73,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 19
+      }
+    },
+    {
+      "lineNumber": 17,
+      "sourceCartonNumber": "6#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0066",
+      "partNumber": "2904100XGW02A",
+      "nameZh": "前下摆臂（左）",
+      "nameEn": "Left Front Lower Control Arm",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 79.5,
+      "lineAmountCny": 795,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 72,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 20
+      }
+    },
+    {
+      "lineNumber": 18,
+      "sourceCartonNumber": "7#8#9#",
+      "sourceCartonCount": 3,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0064",
+      "partNumber": "2904103XGW01A",
+      "nameZh": "前下摆臂（左）",
+      "nameEn": "Left Front Lower Control Arm",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 143.1,
+      "lineAmountCny": 1431,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 70,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 21
+      }
+    },
+    {
+      "lineNumber": 19,
+      "sourceCartonNumber": "10#11#",
+      "sourceCartonCount": 2,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0065",
+      "partNumber": "2904104XGW01A",
+      "nameZh": "前下摆臂（右）",
+      "nameEn": "Right Front Lower Control Arm",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 143.1,
+      "lineAmountCny": 1431,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 71,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 22
+      }
+    },
+    {
+      "lineNumber": 20,
+      "sourceCartonNumber": "12#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0088",
+      "partNumber": "1001120XGW04A",
+      "nameZh": "发动机机脚（右）",
+      "nameEn": "Right Engine Mount",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 137.8,
+      "lineAmountCny": 551.2,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 94,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 23
+      }
+    },
+    {
+      "lineNumber": 21,
+      "sourceCartonNumber": "12#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0089",
+      "partNumber": "1001100XKM01A",
+      "nameZh": "发动机机脚（左）",
+      "nameEn": "Left Engine Mount",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 137.8,
+      "lineAmountCny": 551.2,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 95,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 24
+      }
+    },
+    {
+      "lineNumber": 22,
+      "sourceCartonNumber": "12#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0090",
+      "partNumber": "1001101XKM01A",
+      "nameZh": "发动机机脚（右）",
+      "nameEn": "Right Engine Mount",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 137.8,
+      "lineAmountCny": 551.2,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 96,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 25
+      }
+    },
+    {
+      "lineNumber": 23,
+      "sourceCartonNumber": "12#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0091",
+      "partNumber": "1001123XGW04A",
+      "nameZh": "发动机机脚（左）",
+      "nameEn": "Left Engine Mount",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 137.8,
+      "lineAmountCny": 551.2,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 97,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 26
+      }
+    },
+    {
+      "lineNumber": 24,
+      "sourceCartonNumber": "12#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0092",
+      "partNumber": "1001122XGW04A",
+      "nameZh": "发动机机脚（右）",
+      "nameEn": "Right Engine Mount",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 137.8,
+      "lineAmountCny": 551.2,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 98,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 27
+      }
+    },
+    {
+      "lineNumber": 25,
+      "sourceCartonNumber": "13#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0042",
+      "partNumber": "1001115AGW01A",
+      "nameZh": "发动机机脚胶（左）",
+      "nameEn": "Left Engine Mount",
+      "category": "传动系统 / Drivetrain",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 153.7,
+      "lineAmountCny": 614.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 48,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 28
+      }
+    },
+    {
+      "lineNumber": 26,
+      "sourceCartonNumber": "13#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0059",
+      "partNumber": "2905101XPW01B",
+      "nameZh": "前减震器缓冲胶/缓冲块",
+      "nameEn": "Front Strut Bump Stop",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 15.9,
+      "lineAmountCny": 63.6,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 65,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 29
+      }
+    },
+    {
+      "lineNumber": 27,
+      "sourceCartonNumber": "13#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0073",
+      "partNumber": "2905136XGW01A",
+      "nameZh": "前减震器缓冲胶",
+      "nameEn": "Front Strut Bump Stop",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 15.9,
+      "lineAmountCny": 159,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 79,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 30
+      }
+    },
+    {
+      "lineNumber": 28,
+      "sourceCartonNumber": "13#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0075",
+      "partNumber": "2905117XPW01A",
+      "nameZh": "前减震器防尘套",
+      "nameEn": "Front Strut Dust Boot",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 21.2,
+      "lineAmountCny": 84.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 81,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 31
+      }
+    },
+    {
+      "lineNumber": 29,
+      "sourceCartonNumber": "13#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0076",
+      "partNumber": "2905108XKM01A",
+      "nameZh": "前减震器防尘套",
+      "nameEn": "Front Strut Dust Boot",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 21.2,
+      "lineAmountCny": 84.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 82,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 32
+      }
+    },
+    {
+      "lineNumber": 30,
+      "sourceCartonNumber": "13#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0087",
+      "partNumber": "1001119XGW04A",
+      "nameZh": "发动机机脚（左）",
+      "nameEn": "Left Engine Mount",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 137.8,
+      "lineAmountCny": 551.2,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 93,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 33
+      }
+    },
+    {
+      "lineNumber": 31,
+      "sourceCartonNumber": "13#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0103",
+      "partNumber": "2905302XGW04A",
+      "nameZh": "前减震器防尘套",
+      "nameEn": "Front Strut Dust Boot",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 21.2,
+      "lineAmountCny": 84.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 109,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 34
+      }
+    },
+    {
+      "lineNumber": 32,
+      "sourceCartonNumber": "13#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0104",
+      "partNumber": "2904500XKV08A",
+      "nameZh": "前减震器缓冲胶",
+      "nameEn": "Front Strut Bump Stop",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 15.9,
+      "lineAmountCny": 63.6,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 110,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 35
+      }
+    },
+    {
+      "lineNumber": 33,
+      "sourceCartonNumber": "13#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0105",
+      "partNumber": "2905107XPW01A",
+      "nameZh": "前螺旋弹簧上安装垫",
+      "nameEn": "Front Coil Spring Upper Insulator",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 2,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 15.9,
+      "lineAmountCny": 31.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 111,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 36
+      }
+    },
+    {
+      "lineNumber": 34,
+      "sourceCartonNumber": "14#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0043",
+      "partNumber": "1001116AGW01A",
+      "nameZh": "发动机机脚胶(右）",
+      "nameEn": "Right Engine Mount",
+      "category": "传动系统 / Drivetrain",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 153.7,
+      "lineAmountCny": 614.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 49,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 37
+      }
+    },
+    {
+      "lineNumber": 35,
+      "sourceCartonNumber": "14#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0045",
+      "partNumber": "1001100XGW02A",
+      "nameZh": "发动机机脚胶（变速箱机脚胶）",
+      "nameEn": "Transmission-Side Engine Mount",
+      "category": "传动系统 / Drivetrain",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 148.4,
+      "lineAmountCny": 593.6,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 51,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 38
+      }
+    },
+    {
+      "lineNumber": 36,
+      "sourceCartonNumber": "14#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0047",
+      "partNumber": "1001103XGW02A",
+      "nameZh": "发动机机脚胶（变速箱机脚胶）",
+      "nameEn": "Transmission-Side Engine Mount",
+      "category": "传动系统 / Drivetrain",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 148.4,
+      "lineAmountCny": 593.6,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 53,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 39
+      }
+    },
+    {
+      "lineNumber": 37,
+      "sourceCartonNumber": "15#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0049",
+      "partNumber": "2905127XGW01A",
+      "nameZh": "前减震塔顶胶",
+      "nameEn": "Front Strut Top Mount",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 53,
+      "lineAmountCny": 530,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 55,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 40
+      }
+    },
+    {
+      "lineNumber": 38,
+      "sourceCartonNumber": "15#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0050",
+      "partNumber": "2905137XGW01A",
+      "nameZh": "前减震器防尘套",
+      "nameEn": "Front Strut Dust Boot",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 21.2,
+      "lineAmountCny": 212,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 56,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 41
+      }
+    },
+    {
+      "lineNumber": 39,
+      "sourceCartonNumber": "15#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0051",
+      "partNumber": "2905108XPW01A",
+      "nameZh": "前减震塔顶胶",
+      "nameEn": "Front Strut Top Mount",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 53,
+      "lineAmountCny": 212,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 57,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 42
+      }
+    },
+    {
+      "lineNumber": 40,
+      "sourceCartonNumber": "15#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0054",
+      "partNumber": "2905377XGW02A",
+      "nameZh": "前减震器缓冲胶",
+      "nameEn": "Front Strut Bump Stop",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 15.9,
+      "lineAmountCny": 159,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 60,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 43
+      }
+    },
+    {
+      "lineNumber": 41,
+      "sourceCartonNumber": "16#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0113",
+      "partNumber": "1307100XED95",
+      "nameZh": "水泵",
+      "nameEn": "Engine Water Pump",
+      "category": "发动机系统 / Engine System",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 220,
+      "lineAmountCny": 880,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 119,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 44
+      }
+    },
+    {
+      "lineNumber": 42,
+      "sourceCartonNumber": "17#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0115",
+      "partNumber": "1307100-EG01B",
+      "nameZh": "水泵",
+      "nameEn": "Engine Water Pump",
+      "category": "发动机系统 / Engine System",
+      "expectedQuantity": 6,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 110,
+      "lineAmountCny": 660,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 121,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 45
+      }
+    },
+    {
+      "lineNumber": 43,
+      "sourceCartonNumber": "18#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0097",
+      "partNumber": "2904201XKV1BB",
+      "nameZh": "前上摆臂（左）",
+      "nameEn": "Left Front Upper Control Arm",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 127.2,
+      "lineAmountCny": 508.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 103,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 46
+      }
+    },
+    {
+      "lineNumber": 44,
+      "sourceCartonNumber": "18#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0098",
+      "partNumber": "2904202XKV1BA",
+      "nameZh": "前上摆臂（右）",
+      "nameEn": "Right Front Upper Control Arm",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 127.2,
+      "lineAmountCny": 508.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 104,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 47
+      }
+    },
+    {
+      "lineNumber": 45,
+      "sourceCartonNumber": "18#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0110",
+      "partNumber": "1001117AGW01A",
+      "nameZh": "发动机机脚胶（后）",
+      "nameEn": "Rear Engine Mount",
+      "category": "传动系统 / Drivetrain",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 127.2,
+      "lineAmountCny": 508.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 116,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 48
+      }
+    },
+    {
+      "lineNumber": 46,
+      "sourceCartonNumber": "19#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0001",
+      "partNumber": "1117100XKW09A",
+      "nameZh": "燃油滤芯",
+      "nameEn": "Fuel Filter",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 21.2,
+      "lineAmountCny": 84.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 7,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 49
+      }
+    },
+    {
+      "lineNumber": 47,
+      "sourceCartonNumber": "19#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0003",
+      "partNumber": "1111402XED96",
+      "nameZh": "燃油滤芯",
+      "nameEn": "Fuel Filter",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 53,
+      "lineAmountCny": 530,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 9,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 50
+      }
+    },
+    {
+      "lineNumber": 48,
+      "sourceCartonNumber": "19#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0004",
+      "partNumber": "1017110XEN01",
+      "nameZh": "机油滤芯",
+      "nameEn": "Engine Oil Filter",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 20,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 19.08,
+      "lineAmountCny": 381.59999999999997,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 10,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 51
+      }
+    },
+    {
+      "lineNumber": 49,
+      "sourceCartonNumber": "19#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0009",
+      "partNumber": "1017100EG01",
+      "nameZh": "机油滤芯",
+      "nameEn": "Engine Oil Filter",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 20,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 10.6,
+      "lineAmountCny": 212,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 15,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 52
+      }
+    },
+    {
+      "lineNumber": 50,
+      "sourceCartonNumber": "19#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0021",
+      "partNumber": "1017100-EG01",
+      "nameZh": "机油滤芯",
+      "nameEn": "Engine Oil Filter",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 20,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 10.6,
+      "lineAmountCny": 212,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 27,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 53
+      }
+    },
+    {
+      "lineNumber": 51,
+      "sourceCartonNumber": "19#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0027",
+      "partNumber": "1017100XEC01",
+      "nameZh": "机油滤芯",
+      "nameEn": "Engine Oil Filter",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 8,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 21.2,
+      "lineAmountCny": 169.6,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 33,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 54
+      }
+    },
+    {
+      "lineNumber": 52,
+      "sourceCartonNumber": "19#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0028",
+      "partNumber": "1017110XED95",
+      "nameZh": "机油滤芯",
+      "nameEn": "Engine Oil Filter",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 8,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 19.08,
+      "lineAmountCny": 152.64,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 34,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 55
+      }
+    },
+    {
+      "lineNumber": 53,
+      "sourceCartonNumber": "19#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0029",
+      "partNumber": "1017100XED95",
+      "nameZh": "机油滤芯",
+      "nameEn": "Engine Oil Filter",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 8,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 19.08,
+      "lineAmountCny": 152.64,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 35,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 56
+      }
+    },
+    {
+      "lineNumber": 54,
+      "sourceCartonNumber": "20#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0008",
+      "partNumber": "3701011XEG71",
+      "nameZh": "皮带",
+      "nameEn": "Drive Belt",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 6,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 47.7,
+      "lineAmountCny": 286.20000000000005,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 14,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 57
+      }
+    },
+    {
+      "lineNumber": 55,
+      "sourceCartonNumber": "20#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0011",
+      "partNumber": "3701011XED95",
+      "nameZh": "皮带",
+      "nameEn": "Drive Belt",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 47.7,
+      "lineAmountCny": 190.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 17,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 58
+      }
+    },
+    {
+      "lineNumber": 56,
+      "sourceCartonNumber": "20#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0014",
+      "partNumber": "1025011XEN01",
+      "nameZh": "皮带",
+      "nameEn": "Drive Belt",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 6,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 53,
+      "lineAmountCny": 318,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 20,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 59
+      }
+    },
+    {
+      "lineNumber": 57,
+      "sourceCartonNumber": "20#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0019",
+      "partNumber": "1021013XED61",
+      "nameZh": "正时皮带",
+      "nameEn": "Timing Belt",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 2,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 137.8,
+      "lineAmountCny": 275.6,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 25,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 60
+      }
+    },
+    {
+      "lineNumber": 58,
+      "sourceCartonNumber": "20#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0020",
+      "partNumber": "1021801XED10",
+      "nameZh": "正时皮带",
+      "nameEn": "Timing Belt",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 2,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 137.8,
+      "lineAmountCny": 275.6,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 26,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 61
+      }
+    },
+    {
+      "lineNumber": 59,
+      "sourceCartonNumber": "20#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0024",
+      "partNumber": "1025014XEDA8",
+      "nameZh": "皮带",
+      "nameEn": "Drive Belt",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 53,
+      "lineAmountCny": 212,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 30,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 62
+      }
+    },
+    {
+      "lineNumber": 60,
+      "sourceCartonNumber": "20#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0025",
+      "partNumber": "1025011XEC06",
+      "nameZh": "皮带",
+      "nameEn": "Drive Belt",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 53,
+      "lineAmountCny": 212,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 31,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 63
+      }
+    },
+    {
+      "lineNumber": 61,
+      "sourceCartonNumber": "21#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0082",
+      "partNumber": "2904104XPW01A",
+      "nameZh": "前下摆臂（左）",
+      "nameEn": "Left Front Lower Control Arm",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 233.2,
+      "lineAmountCny": 932.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 88,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 64
+      }
+    },
+    {
+      "lineNumber": 62,
+      "sourceCartonNumber": "22#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0081",
+      "partNumber": "2904103XPW01A",
+      "nameZh": "前下摆臂（左）",
+      "nameEn": "Left Front Lower Control Arm",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 233.2,
+      "lineAmountCny": 932.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 87,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 65
+      }
+    },
+    {
+      "lineNumber": 63,
+      "sourceCartonNumber": "23#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0080",
+      "partNumber": "2904104XKV1BA",
+      "nameZh": "前下摆臂（右）",
+      "nameEn": "Right Front Lower Control Arm",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 254.4,
+      "lineAmountCny": 1017.6,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 86,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 66
+      }
+    },
+    {
+      "lineNumber": 64,
+      "sourceCartonNumber": "24#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0079",
+      "partNumber": "2904103XKV1BA",
+      "nameZh": "前下摆臂（左）",
+      "nameEn": "Left Front Lower Control Arm",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 254.4,
+      "lineAmountCny": 1017.6,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 85,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 67
+      }
+    },
+    {
+      "lineNumber": 65,
+      "sourceCartonNumber": "25#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0070",
+      "partNumber": "2904101XPW01A",
+      "nameZh": "前上摆臂（左）",
+      "nameEn": "Left Front Upper Control Arm",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 127.2,
+      "lineAmountCny": 508.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 76,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 68
+      }
+    },
+    {
+      "lineNumber": 66,
+      "sourceCartonNumber": "25#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0093",
+      "partNumber": "2904102XPW01A",
+      "nameZh": "前上摆臂（右）",
+      "nameEn": "Right Front Upper Control Arm",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 127.2,
+      "lineAmountCny": 508.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 99,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 69
+      }
+    },
+    {
+      "lineNumber": 67,
+      "sourceCartonNumber": "26#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0002",
+      "partNumber": "8104400XKZ96A",
+      "nameZh": "空调滤芯",
+      "nameEn": "Cabin Air Filter",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 15.9,
+      "lineAmountCny": 159,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 8,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 70
+      }
+    },
+    {
+      "lineNumber": 68,
+      "sourceCartonNumber": "26#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0005",
+      "partNumber": "1109103XKM01A",
+      "nameZh": "空气滤芯",
+      "nameEn": "Engine Air Filter",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 21.2,
+      "lineAmountCny": 84.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 11,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 71
+      }
+    },
+    {
+      "lineNumber": 69,
+      "sourceCartonNumber": "26#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0010",
+      "partNumber": "1109104XGW02A",
+      "nameZh": "空气滤芯",
+      "nameEn": "Engine Air Filter",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 21.2,
+      "lineAmountCny": 212,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 16,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 72
+      }
+    },
+    {
+      "lineNumber": 70,
+      "sourceCartonNumber": "26#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0012",
+      "partNumber": "8104300XKR02A",
+      "nameZh": "空调滤芯",
+      "nameEn": "Cabin Air Filter",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 21.2,
+      "lineAmountCny": 84.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 18,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 73
+      }
+    },
+    {
+      "lineNumber": 71,
+      "sourceCartonNumber": "26#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0013",
+      "partNumber": "8100422XNZ01A",
+      "nameZh": "空调滤芯",
+      "nameEn": "Cabin Air Filter",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 19.08,
+      "lineAmountCny": 76.32,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 19,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 74
+      }
+    },
+    {
+      "lineNumber": 72,
+      "sourceCartonNumber": "26#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0018",
+      "partNumber": "1109101AGW01A",
+      "nameZh": "空气滤芯",
+      "nameEn": "Engine Air Filter",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 21.2,
+      "lineAmountCny": 212,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 24,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 75
+      }
+    },
+    {
+      "lineNumber": 73,
+      "sourceCartonNumber": "26#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0032",
+      "partNumber": "8104430XKV3AA",
+      "nameZh": "空调滤芯",
+      "nameEn": "Cabin Air Filter",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 21.2,
+      "lineAmountCny": 84.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 38,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 76
+      }
+    },
+    {
+      "lineNumber": 74,
+      "sourceCartonNumber": "27#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0016",
+      "partNumber": "1017100XEB02",
+      "nameZh": "机油滤芯",
+      "nameEn": "Engine Oil Filter",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 20,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 15.9,
+      "lineAmountCny": 318,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 22,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 77
+      }
+    },
+    {
+      "lineNumber": 75,
+      "sourceCartonNumber": "27#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0041",
+      "partNumber": "151100002",
+      "nameZh": "变速箱滤芯",
+      "nameEn": "Transmission Filter",
+      "category": "传动系统 / Drivetrain",
+      "expectedQuantity": 6,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 31.8,
+      "lineAmountCny": 190.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 47,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 78
+      }
+    },
+    {
+      "lineNumber": 76,
+      "sourceCartonNumber": "27#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0048",
+      "partNumber": "151100008",
+      "nameZh": "变速箱滤芯",
+      "nameEn": "Transmission Filter",
+      "category": "传动系统 / Drivetrain",
+      "expectedQuantity": 6,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 31.8,
+      "lineAmountCny": 190.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 54,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 79
+      }
+    },
+    {
+      "lineNumber": 77,
+      "sourceCartonNumber": "28#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0060",
+      "partNumber": "2905102XGW01A",
+      "nameZh": "前减震器（左）",
+      "nameEn": "Left Front Shock Absorber",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 254.4,
+      "lineAmountCny": 2544,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 66,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 80
+      }
+    },
+    {
+      "lineNumber": 78,
+      "sourceCartonNumber": "28#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0061",
+      "partNumber": "2905103XGW01A",
+      "nameZh": "前减震器（右）",
+      "nameEn": "Right Front Shock Absorber",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 254.4,
+      "lineAmountCny": 2544,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 67,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 81
+      }
+    },
+    {
+      "lineNumber": 79,
+      "sourceCartonNumber": "28#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0062",
+      "partNumber": "2905401XGW02A",
+      "nameZh": "前减震器（左）",
+      "nameEn": "Left Front Shock Absorber",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 254.4,
+      "lineAmountCny": 2544,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 68,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 82
+      }
+    },
+    {
+      "lineNumber": 80,
+      "sourceCartonNumber": "28#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0063",
+      "partNumber": "2905402XGW02A",
+      "nameZh": "前减震器（右）",
+      "nameEn": "Right Front Shock Absorber",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 254.4,
+      "lineAmountCny": 2544,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 69,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 83
+      }
+    },
+    {
+      "lineNumber": 81,
+      "sourceCartonNumber": "28#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0084",
+      "partNumber": "2905101XPW04A",
+      "nameZh": "前减震器（右）",
+      "nameEn": "Right Front Shock Absorber",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 233.2,
+      "lineAmountCny": 932.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 90,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 84
+      }
+    },
+    {
+      "lineNumber": 82,
+      "sourceCartonNumber": "29#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0052",
+      "partNumber": "2905121XPW01A",
+      "nameZh": "前减震器（左）",
+      "nameEn": "Left Front Shock Absorber",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 233.2,
+      "lineAmountCny": 932.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 58,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 85
+      }
+    },
+    {
+      "lineNumber": 83,
+      "sourceCartonNumber": "29#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0053",
+      "partNumber": "2905120XPW01A",
+      "nameZh": "前减震器（右）",
+      "nameEn": "Right Front Shock Absorber",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 233.2,
+      "lineAmountCny": 932.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 59,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 86
+      }
+    },
+    {
+      "lineNumber": 84,
+      "sourceCartonNumber": "29#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0077",
+      "partNumber": "2905104XGW02A",
+      "nameZh": "前减震器（左）",
+      "nameEn": "Left Front Shock Absorber",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 254.4,
+      "lineAmountCny": 2544,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 83,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 87
+      }
+    },
+    {
+      "lineNumber": 85,
+      "sourceCartonNumber": "29#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0078",
+      "partNumber": "2905105XGW02A",
+      "nameZh": "前减震器（右）",
+      "nameEn": "Right Front Shock Absorber",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 254.4,
+      "lineAmountCny": 2544,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 84,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 88
+      }
+    },
+    {
+      "lineNumber": 86,
+      "sourceCartonNumber": "29#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0083",
+      "partNumber": "2905100XPW04A",
+      "nameZh": "前减震器（左）",
+      "nameEn": "Left Front Shock Absorber",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 233.2,
+      "lineAmountCny": 932.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 89,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 89
+      }
+    },
+    {
+      "lineNumber": 87,
+      "sourceCartonNumber": "29#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0085",
+      "partNumber": "2905550XGW04A",
+      "nameZh": "前减震器（左）",
+      "nameEn": "Left Front Shock Absorber",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 233.2,
+      "lineAmountCny": 932.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 91,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 90
+      }
+    },
+    {
+      "lineNumber": 88,
+      "sourceCartonNumber": "29#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0086",
+      "partNumber": "2905553XGW04A",
+      "nameZh": "前减震器（右）",
+      "nameEn": "Right Front Shock Absorber",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 233.2,
+      "lineAmountCny": 932.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 92,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 91
+      }
+    },
+    {
+      "lineNumber": 89,
+      "sourceCartonNumber": "30#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0022",
+      "partNumber": "1109107XGW02A",
+      "nameZh": "空气滤芯",
+      "nameEn": "Engine Air Filter",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 21.2,
+      "lineAmountCny": 212,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 28,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 92
+      }
+    },
+    {
+      "lineNumber": 90,
+      "sourceCartonNumber": "30#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0023",
+      "partNumber": "1109132XGW01A",
+      "nameZh": "空气滤芯",
+      "nameEn": "Engine Air Filter",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 21.2,
+      "lineAmountCny": 212,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 29,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 93
+      }
+    },
+    {
+      "lineNumber": 91,
+      "sourceCartonNumber": "31#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0015",
+      "partNumber": "1025200XEB55",
+      "nameZh": "皮带张紧器",
+      "nameEn": "Drive Belt Tensioner",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 100.7,
+      "lineAmountCny": 402.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 21,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 94
+      }
+    },
+    {
+      "lineNumber": 92,
+      "sourceCartonNumber": "31#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0017",
+      "partNumber": "1025011XEB55",
+      "nameZh": "皮带",
+      "nameEn": "Drive Belt",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 6,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 53,
+      "lineAmountCny": 318,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 23,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 95
+      }
+    },
+    {
+      "lineNumber": 93,
+      "sourceCartonNumber": "31#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0026",
+      "partNumber": "1025100XEDA8",
+      "nameZh": "皮带张紧器",
+      "nameEn": "Drive Belt Tensioner",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 2,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 100.7,
+      "lineAmountCny": 201.4,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 32,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 96
+      }
+    },
+    {
+      "lineNumber": 94,
+      "sourceCartonNumber": "31#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0030",
+      "partNumber": "1109110XP6EXA",
+      "nameZh": "空气滤芯",
+      "nameEn": "Engine Air Filter",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 21.2,
+      "lineAmountCny": 84.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 36,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 97
+      }
+    },
+    {
+      "lineNumber": 95,
+      "sourceCartonNumber": "31#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0031",
+      "partNumber": "1109110XPE6EXA",
+      "nameZh": "空气滤芯",
+      "nameEn": "Engine Air Filter",
+      "category": "保养/机械耗材 / Maintenance / Mechanical Consumables",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 21.2,
+      "lineAmountCny": 84.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 37,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 98
+      }
+    },
+    {
+      "lineNumber": 96,
+      "sourceCartonNumber": "31#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0046",
+      "partNumber": "151100057",
+      "nameZh": "变速箱油底壳",
+      "nameEn": "Transmission Oil Pan",
+      "category": "传动系统 / Drivetrain",
+      "expectedQuantity": 2,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 212,
+      "lineAmountCny": 424,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 52,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 99
+      }
+    },
+    {
+      "lineNumber": 97,
+      "sourceCartonNumber": "32#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0112",
+      "partNumber": "3103100XPW01A",
+      "nameZh": "前轮轴承",
+      "nameEn": "Front Wheel Bearing",
+      "category": "底盘系统 / Chassis System",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 75,
+      "lineAmountCny": 300,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 118,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 100
+      }
+    },
+    {
+      "lineNumber": 98,
+      "sourceCartonNumber": "32#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0114",
+      "partNumber": "3103100XGW02A",
+      "nameZh": "轴头轴承总成",
+      "nameEn": "Wheel Hub Bearing Assembly",
+      "category": "底盘系统 / Chassis System",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 150,
+      "lineAmountCny": 600,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 120,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 101
+      }
+    },
+    {
+      "lineNumber": 99,
+      "sourceCartonNumber": "32#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0117",
+      "partNumber": "3103100XGW01A",
+      "nameZh": "轴头轴承总成",
+      "nameEn": "Wheel Hub Bearing Assembly",
+      "category": "底盘系统 / Chassis System",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 150,
+      "lineAmountCny": 600,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 123,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 102
+      }
+    },
+    {
+      "lineNumber": 100,
+      "sourceCartonNumber": "32#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0118",
+      "partNumber": "3103100XGW04A",
+      "nameZh": "轴头轴承总成",
+      "nameEn": "Wheel Hub Bearing Assembly",
+      "category": "底盘系统 / Chassis System",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 210,
+      "lineAmountCny": 840,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 124,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 103
+      }
+    },
+    {
+      "lineNumber": 101,
+      "sourceCartonNumber": "33#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0111",
+      "partNumber": "1306100-ED01",
+      "nameZh": "节温器",
+      "nameEn": "Engine Thermostat",
+      "category": "发动机系统 / Engine System",
+      "expectedQuantity": 6,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 25,
+      "lineAmountCny": 150,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 117,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 104
+      }
+    },
+    {
+      "lineNumber": 102,
+      "sourceCartonNumber": "33#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0116",
+      "partNumber": "1306100-EG01",
+      "nameZh": "节温器",
+      "nameEn": "Engine Thermostat",
+      "category": "发动机系统 / Engine System",
+      "expectedQuantity": 6,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 25,
+      "lineAmountCny": 150,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 122,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 105
+      }
+    },
+    {
+      "lineNumber": 103,
+      "sourceCartonNumber": "33#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0119",
+      "partNumber": "1307100XEC71",
+      "nameZh": "水泵",
+      "nameEn": "Engine Water Pump",
+      "category": "发动机系统 / Engine System",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 130,
+      "lineAmountCny": 520,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 125,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 106
+      }
+    },
+    {
+      "lineNumber": 104,
+      "sourceCartonNumber": "34#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0100",
+      "partNumber": "2915100XPW04A",
+      "nameZh": "后减震器",
+      "nameEn": "Rear Shock Absorber",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 2,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 111.3,
+      "lineAmountCny": 222.6,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 106,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 107
+      }
+    },
+    {
+      "lineNumber": 105,
+      "sourceCartonNumber": "35#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0095",
+      "partNumber": "2915370XGW02A",
+      "nameZh": "后减震器",
+      "nameEn": "Rear Shock Absorber",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 127.2,
+      "lineAmountCny": 508.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 101,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 108
+      }
+    },
+    {
+      "lineNumber": 106,
+      "sourceCartonNumber": "35#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0096",
+      "partNumber": "2915105XGW02A",
+      "nameZh": "后减震器",
+      "nameEn": "Rear Shock Absorber",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 127.2,
+      "lineAmountCny": 508.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 102,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 109
+      }
+    },
+    {
+      "lineNumber": 107,
+      "sourceCartonNumber": "35#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0101",
+      "partNumber": "2915101XPW01A",
+      "nameZh": "后减震器",
+      "nameEn": "Rear Shock Absorber",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 2,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 111.3,
+      "lineAmountCny": 222.6,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 107,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 110
+      }
+    },
+    {
+      "lineNumber": 108,
+      "sourceCartonNumber": "36#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0094",
+      "partNumber": "2915101XGW02A",
+      "nameZh": "后减震器",
+      "nameEn": "Rear Shock Absorber",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 127.2,
+      "lineAmountCny": 508.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 100,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 111
+      }
+    },
+    {
+      "lineNumber": 109,
+      "sourceCartonNumber": "36#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0099",
+      "partNumber": "2915507XGW04A",
+      "nameZh": "后减震器",
+      "nameEn": "Rear Shock Absorber",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 127.2,
+      "lineAmountCny": 508.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 105,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 112
+      }
+    },
+    {
+      "lineNumber": 110,
+      "sourceCartonNumber": "37#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0068",
+      "partNumber": "2915102XGW01A",
+      "nameZh": "后减震器",
+      "nameEn": "Rear Shock Absorber",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 127.2,
+      "lineAmountCny": 508.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 74,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 113
+      }
+    },
+    {
+      "lineNumber": 111,
+      "sourceCartonNumber": "37#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0069",
+      "partNumber": "2915103XGW04A",
+      "nameZh": "后减震器",
+      "nameEn": "Rear Shock Absorber",
+      "category": "底盘/悬挂转向 / Chassis / Suspension / Steering",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 137.8,
+      "lineAmountCny": 551.2,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 75,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 114
+      }
+    },
+    {
+      "lineNumber": 112,
+      "sourceCartonNumber": "38#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0033",
+      "partNumber": "3502108XPW01A",
+      "nameZh": "后刹车盘",
+      "nameEn": "Rear Brake Disc (Rotor)",
+      "category": "制动系统 / Brake System",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 100.7,
+      "lineAmountCny": 402.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 39,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 115
+      }
+    },
+    {
+      "lineNumber": 113,
+      "sourceCartonNumber": "38#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0034",
+      "partNumber": "3501104XPW01A",
+      "nameZh": "前刹车盘",
+      "nameEn": "Front Brake Disc (Rotor)",
+      "category": "制动系统 / Brake System",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 100.7,
+      "lineAmountCny": 1007,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 40,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 116
+      }
+    },
+    {
+      "lineNumber": 114,
+      "sourceCartonNumber": "38#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0035",
+      "partNumber": "3502102XGW02A",
+      "nameZh": "后刹车盘",
+      "nameEn": "Rear Brake Disc (Rotor)",
+      "category": "制动系统 / Brake System",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 100.7,
+      "lineAmountCny": 402.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 41,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 117
+      }
+    },
+    {
+      "lineNumber": 115,
+      "sourceCartonNumber": "38#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0036",
+      "partNumber": "3501112XGW01A",
+      "nameZh": "前刹车盘",
+      "nameEn": "Front Brake Disc (Rotor)",
+      "category": "制动系统 / Brake System",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 100.7,
+      "lineAmountCny": 1007,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 42,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 118
+      }
+    },
+    {
+      "lineNumber": 116,
+      "sourceCartonNumber": "38#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0037",
+      "partNumber": "3501107XGW02A",
+      "nameZh": "前刹车盘",
+      "nameEn": "Front Brake Disc (Rotor)",
+      "category": "制动系统 / Brake System",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 100.7,
+      "lineAmountCny": 1007,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 43,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 119
+      }
+    },
+    {
+      "lineNumber": 117,
+      "sourceCartonNumber": "38#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0038",
+      "partNumber": "3502105XGW01A",
+      "nameZh": "后刹车盘",
+      "nameEn": "Rear Brake Disc (Rotor)",
+      "category": "制动系统 / Brake System",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 100.7,
+      "lineAmountCny": 402.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 44,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 120
+      }
+    },
+    {
+      "lineNumber": 118,
+      "sourceCartonNumber": "38#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0039",
+      "partNumber": "3501100XGW02A",
+      "nameZh": "前刹车盘",
+      "nameEn": "Front Brake Disc (Rotor)",
+      "category": "制动系统 / Brake System",
+      "expectedQuantity": 10,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 100.7,
+      "lineAmountCny": 1007,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 45,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 121
+      }
+    },
+    {
+      "lineNumber": 119,
+      "sourceCartonNumber": "38#",
+      "sourceCartonCount": 1,
+      "sourcePalletNumber": null,
+      "sku": "DM-GWM-0040",
+      "partNumber": "3501302XGW04A",
+      "nameZh": "前刹车盘",
+      "nameEn": "Front Brake Disc (Rotor)",
+      "category": "制动系统 / Brake System",
+      "expectedQuantity": 4,
+      "unit": "个 / pc",
+      "unitPriceInclVatCny": 100.7,
+      "lineAmountCny": 402.8,
+      "productBarcodeSource": "products.barcode",
+      "productBarcode": null,
+      "source": {
+        "piFile": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+        "piSha256": "83AE60A821FA46717852482A07D5BE4DB6AF5C407137F75F4F585A2113913999",
+        "piRow": 46,
+        "packingFile": "GWM首批汽配_Final_Packing_List_6托盘_20260821.xlsx",
+        "packingSha256": "63CEA55B7AC4F4674436230EC5A212C4444004B0BD529D4693A3EE205BBE9B97",
+        "packingSheet": "箱内明细",
+        "packingRow": 122
+      }
+    }
+  ],
+  "apiPayloadCandidate": {
+    "schemaVersion": 2,
+    "shipmentId": "c49dad78-2ffc-406a-ac50-3c1e4ffec434",
+    "physicalPalletCount": 4,
+    "cartons": [
+      {
+        "sourceCartonNumber": "1#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0106",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0107",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0108",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0109",
+            "expectedQuantity": 4
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "2#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0006",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0007",
+            "expectedQuantity": 4
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "3#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0055",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0056",
+            "expectedQuantity": 3
+          },
+          {
+            "sku": "DM-GWM-0057",
+            "expectedQuantity": 3
+          },
+          {
+            "sku": "DM-GWM-0058",
+            "expectedQuantity": 6
+          },
+          {
+            "sku": "DM-GWM-0071",
+            "expectedQuantity": 6
+          },
+          {
+            "sku": "DM-GWM-0072",
+            "expectedQuantity": 6
+          },
+          {
+            "sku": "DM-GWM-0074",
+            "expectedQuantity": 6
+          },
+          {
+            "sku": "DM-GWM-0102",
+            "expectedQuantity": 4
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "4#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0044",
+            "expectedQuantity": 6
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "5#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0067",
+            "expectedQuantity": 10
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "6#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0066",
+            "expectedQuantity": 10
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "7#8#9#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0064",
+            "expectedQuantity": 10
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "10#11#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0065",
+            "expectedQuantity": 10
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "12#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0088",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0089",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0090",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0091",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0092",
+            "expectedQuantity": 4
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "13#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0042",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0059",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0073",
+            "expectedQuantity": 10
+          },
+          {
+            "sku": "DM-GWM-0075",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0076",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0087",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0103",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0104",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0105",
+            "expectedQuantity": 2
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "14#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0043",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0045",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0047",
+            "expectedQuantity": 4
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "15#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0049",
+            "expectedQuantity": 10
+          },
+          {
+            "sku": "DM-GWM-0050",
+            "expectedQuantity": 10
+          },
+          {
+            "sku": "DM-GWM-0051",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0054",
+            "expectedQuantity": 10
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "16#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0113",
+            "expectedQuantity": 4
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "17#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0115",
+            "expectedQuantity": 6
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "18#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0097",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0098",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0110",
+            "expectedQuantity": 4
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "19#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0001",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0003",
+            "expectedQuantity": 10
+          },
+          {
+            "sku": "DM-GWM-0004",
+            "expectedQuantity": 20
+          },
+          {
+            "sku": "DM-GWM-0009",
+            "expectedQuantity": 20
+          },
+          {
+            "sku": "DM-GWM-0021",
+            "expectedQuantity": 20
+          },
+          {
+            "sku": "DM-GWM-0027",
+            "expectedQuantity": 8
+          },
+          {
+            "sku": "DM-GWM-0028",
+            "expectedQuantity": 8
+          },
+          {
+            "sku": "DM-GWM-0029",
+            "expectedQuantity": 8
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "20#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0008",
+            "expectedQuantity": 6
+          },
+          {
+            "sku": "DM-GWM-0011",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0014",
+            "expectedQuantity": 6
+          },
+          {
+            "sku": "DM-GWM-0019",
+            "expectedQuantity": 2
+          },
+          {
+            "sku": "DM-GWM-0020",
+            "expectedQuantity": 2
+          },
+          {
+            "sku": "DM-GWM-0024",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0025",
+            "expectedQuantity": 4
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "21#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0082",
+            "expectedQuantity": 4
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "22#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0081",
+            "expectedQuantity": 4
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "23#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0080",
+            "expectedQuantity": 4
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "24#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0079",
+            "expectedQuantity": 4
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "25#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0070",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0093",
+            "expectedQuantity": 4
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "26#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0002",
+            "expectedQuantity": 10
+          },
+          {
+            "sku": "DM-GWM-0005",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0010",
+            "expectedQuantity": 10
+          },
+          {
+            "sku": "DM-GWM-0012",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0013",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0018",
+            "expectedQuantity": 10
+          },
+          {
+            "sku": "DM-GWM-0032",
+            "expectedQuantity": 4
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "27#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0016",
+            "expectedQuantity": 20
+          },
+          {
+            "sku": "DM-GWM-0041",
+            "expectedQuantity": 6
+          },
+          {
+            "sku": "DM-GWM-0048",
+            "expectedQuantity": 6
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "28#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0060",
+            "expectedQuantity": 10
+          },
+          {
+            "sku": "DM-GWM-0061",
+            "expectedQuantity": 10
+          },
+          {
+            "sku": "DM-GWM-0062",
+            "expectedQuantity": 10
+          },
+          {
+            "sku": "DM-GWM-0063",
+            "expectedQuantity": 10
+          },
+          {
+            "sku": "DM-GWM-0084",
+            "expectedQuantity": 4
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "29#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0052",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0053",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0077",
+            "expectedQuantity": 10
+          },
+          {
+            "sku": "DM-GWM-0078",
+            "expectedQuantity": 10
+          },
+          {
+            "sku": "DM-GWM-0083",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0085",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0086",
+            "expectedQuantity": 4
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "30#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0022",
+            "expectedQuantity": 10
+          },
+          {
+            "sku": "DM-GWM-0023",
+            "expectedQuantity": 10
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "31#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0015",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0017",
+            "expectedQuantity": 6
+          },
+          {
+            "sku": "DM-GWM-0026",
+            "expectedQuantity": 2
+          },
+          {
+            "sku": "DM-GWM-0030",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0031",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0046",
+            "expectedQuantity": 2
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "32#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0112",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0114",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0117",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0118",
+            "expectedQuantity": 4
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "33#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0111",
+            "expectedQuantity": 6
+          },
+          {
+            "sku": "DM-GWM-0116",
+            "expectedQuantity": 6
+          },
+          {
+            "sku": "DM-GWM-0119",
+            "expectedQuantity": 4
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "34#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0100",
+            "expectedQuantity": 2
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "35#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0095",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0096",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0101",
+            "expectedQuantity": 2
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "36#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0094",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0099",
+            "expectedQuantity": 4
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "37#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0068",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0069",
+            "expectedQuantity": 4
+          }
+        ]
+      },
+      {
+        "sourceCartonNumber": "38#",
+        "sourcePalletNumber": null,
+        "lines": [
+          {
+            "sku": "DM-GWM-0033",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0034",
+            "expectedQuantity": 10
+          },
+          {
+            "sku": "DM-GWM-0035",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0036",
+            "expectedQuantity": 10
+          },
+          {
+            "sku": "DM-GWM-0037",
+            "expectedQuantity": 10
+          },
+          {
+            "sku": "DM-GWM-0038",
+            "expectedQuantity": 4
+          },
+          {
+            "sku": "DM-GWM-0039",
+            "expectedQuantity": 10
+          },
+          {
+            "sku": "DM-GWM-0040",
+            "expectedQuantity": 4
+          }
+        ]
+      }
+    ]
+  }
+}
