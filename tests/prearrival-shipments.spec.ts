@@ -55,6 +55,34 @@ test("test fixture exposes an existing shipment before its first packing list", 
   expect(secondShipment.status()).toBe(404);
 });
 
+test("pre-arrival empty state stays contained across tablet widths", async ({
+  page,
+  request,
+}) => {
+  const reset = await request.post("/api/test/reset?packingList=empty");
+  expect(reset.ok()).toBeTruthy();
+
+  for (const width of [701, 768, 880]) {
+    await page.setViewportSize({ width, height: 1024 });
+    await page.goto("/prearrival");
+
+    const workingCopyButton = page.getByRole("button", { name: "Open working copy" });
+    await expect(workingCopyButton).toBeVisible();
+
+    const documentWidth = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    expect(documentWidth.scrollWidth).toBeLessThanOrEqual(documentWidth.clientWidth);
+
+    const buttonBox = await workingCopyButton.boundingBox();
+    expect(buttonBox).not.toBeNull();
+    expect((buttonBox?.x ?? 0) + (buttonBox?.width ?? 0)).toBeLessThanOrEqual(
+      documentWidth.clientWidth,
+    );
+  }
+});
+
 test("opens the shipment requested in the query when the list order differs", async ({
   page,
   request,
