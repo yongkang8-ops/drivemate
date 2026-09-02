@@ -232,7 +232,7 @@ export function PartnerDashboard() {
                           ? `Packing List v${shipment.packingListVersion}`
                           : "Packing List not confirmed"}
                       </span>
-                      {` · ${shipment.palletCount} pallets · ${shipment.cartonCount} cartons`}
+                      {` · ${shipment.physicalPalletCount ?? "Unknown"} physical pallets · ${shipment.mappedPalletCount || "—"} mapped · ${shipment.cartonCount} cartons · ${shipment.palletMappingStatus.replace("_", " ")}`}
                     </span>
                   </div>
                   <div className="partner-shipment-stage">

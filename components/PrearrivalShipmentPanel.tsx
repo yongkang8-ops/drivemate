@@ -26,7 +26,7 @@ import type {
   PrearrivalShipment,
   PrearrivalShipmentSummary,
 } from "../lib/repository";
-import type { PackingListRevisionInput } from "../lib/prearrivalShipment";
+import { derivePalletMappingSummary, type PackingListRevisionInputV2 } from "../lib/prearrivalShipment";
 
 type ShipmentListResponse =
   | { ok: true; shipments: PrearrivalShipmentSummary[] }
@@ -38,14 +38,13 @@ type RevisionResponse =
   | { ok: true; revision: PackingListRevision }
   | { ok: false; message?: string; error?: PackingListServerError };
 
-type CartonSelection = { palletIndex: number; cartonIndex: number };
+type CartonSelection = { cartonIndex: number };
 type SelectedCarton = {
-  sourcePalletNumber: string;
+  sourcePalletNumber?: string | null;
   sourceCartonNumber: string;
-  draftPallet?: PackingListRevisionInput["pallets"][number];
-  draftCarton?: PackingListRevisionInput["pallets"][number]["cartons"][number];
+  draftCarton?: PackingListRevisionInputV2["cartons"][number];
 };
-type DraftLineIds = string[][][];
+type DraftLineIds = string[][];
 
 function latestConfirmedRevision(shipment: PrearrivalShipment): PackingListRevision | undefined {
   return shipment.revisions
@@ -63,31 +62,26 @@ function latestDraftRevision(shipment: PrearrivalShipment): PackingListRevision 
     .sort((left, right) => right.version - left.version)[0];
 }
 
-function payloadFromShipment(shipment: PrearrivalShipment): PackingListRevisionInput {
+function payloadFromShipment(shipment: PrearrivalShipment): PackingListRevisionInputV2 {
   const confirmed = latestConfirmedRevision(shipment);
   if (confirmed) return structuredClone(confirmed.payloadSnapshot);
 
-  const cartonsByPallet = new Map<string, PrearrivalShipment["cartons"]>();
-  for (const carton of shipment.cartons) {
-    const pallet = carton.sourcePalletNumber ?? "UNASSIGNED";
-    cartonsByPallet.set(pallet, [...(cartonsByPallet.get(pallet) ?? []), carton]);
-  }
   const payload = {
+    schemaVersion: 2 as const,
     shipmentId: shipment.shipmentId,
-    pallets: [...cartonsByPallet.entries()].map(([sourcePalletNumber, cartons]) => ({
-      sourcePalletNumber,
-      cartons: cartons.map((carton) => ({
-        sourceCartonNumber: carton.sourceCartonNumber,
-        lines: shipment.lines
-          .filter((line) => line.sourceCartonNumber === carton.sourceCartonNumber)
-          .map((line) => ({
-            sku: line.sku,
-            expectedQuantity: line.expectedQuantity,
-          })),
-      })),
+    physicalPalletCount: shipment.physicalPalletCount ?? null,
+    cartons: shipment.cartons.map((carton) => ({
+      sourceCartonNumber: carton.sourceCartonNumber,
+      sourcePalletNumber: carton.sourcePalletNumber ?? null,
+      lines: shipment.lines
+        .filter((line) => line.sourceCartonNumber === carton.sourceCartonNumber)
+        .map((line) => ({
+          sku: line.sku,
+          expectedQuantity: line.expectedQuantity,
+        })),
     })),
   };
-  return payload.pallets.length ? payload : initialPackingListPayload(shipment.shipmentId);
+  return payload.cartons.length ? payload : initialPackingListPayload(shipment.shipmentId);
 }
 
 function blankPackingListLine() {
@@ -97,21 +91,17 @@ function blankPackingListLine() {
 function blankPackingListCarton() {
   return {
     sourceCartonNumber: "",
+    sourcePalletNumber: null,
     lines: [blankPackingListLine()],
   };
 }
 
-function blankPackingListPallet() {
+function initialPackingListPayload(shipmentId: string): PackingListRevisionInputV2 {
   return {
-    sourcePalletNumber: "",
-    cartons: [blankPackingListCarton()],
-  };
-}
-
-function initialPackingListPayload(shipmentId: string): PackingListRevisionInput {
-  return {
+    schemaVersion: 2,
     shipmentId,
-    pallets: [blankPackingListPallet()],
+    physicalPalletCount: null,
+    cartons: [blankPackingListCarton()],
   };
 }
 
@@ -135,8 +125,8 @@ function shipmentStatusMessage(shipment: PrearrivalShipment): string {
 export function PrearrivalShipmentPanel() {
   const [shipments, setShipments] = useState<PrearrivalShipmentSummary[]>([]);
   const [shipment, setShipment] = useState<PrearrivalShipment | null>(null);
-  const [selection, setSelection] = useState<CartonSelection>({ palletIndex: 0, cartonIndex: 0 });
-  const [draftPayload, setDraftPayload] = useState<PackingListRevisionInput | null>(null);
+  const [selection, setSelection] = useState<CartonSelection>({ cartonIndex: 0 });
+  const [draftPayload, setDraftPayload] = useState<PackingListRevisionInputV2 | null>(null);
   const [message, setMessage] = useState("Loading pre-arrival shipment data.");
   const [busy, setBusy] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<PackingListFieldErrors>({});
@@ -155,10 +145,9 @@ export function PrearrivalShipmentPanel() {
     return `draft-line-${draftLineIdSequence.current}`;
   }
 
-  function lineIdsForPayload(payload: PackingListRevisionInput): DraftLineIds {
-    return payload.pallets.map((pallet) => pallet.cartons.map(
-      (carton) => carton.lines.map(() => createDraftLineId()),
-    ));
+  function lineIdsForPayload(payload: PackingListRevisionInputV2): DraftLineIds {
+    return payload.cartons.map((carton) =>
+      carton.lines.map(() => createDraftLineId()));
   }
 
   function clearDraftErrors() {
@@ -174,12 +163,9 @@ export function PrearrivalShipmentPanel() {
 
   function focusDraftField(field: string | undefined) {
     if (!field) return;
-    const selectionPath = /^pallets\.(\d+)(?:\.cartons\.(\d+))?/.exec(field);
+    const selectionPath = /^cartons\.(\d+)/.exec(field);
     if (selectionPath) {
-      setSelection({
-        palletIndex: Number(selectionPath[1]),
-        cartonIndex: Number(selectionPath[2] ?? 0),
-      });
+      setSelection({ cartonIndex: Number(selectionPath[1]) });
     }
     setPendingFocusField(field);
   }
@@ -224,7 +210,7 @@ export function PrearrivalShipmentPanel() {
       }
       setShipment(body.shipment);
       clearDraftErrors();
-      setSelection({ palletIndex: 0, cartonIndex: 0 });
+      setSelection({ cartonIndex: 0 });
       const savedDraft = latestDraftRevision(body.shipment);
       if (savedDraft) {
         const savedPayload = structuredClone(savedDraft.payloadSnapshot);
@@ -280,25 +266,19 @@ export function PrearrivalShipmentPanel() {
 
   const selectedCarton = useMemo<SelectedCarton | null>(() => {
     if (draftPayload) {
-      const draftPallet = draftPayload.pallets[selection.palletIndex] ?? draftPayload.pallets[0];
-      const draftCarton = draftPallet?.cartons[selection.cartonIndex] ?? draftPallet?.cartons[0];
-      return draftPallet && draftCarton
+      const draftCarton = draftPayload.cartons[selection.cartonIndex] ?? draftPayload.cartons[0];
+      return draftCarton
         ? {
-            sourcePalletNumber: draftPallet.sourcePalletNumber,
+            sourcePalletNumber: draftCarton.sourcePalletNumber,
             sourceCartonNumber: draftCarton.sourceCartonNumber,
-            draftPallet,
             draftCarton,
           }
         : null;
     }
-    const pallet = shipment?.pallets[selection.palletIndex] ?? shipment?.pallets[0];
-    const cartons = shipment?.cartons.filter(
-      (carton) => carton.sourcePalletNumber === pallet?.sourcePalletNumber,
-    ) ?? [];
-    const carton = cartons[selection.cartonIndex] ?? cartons[0];
-    return pallet && carton
+    const carton = shipment?.cartons[selection.cartonIndex] ?? shipment?.cartons[0];
+    return carton
       ? {
-          sourcePalletNumber: pallet.sourcePalletNumber,
+          sourcePalletNumber: carton.sourcePalletNumber,
           sourceCartonNumber: carton.sourceCartonNumber,
         }
       : null;
@@ -316,47 +296,31 @@ export function PrearrivalShipmentPanel() {
     const nextPayload = payloadFromShipment(shipment);
     setDraftPayload(nextPayload);
     setDraftLineIds(lineIdsForPayload(nextPayload));
-    setSelection({ palletIndex: 0, cartonIndex: 0 });
+    setSelection({ cartonIndex: 0 });
     setMessage(shipment.packingListStatus === "not_started"
-      ? "First Packing List working copy opened. Add the complete pallet, carton and SKU structure before confirmation."
+      ? "First Packing List working copy opened. Add the complete carton and SKU structure before confirmation. Pallet mapping may be added later."
       : "Working revision opened. Confirming creates a new immutable Packing List version.");
-  }
-
-  function addPallet() {
-    if (!draftPayload || editorLocked) return;
-    clearDraftErrors();
-    const nextPayload = structuredClone(draftPayload);
-    const nextLineIds = structuredClone(draftLineIds);
-    nextPayload.pallets.push(blankPackingListPallet());
-    nextLineIds.push([[createDraftLineId()]]);
-    setDraftPayload(nextPayload);
-    setDraftLineIds(nextLineIds);
-    setSelection({ palletIndex: nextPayload.pallets.length - 1, cartonIndex: 0 });
   }
 
   function addCarton() {
     if (!draftPayload || editorLocked) return;
     const nextPayload = structuredClone(draftPayload);
-    const pallet = nextPayload.pallets[selection.palletIndex];
-    if (!pallet) return;
     const nextLineIds = structuredClone(draftLineIds);
-    const palletLineIds = nextLineIds[selection.palletIndex];
-    if (!palletLineIds) return;
     clearDraftErrors();
-    pallet.cartons.push(blankPackingListCarton());
-    palletLineIds.push([createDraftLineId()]);
+    nextPayload.cartons.push(blankPackingListCarton());
+    nextLineIds.push([createDraftLineId()]);
     setDraftPayload(nextPayload);
     setDraftLineIds(nextLineIds);
-    setSelection({ palletIndex: selection.palletIndex, cartonIndex: pallet.cartons.length - 1 });
+    setSelection({ cartonIndex: nextPayload.cartons.length - 1 });
   }
 
   function addSkuLine() {
     if (!draftPayload || editorLocked) return;
     const nextPayload = structuredClone(draftPayload);
-    const carton = nextPayload.pallets[selection.palletIndex]?.cartons[selection.cartonIndex];
+    const carton = nextPayload.cartons[selection.cartonIndex];
     if (!carton) return;
     const nextLineIds = structuredClone(draftLineIds);
-    const cartonLineIds = nextLineIds[selection.palletIndex]?.[selection.cartonIndex];
+    const cartonLineIds = nextLineIds[selection.cartonIndex];
     if (!cartonLineIds) return;
     clearDraftErrors();
     carton.lines.push(blankPackingListLine());
@@ -368,10 +332,10 @@ export function PrearrivalShipmentPanel() {
   function removeSkuLine(lineIndex: number) {
     if (!draftPayload || editorLocked) return;
     const nextPayload = structuredClone(draftPayload);
-    const carton = nextPayload.pallets[selection.palletIndex]?.cartons[selection.cartonIndex];
+    const carton = nextPayload.cartons[selection.cartonIndex];
     if (!carton || carton.lines.length === 1) return;
     const nextLineIds = structuredClone(draftLineIds);
-    const cartonLineIds = nextLineIds[selection.palletIndex]?.[selection.cartonIndex];
+    const cartonLineIds = nextLineIds[selection.cartonIndex];
     if (!cartonLineIds) return;
     clearDraftErrors();
     carton.lines.splice(lineIndex, 1);
@@ -383,33 +347,14 @@ export function PrearrivalShipmentPanel() {
   function removeSelectedCarton() {
     if (!draftPayload || editorLocked) return;
     const nextPayload = structuredClone(draftPayload);
-    const pallet = nextPayload.pallets[selection.palletIndex];
-    if (!pallet || pallet.cartons.length === 1) return;
+    if (nextPayload.cartons.length === 1) return;
     const nextLineIds = structuredClone(draftLineIds);
-    const palletLineIds = nextLineIds[selection.palletIndex];
-    if (!palletLineIds) return;
     clearDraftErrors();
-    pallet.cartons.splice(selection.cartonIndex, 1);
-    palletLineIds.splice(selection.cartonIndex, 1);
+    nextPayload.cartons.splice(selection.cartonIndex, 1);
+    nextLineIds.splice(selection.cartonIndex, 1);
     setDraftPayload(nextPayload);
     setDraftLineIds(nextLineIds);
-    setSelection({
-      palletIndex: selection.palletIndex,
-      cartonIndex: Math.max(0, selection.cartonIndex - 1),
-    });
-  }
-
-  function removeSelectedPallet() {
-    if (!draftPayload || editorLocked || draftPayload.pallets.length === 1) return;
-    const nextPayload = structuredClone(draftPayload);
-    const nextLineIds = structuredClone(draftLineIds);
-    if (!nextLineIds[selection.palletIndex]) return;
-    clearDraftErrors();
-    nextPayload.pallets.splice(selection.palletIndex, 1);
-    nextLineIds.splice(selection.palletIndex, 1);
-    setDraftPayload(nextPayload);
-    setDraftLineIds(nextLineIds);
-    setSelection({ palletIndex: Math.max(0, selection.palletIndex - 1), cartonIndex: 0 });
+    setSelection({ cartonIndex: Math.max(0, selection.cartonIndex - 1) });
   }
 
   function updateSelectedCarton(
@@ -419,16 +364,24 @@ export function PrearrivalShipmentPanel() {
   ) {
     if (!draftPayload || editorLocked) return;
     const nextPayload = structuredClone(draftPayload);
-    const pallet = nextPayload.pallets[selection.palletIndex];
-    const carton = pallet?.cartons[selection.cartonIndex];
-    if (!pallet || !carton) return;
-    if (field === "pallet") pallet.sourcePalletNumber = value;
+    const carton = nextPayload.cartons[selection.cartonIndex];
+    if (!carton) return;
+    if (field === "pallet") carton.sourcePalletNumber = value || null;
     if (field === "carton") carton.sourceCartonNumber = value;
     if (field === "sku" && carton.lines[lineIndex]) carton.lines[lineIndex].sku = value;
     if (field === "quantity" && carton.lines[lineIndex]) {
       carton.lines[lineIndex].expectedQuantity = Number(value);
     }
     setDraftPayload(nextPayload);
+  }
+
+  function updatePhysicalPalletCount(value: string) {
+    if (!draftPayload || editorLocked) return;
+    clearFieldError("physicalPalletCount");
+    setDraftPayload({
+      ...draftPayload,
+      physicalPalletCount: value === "" ? null : Number(value),
+    });
   }
 
   async function confirmRevision() {
@@ -523,28 +476,27 @@ export function PrearrivalShipmentPanel() {
       sourceCartonNumber: selectedCarton.sourceCartonNumber,
     }))
     : selectedLines;
-  const structurePallets = draftPayload
-    ? draftPayload.pallets
-    : shipment.pallets.map((pallet) => ({
-        sourcePalletNumber: pallet.sourcePalletNumber,
-        cartons: shipment.cartons
-          .filter((carton) => carton.sourcePalletNumber === pallet.sourcePalletNumber)
-          .map((carton) => ({
-            sourceCartonNumber: carton.sourceCartonNumber,
-            lines: shipment.lines.filter(
-              (line) => line.sourceCartonNumber === carton.sourceCartonNumber,
-            ),
-          })),
+  const structureCartons = draftPayload
+    ? draftPayload.cartons
+    : shipment.cartons.map((carton) => ({
+        sourceCartonNumber: carton.sourceCartonNumber,
+        sourcePalletNumber: carton.sourcePalletNumber ?? null,
+        lines: shipment.lines.filter(
+          (line) => line.sourceCartonNumber === carton.sourceCartonNumber,
+        ),
       }));
+  const mappingSummary = derivePalletMappingSummary({
+    physicalPalletCount: draftPayload?.physicalPalletCount ?? shipment.physicalPalletCount ?? null,
+    cartons: structureCartons,
+  });
+  const mappingLabel = {
+    not_recorded: "Not recorded",
+    partial: "Partial",
+    complete: "Complete",
+  }[mappingSummary.status];
   const packingListConfirmed = shipment.packingListStatus === "confirmed";
-  const palletField = packingListFieldKey([
-    "pallets",
-    selection.palletIndex,
-    "sourcePalletNumber",
-  ]);
+  const palletField = packingListFieldKey(["cartons", selection.cartonIndex, "sourcePalletNumber"]);
   const cartonField = packingListFieldKey([
-    "pallets",
-    selection.palletIndex,
     "cartons",
     selection.cartonIndex,
     "sourceCartonNumber",
@@ -590,7 +542,7 @@ export function PrearrivalShipmentPanel() {
               <strong>{shipments.find((item) => item.shipmentId === shipment.shipmentId)?.shipmentReference ?? shipment.shipmentId}</strong>
             </div>
             <p>{packingListConfirmed
-              ? `Packing List v${confirmed?.version ?? shipment.confirmedPackingListVersion ?? 0} / ${shipment.pallets.length} pallets / ${shipment.cartons.length} cartons`
+              ? `Packing List v${confirmed?.version ?? shipment.confirmedPackingListVersion ?? 0} / ${mappingSummary.physicalPalletCount ?? "Unknown"} physical pallets / ${shipment.cartons.length} cartons`
               : `${shipment.packingListStatus === "draft" ? "Draft exists" : "Packing List not started"} / Warehouse locked until confirmation`}</p>
             <select
               aria-label="Shipment"
@@ -618,7 +570,7 @@ export function PrearrivalShipmentPanel() {
                 : <h2>Packing List setup required</h2>}
               <p>{packingListConfirmed
                 ? "The Australia warehouse can select this shipment for label preparation and receiving. A revision creates a new auditable version."
-                : "Enter the export pallet, carton and SKU structure, then confirm the first immutable Packing List to unlock Warehouse."}</p>
+                : "Enter the export carton and SKU structure, then confirm the first immutable Packing List to unlock Warehouse. Pallet mapping can be added later."}</p>
             </div>
             {packingListConfirmed
               ? <span>Ready for AU</span>
@@ -633,48 +585,37 @@ export function PrearrivalShipmentPanel() {
             <section className="prearrival-structure">
               <h2>Packing structure</h2>
               <p>Original source numbers are retained.</p>
-              <span className="prearrival-section-label">Pallets and cartons</span>
-              {!structurePallets.length ? (
+              <span className="prearrival-section-label">Cartons</span>
+              <div className="prearrival-mapping-summary" aria-label="Pallet mapping summary">
+                <span>Physical pallets <strong>{mappingSummary.physicalPalletCount ?? "Unknown"}</strong></span>
+                <span>Mapped pallets <strong>{mappingSummary.mappedPalletCount || "—"}</strong></span>
+                <span>Mapping <strong>{mappingLabel}</strong></span>
+              </div>
+              {!structureCartons.length ? (
                 <div className="prearrival-structure-empty">
                   <Package size={22} weight="duotone" />
-                  <p>No pallet or carton lines are confirmed for this Shipment.</p>
+                  <p>No carton lines are confirmed for this Shipment.</p>
                 </div>
               ) : null}
-              {structurePallets.map((pallet, palletIndex) => {
-                const cartons = pallet.cartons;
+              {structureCartons.map((carton, cartonIndex) => {
+                const quantity = carton.lines.reduce((sum, line) => sum + line.expectedQuantity, 0);
                 return (
-                  <div className="prearrival-pallet" key={`${pallet.sourcePalletNumber}-${palletIndex}`}>
+                  <div className="prearrival-pallet" key={`${carton.sourceCartonNumber}-${cartonIndex}`}>
                     <button
-                      className={selection.palletIndex === palletIndex ? "is-selected" : ""}
+                      className={selection.cartonIndex === cartonIndex ? "is-selected" : ""}
                       type="button"
-                      onClick={() => setSelection({ palletIndex, cartonIndex: 0 })}
+                      onClick={() => setSelection({ cartonIndex })}
                     >
-                      <strong>Pallet {pallet.sourcePalletNumber || `New ${palletIndex + 1}`}</strong><span>{cartons.length} carton{cartons.length === 1 ? "" : "s"}</span>
+                      <strong><CaretRight size={14} />{carton.sourceCartonNumber || `New carton ${cartonIndex + 1}`}</strong>
+                      <span>{carton.sourcePalletNumber ? `Pallet ${carton.sourcePalletNumber}` : "Pallet not recorded"} · {quantity} units</span>
                     </button>
-                    <div>
-                      {cartons.map((carton, cartonIndex) => {
-                        const quantity = carton.lines.reduce((sum, line) => sum + line.expectedQuantity, 0);
-                        return (
-                          <button
-                            className={selection.palletIndex === palletIndex && selection.cartonIndex === cartonIndex ? "is-selected" : ""}
-                            key={`${carton.sourceCartonNumber}-${cartonIndex}`}
-                            type="button"
-                            onClick={() => setSelection({ palletIndex, cartonIndex })}
-                          >
-                            <CaretRight size={14} /><strong>{carton.sourceCartonNumber || `New ${cartonIndex + 1}`}</strong><span>{quantity} units</span>
-                          </button>
-                        );
-                      })}
-                    </div>
                   </div>
                 );
               })}
               {draftPayload ? (
                 <div className="prearrival-structure-actions" aria-label="Packing List structure actions">
                   <button className="secondary-button" type="button" onClick={addCarton} disabled={editorLocked}><Plus size={15} />Add carton</button>
-                  <button className="secondary-button" type="button" onClick={addPallet} disabled={editorLocked}><Plus size={15} />Add pallet</button>
-                  <button className="prearrival-remove-button" type="button" onClick={removeSelectedCarton} disabled={editorLocked || (selectedCarton?.draftPallet?.cartons.length ?? 0) <= 1}><Trash size={14} />Remove carton</button>
-                  <button className="prearrival-remove-button" type="button" onClick={removeSelectedPallet} disabled={editorLocked || draftPayload.pallets.length <= 1}><Trash size={14} />Remove pallet</button>
+                  <button className="prearrival-remove-button" type="button" onClick={removeSelectedCarton} disabled={editorLocked || draftPayload.cartons.length <= 1}><Trash size={14} />Remove carton</button>
                 </div>
               ) : null}
               <div className="prearrival-phase-copy"><span>Export label position</span><p>No DriveMate label is required in China. Australian printing is prepared from this data.</p></div>
@@ -706,7 +647,7 @@ export function PrearrivalShipmentPanel() {
                     : null}
               </div>
 
-              {draftPayload && selectedCarton?.draftPallet && selectedCarton.draftCarton ? (
+              {draftPayload && selectedCarton?.draftCarton ? (
                 <section className="prearrival-editor" aria-label="Packing list revision editor">
                   <h3>{packingListConfirmed ? "Working revision" : "First Packing List working copy"}</h3>
                   <p>{packingListConfirmed
@@ -717,12 +658,13 @@ export function PrearrivalShipmentPanel() {
                   {pendingRevisionId && !reconciliationRequired ? <button className="secondary-button" type="button" onClick={startCorrectedRevision} disabled={busy}>Start corrected revision</button> : null}
                   {pendingRevisionId || reconciliationRequired ? <button className="secondary-button prearrival-reconcile" type="button" onClick={() => void loadShipment(shipment.shipmentId)} disabled={busy}>Reload shipment status</button> : null}
                   <div className="prearrival-editor-grid">
-                    <div className="prearrival-field"><label htmlFor={fieldId(palletField)}>Pallet number</label><input id={fieldId(palletField)} ref={(element) => { fieldRefs.current[palletField] = element; }} aria-invalid={Boolean(fieldErrors[palletField])} aria-describedby={fieldErrors[palletField] ? errorId(palletField) : undefined} disabled={editorLocked} value={selectedCarton.draftPallet.sourcePalletNumber} onChange={(event) => { clearFieldError(palletField); updateSelectedCarton("pallet", event.target.value); }} />{fieldErrors[palletField] ? <span className="prearrival-field-error" id={errorId(palletField)}>{fieldErrors[palletField]}</span> : null}</div>
+                    <div className="prearrival-field"><label htmlFor="physical-pallet-count">Physical pallets <span>Optional</span></label><input id="physical-pallet-count" ref={(element) => { fieldRefs.current.physicalPalletCount = element; }} aria-invalid={Boolean(fieldErrors.physicalPalletCount)} aria-describedby={fieldErrors.physicalPalletCount ? errorId("physicalPalletCount") : undefined} disabled={editorLocked} min="1" type="number" value={draftPayload.physicalPalletCount ?? ""} onChange={(event) => updatePhysicalPalletCount(event.target.value)} />{fieldErrors.physicalPalletCount ? <span className="prearrival-field-error" id={errorId("physicalPalletCount")}>{fieldErrors.physicalPalletCount}</span> : null}</div>
+                    <div className="prearrival-field"><label htmlFor={fieldId(palletField)}>Pallet number <span>Optional</span></label><input id={fieldId(palletField)} ref={(element) => { fieldRefs.current[palletField] = element; }} aria-invalid={Boolean(fieldErrors[palletField])} aria-describedby={fieldErrors[palletField] ? errorId(palletField) : undefined} disabled={editorLocked} placeholder="Not recorded" value={selectedCarton.draftCarton.sourcePalletNumber ?? ""} onChange={(event) => { clearFieldError(palletField); updateSelectedCarton("pallet", event.target.value); }} />{fieldErrors[palletField] ? <span className="prearrival-field-error" id={errorId(palletField)}>{fieldErrors[palletField]}</span> : null}</div>
                     <div className="prearrival-field"><label htmlFor={fieldId(cartonField)}>Carton number</label><input id={fieldId(cartonField)} ref={(element) => { fieldRefs.current[cartonField] = element; }} aria-invalid={Boolean(fieldErrors[cartonField])} aria-describedby={fieldErrors[cartonField] ? errorId(cartonField) : undefined} disabled={editorLocked} value={selectedCarton.draftCarton.sourceCartonNumber} onChange={(event) => { clearFieldError(cartonField); updateSelectedCarton("carton", event.target.value); }} />{fieldErrors[cartonField] ? <span className="prearrival-field-error" id={errorId(cartonField)}>{fieldErrors[cartonField]}</span> : null}</div>
                     {selectedCarton.draftCarton.lines.map((line, lineIndex) => {
-                      const skuField = packingListFieldKey(["pallets", selection.palletIndex, "cartons", selection.cartonIndex, "lines", lineIndex, "sku"]);
-                      const quantityField = packingListFieldKey(["pallets", selection.palletIndex, "cartons", selection.cartonIndex, "lines", lineIndex, "expectedQuantity"]);
-                      const lineClientId = draftLineIds[selection.palletIndex]?.[selection.cartonIndex]?.[lineIndex];
+                      const skuField = packingListFieldKey(["cartons", selection.cartonIndex, "lines", lineIndex, "sku"]);
+                      const quantityField = packingListFieldKey(["cartons", selection.cartonIndex, "lines", lineIndex, "expectedQuantity"]);
+                      const lineClientId = draftLineIds[selection.cartonIndex]?.[lineIndex];
                       if (!lineClientId) return null;
                       return (
                         <div className="prearrival-line-editor" key={lineClientId}>
@@ -752,7 +694,7 @@ export function PrearrivalShipmentPanel() {
                 </div>
               )}
 
-              <div className="prearrival-validation"><span>Validation before export confirmation</span><strong>Every carton must belong to one pallet and contain recognised SKU plus a positive expected quantity.</strong></div>
+              <div className="prearrival-validation"><span>Validation before export confirmation</span><strong>Every carton needs a source carton number, recognised SKU and positive expected quantity. Pallet mapping is optional and can be revised later.</strong></div>
               <div className="prearrival-actions"><button className="secondary-button" type="button" onClick={() => setMessage(packingListConfirmed ? "The current confirmed Packing List is shown in this workspace." : "Confirm the first Packing List to make Australian label quantities available.")}>View Packing List</button>{packingListConfirmed ? <Link className="button button-primary" href={`/warehouse?shipmentId=${encodeURIComponent(shipment.shipmentId)}`}>Prepare AU labels <ArrowRight size={18} /></Link> : null}</div>
               <p className="prearrival-message" role="status">{message}</p>
             </section>

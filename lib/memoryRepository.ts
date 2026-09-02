@@ -100,6 +100,7 @@ import { RECEIVING_STAGING_LOCATION, type WarehouseReceiptScope } from "./wareho
 import { type WarehouseHistoryEvent } from "./warehouseHistory";
 import {
   mapReceiptProductBarcodes,
+  receiptFromPackingListRevision,
   summarizePackingListReadiness,
   validatePackingListRevision,
   type ValidatedPackingListRevision,
@@ -383,28 +384,22 @@ function initialPackingListRevision(): PackingListRevision {
     version: 1,
     status: "confirmed",
     payloadSnapshot: {
+      schemaVersion: 2,
       shipmentId: "shipment-test-1",
-      pallets: [
+      physicalPalletCount: 2,
+      cartons: [
         {
           sourcePalletNumber: "P001",
-          cartons: [
-            {
-              sourceCartonNumber: "C001",
-              lines: [
-                { sku: "DM-GWM-OF-001", expectedQuantity: 12 },
-                { sku: "DM-GWM-AF-002", expectedQuantity: 6 },
-              ],
-            },
+          sourceCartonNumber: "C001",
+          lines: [
+            { sku: "DM-GWM-OF-001", expectedQuantity: 12 },
+            { sku: "DM-GWM-AF-002", expectedQuantity: 6 },
           ],
         },
         {
           sourcePalletNumber: "P002",
-          cartons: [
-            {
-              sourceCartonNumber: "C002",
-              lines: [{ sku: "DM-GWM-OF-001", expectedQuantity: 24 }],
-            },
-          ],
+          sourceCartonNumber: "C002",
+          lines: [{ sku: "DM-GWM-OF-001", expectedQuantity: 24 }],
         },
       ],
     },
@@ -432,31 +427,6 @@ const prearrivalAllowedSkusByShipment: Record<string, readonly string[]> = {
 
 function clonePackingListRevision(revision: PackingListRevision): PackingListRevision {
   return { ...revision, payloadSnapshot: structuredClone(revision.payloadSnapshot) };
-}
-
-function receiptFromPackingListRevision(revision: PackingListRevision): WarehouseExpectedReceipt {
-  return {
-    shipmentId: revision.shipmentId,
-    pallets: revision.payloadSnapshot.pallets.map((pallet) => ({
-      sourcePalletNumber: pallet.sourcePalletNumber,
-    })),
-    cartons: revision.payloadSnapshot.pallets.flatMap((pallet) =>
-      pallet.cartons.map((carton) => ({
-        sourceCartonNumber: carton.sourceCartonNumber,
-        sourcePalletNumber: pallet.sourcePalletNumber,
-      })),
-    ),
-    lines: revision.payloadSnapshot.pallets.flatMap((pallet) =>
-      pallet.cartons.flatMap((carton) =>
-        carton.lines.map((line) => ({
-          sourcePalletNumber: pallet.sourcePalletNumber,
-          sourceCartonNumber: carton.sourceCartonNumber,
-          sku: line.sku,
-          expectedQuantity: line.expectedQuantity,
-        })),
-      ),
-    ),
-  };
 }
 
 function latestConfirmedPackingListRevision(shipmentId: string): PackingListRevision | undefined {
@@ -868,7 +838,7 @@ export class MemoryRepository implements DrivemateRepository {
     return {
       ok: true,
       receipt: filterWarehouseExpectedReceipt(
-        receiptFromPackingListRevision(revision),
+        receiptFromPackingListRevision(revision.payloadSnapshot),
         selection,
       ),
     };
@@ -1167,7 +1137,7 @@ export class MemoryRepository implements DrivemateRepository {
     const revision = latestConfirmedPackingListRevision(shipmentId)
       ?? revisions.at(-1);
     const receipt = revision
-      ? receiptFromPackingListRevision(revision)
+      ? receiptFromPackingListRevision(revision.payloadSnapshot)
       : { shipmentId, pallets: [], cartons: [], lines: [] };
     return {
       ok: true,

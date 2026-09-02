@@ -4,21 +4,41 @@ import { can } from "../../../../../../lib/auth";
 import { mutationRequestAllowed } from "../../../../../../lib/requestSecurity";
 import { getRepository } from "../../../../../../lib/repository";
 import { getRequestContext } from "../../../../../../lib/serverAuth";
+import { validatePackingListRevision } from "../../../../../../lib/prearrivalShipment";
 
-const packingListSchema = z.object({
+const packingListLineSchema = z.object({
+  sku: z.string().trim().min(1).max(120),
+  expectedQuantity: z.number().int().positive(),
+  batchLot: z.string().trim().max(120).optional(),
+});
+
+const legacyPackingListSchema = z.object({
+  schemaVersion: z.literal(1).optional(),
   shipmentId: z.string().trim().min(1).max(120),
   pallets: z.array(z.object({
     sourcePalletNumber: z.string().trim().min(1).max(80),
     cartons: z.array(z.object({
       sourceCartonNumber: z.string().trim().min(1).max(80),
-      lines: z.array(z.object({
-        sku: z.string().trim().min(1).max(120),
-        expectedQuantity: z.number().int().positive(),
-        batchLot: z.string().trim().max(120).optional(),
-      })).min(1),
+      lines: z.array(packingListLineSchema).min(1),
     })).min(1),
   })).min(1),
 });
+
+const cartonFirstPackingListSchema = z.object({
+  schemaVersion: z.literal(2),
+  shipmentId: z.string().trim().min(1).max(120),
+  physicalPalletCount: z.number().int().positive().nullable().optional(),
+  cartons: z.array(z.object({
+    sourceCartonNumber: z.string().trim().min(1).max(80),
+    sourcePalletNumber: z.string().trim().max(80).nullable().optional(),
+    lines: z.array(packingListLineSchema).min(1),
+  })).min(1),
+});
+
+const packingListSchema = z.union([
+  cartonFirstPackingListSchema,
+  legacyPackingListSchema,
+]);
 
 export async function POST(
   request: Request,
@@ -58,7 +78,15 @@ export async function POST(
     );
   }
 
-  const result = await getRepository().createPackingListRevision(parsed.data, {
+  const validation = validatePackingListRevision(parsed.data);
+  if (!validation.ok) {
+    return NextResponse.json(
+      { ok: false, message: validation.message },
+      { status: 400 },
+    );
+  }
+
+  const result = await getRepository().createPackingListRevision(validation.revision, {
     actorId: auth.userId,
   });
   return NextResponse.json(result, { status: result.ok ? 201 : 422 });

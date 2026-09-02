@@ -11,12 +11,14 @@ function normalizedSql(path: string) {
 }
 
 describe("v19 staff account lifecycle migration", () => {
-  it("extends the ordered migration chain after v18", () => {
+  it("keeps v19 immediately after v18 in the ordered migration chain", () => {
     const files = readdirSync(migrationDirectory)
       .filter((file) => file.endsWith(".sql"))
       .sort();
 
-    expect(files.at(-1)).toBe(migrationName);
+    const v19Index = files.indexOf(migrationName);
+    expect(v19Index).toBeGreaterThan(0);
+    expect(files[v19Index - 1]).toBe("20260903_v18_atomic_warehouse_label_jobs.sql");
   });
 
   it("defines the staff role and complete account lifecycle contract", () => {

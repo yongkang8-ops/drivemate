@@ -54,6 +54,7 @@ import {
   receiptFromPackingListRevision,
   summarizePackingListReadiness,
   validatePackingListRevision,
+  type PackingListRevisionInput,
   type ValidatedPackingListRevision,
 } from "./prearrivalShipment";
 import type {
@@ -333,7 +334,7 @@ type PackingListRevisionRecord = {
   shipment_id: string;
   version: number;
   status: PackingListRevision["status"];
-  payload_snapshot: ValidatedPackingListRevision;
+  payload_snapshot: PackingListRevisionInput;
   created_by?: string | null;
   created_at: string;
   confirmed_by?: string | null;

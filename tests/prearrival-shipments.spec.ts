@@ -167,6 +167,7 @@ test("Partner initializes the first packing list and unlocks the Warehouse label
   await expect(page.getByText("No SKU lines are available until a working copy is opened.")).toBeVisible();
 
   await page.getByRole("button", { name: "Create first Packing List" }).click();
+  await page.getByLabel("Physical pallets").fill("2");
   await page.getByLabel("Pallet number").fill("P001");
   await page.getByLabel("Carton number").fill("C001");
   await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
@@ -178,11 +179,12 @@ test("Partner initializes the first packing list and unlocks the Warehouse label
   await page.getByLabel("Expected quantity 2").fill("6");
 
   await page.getByRole("button", { name: "Add carton" }).click();
+  await page.getByLabel("Pallet number").fill("P001");
   await page.getByLabel("Carton number").fill("C002");
   await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
   await page.getByLabel("Expected quantity", { exact: true }).fill("24");
 
-  await page.getByRole("button", { name: "Add pallet" }).click();
+  await page.getByRole("button", { name: "Add carton" }).click();
   await page.getByLabel("Pallet number").fill("P002");
   await page.getByLabel("Carton number").fill("C003");
   await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-AF-002");
@@ -199,7 +201,30 @@ test("Partner initializes the first packing list and unlocks the Warehouse label
 
   await page.getByRole("link", { name: "Prepare AU labels" }).click();
   await expect(page.getByRole("heading", { name: "Label print" })).toBeVisible();
-  await expect(page.getByText("42 expected units")).toBeVisible();
+  await expect(page.locator(".inbound-scope-bar p")).toContainText("42 expected units");
+});
+
+test("Partner confirms cartons without pallet mapping and Warehouse uses the full shipment", async ({
+  page,
+  request,
+}) => {
+  await request.post("/api/test/reset?packingList=empty");
+  await page.goto("/prearrival");
+  await page.getByRole("button", { name: "Create first Packing List" }).click();
+  await page.getByLabel("Physical pallets").fill("4");
+  await page.getByLabel("Carton number").fill("C001");
+  await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
+  await page.getByLabel("Expected quantity", { exact: true }).fill("12");
+
+  await expect(page.getByText("Not recorded", { exact: true })).toBeVisible();
+  await expect(page.getByText("Enter the pallet number.", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Confirm Packing List" }).click();
+
+  await expect(page.getByText("Packing List v1 confirmed")).toBeVisible();
+  await expect(page.getByText(/4 physical pallets/i)).toBeVisible();
+  await page.getByRole("link", { name: "Prepare AU labels" }).click();
+  await expect(page.getByText("Pallet mapping not recorded · Full shipment selected", { exact: true })).toBeVisible();
+  await expect(page.locator(".inbound-scope-bar p")).toContainText("12 expected units");
 });
 
 test("first Packing List validation stays local and cancel clears errors", async ({
@@ -229,13 +254,13 @@ test("first Packing List validation stays local and cancel clears errors", async
   await expect(errorSummary).toHaveText(
     "Complete the highlighted Packing List fields before confirming.",
   );
-  await expect(page.getByText("Enter the pallet number.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Enter the pallet number.", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Enter the carton number.", { exact: true })).toBeVisible();
   await expect(page.getByText("Enter a recognised SKU.", { exact: true })).toBeVisible();
   expect(revisionPostCount).toBe(0);
 
-  const palletInput = page.getByLabel("Pallet number");
-  expect(await palletInput.evaluate((input) => {
+  const cartonInput = page.getByLabel("Carton number");
+  expect(await cartonInput.evaluate((input) => {
     const describedBy = input.getAttribute("aria-describedby");
     return {
       hasStableId: Boolean(input.id),
@@ -250,8 +275,8 @@ test("first Packing List validation stays local and cancel clears errors", async
     describedBySibling: true,
   });
 
-  await palletInput.fill("P001");
-  await expect(page.getByText("Enter the pallet number.", { exact: true })).toHaveCount(0);
+  await cartonInput.fill("C001");
+  await expect(page.getByText("Enter the carton number.", { exact: true })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Cancel working copy" }).click();
   await expect(errorSummary).toHaveCount(0);
@@ -450,10 +475,8 @@ test("a saved draft retries confirmation without creating another revision", asy
   await expect(page.getByRole("button", { name: "Create revision" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Add SKU line" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Add carton" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Add pallet" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Remove SKU line 2" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Remove carton" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Remove pallet" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Cancel working copy" })).toBeDisabled();
   expect(await page.locator(".prearrival-editor input").evaluateAll(
     (inputs) => inputs.every((input) => (input as HTMLInputElement).disabled),

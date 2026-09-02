@@ -26,6 +26,63 @@ const blankDraft = {
 };
 
 describe("pre-arrival Packing List draft validation", () => {
+  it("allows a v2 carton draft with no pallet mapping", () => {
+    const result = validatePackingListDraft({
+      schemaVersion: 2,
+      shipmentId: "shipment-test-1",
+      physicalPalletCount: 4,
+      cartons: [{
+        sourceCartonNumber: "CTN-001",
+        sourcePalletNumber: null,
+        lines: [{ sku: "DM-GWM-OF-001", expectedQuantity: 12 }],
+      }],
+    }, ["DM-GWM-OF-001"]);
+
+    expect(result).toEqual({
+      ok: true,
+      fieldErrors: {},
+      firstField: undefined,
+      summary: undefined,
+    });
+  });
+
+  it("validates v2 carton-first paths and physical pallet count", () => {
+    const result = validatePackingListDraft({
+      schemaVersion: 2,
+      shipmentId: "shipment-test-1",
+      physicalPalletCount: 0,
+      cartons: [{
+        sourceCartonNumber: "",
+        sourcePalletNumber: null,
+        lines: [{ sku: "", expectedQuantity: 0 }],
+      }],
+    }, ["DM-GWM-OF-001"]);
+
+    expect(result.fieldErrors).toMatchObject({
+      physicalPalletCount: "Enter a positive whole number of physical pallets, or leave it blank.",
+      "cartons.0.sourceCartonNumber": "Enter the carton number.",
+      "cartons.0.lines.0.sku": "Enter a recognised SKU.",
+      "cartons.0.lines.0.expectedQuantity": "Enter a positive whole quantity.",
+    });
+    expect(result.fieldErrors).not.toHaveProperty("cartons.0.sourcePalletNumber");
+  });
+
+  it("keeps contradictory complete pallet mapping local", () => {
+    const result = validatePackingListDraft({
+      schemaVersion: 2,
+      shipmentId: "shipment-test-1",
+      physicalPalletCount: 4,
+      cartons: [{
+        sourceCartonNumber: "CTN-001",
+        sourcePalletNumber: "P001",
+        lines: [{ sku: "DM-GWM-OF-001", expectedQuantity: 12 }],
+      }],
+    }, ["DM-GWM-OF-001"]);
+
+    expect(result.fieldErrors.physicalPalletCount).toBe(
+      "Complete pallet mapping must match the physical pallet count.",
+    );
+  });
   it("returns every invalid field in traversal order and identifies the first field", () => {
     const result = validatePackingListDraft(blankDraft, ["DM-GWM-OF-001"]);
 

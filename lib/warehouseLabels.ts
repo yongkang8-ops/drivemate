@@ -17,6 +17,8 @@ export type WarehouseInboundSelection = {
 
 export type WarehouseExpectedReceipt = {
   shipmentId: string;
+  physicalPalletCount?: number | null;
+  palletMappingStatus?: "not_recorded" | "partial" | "complete";
   pallets: Array<{ sourcePalletNumber: string }>;
   cartons: Array<{ sourceCartonNumber: string; sourcePalletNumber?: string }>;
   lines: Array<{

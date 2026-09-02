@@ -4,11 +4,14 @@ import {
   assertCompleteShipmentProductRecords,
   buildShipmentProductScope,
   chunkShipmentProductIds,
+  derivePalletMappingSummary,
   loadCompleteShipmentProductPages,
   mapReceiptProductBarcodes,
   receiptFromPackingListRevision,
   validatePackingListRevision,
   type PackingListRevisionInput,
+  type PackingListRevisionInputV2,
+  type ValidatedPackingListRevision,
 } from "../lib/prearrivalShipment";
 
 const validInput: PackingListRevisionInput = {
@@ -28,7 +31,114 @@ const validInput: PackingListRevisionInput = {
   ],
 };
 
+function validated(input: PackingListRevisionInput): ValidatedPackingListRevision {
+  const result = validatePackingListRevision(input);
+  if (!result.ok) throw new Error(result.message);
+  return result.revision;
+}
+
 describe("pre-arrival packing-list revisions", () => {
+  it("accepts a carton-first revision without pallet mapping", () => {
+    const input: PackingListRevisionInputV2 = {
+      schemaVersion: 2,
+      shipmentId: "shipment-test-1",
+      physicalPalletCount: 4,
+      cartons: [{
+        sourceCartonNumber: "CTN-001",
+        sourcePalletNumber: null,
+        lines: [{ sku: "dm-gwm-of-001", expectedQuantity: 12 }],
+      }],
+    };
+
+    const result = validatePackingListRevision(input, {
+      knownSkus: ["DM-GWM-OF-001"],
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      revision: {
+        ...input,
+        cartons: [{
+          ...input.cartons[0],
+          sourcePalletNumber: null,
+          lines: [{ sku: "DM-GWM-OF-001", expectedQuantity: 12 }],
+        }],
+      },
+      totalExpectedQuantity: 12,
+      palletMapping: {
+        status: "not_recorded",
+        physicalPalletCount: 4,
+        mappedPalletCount: 0,
+        mappedCartonCount: 0,
+        totalCartonCount: 1,
+      },
+    });
+  });
+
+  it("derives partial and complete pallet mapping without synthetic pallets", () => {
+    expect(derivePalletMappingSummary({
+      physicalPalletCount: 4,
+      cartons: [
+        { sourcePalletNumber: "P-01" },
+        { sourcePalletNumber: null },
+      ],
+    })).toEqual({
+      status: "partial",
+      physicalPalletCount: 4,
+      mappedPalletCount: 1,
+      mappedCartonCount: 1,
+      totalCartonCount: 2,
+    });
+
+    expect(derivePalletMappingSummary({
+      physicalPalletCount: 2,
+      cartons: [
+        { sourcePalletNumber: "P-01" },
+        { sourcePalletNumber: "p-02" },
+      ],
+    }).status).toBe("complete");
+  });
+
+  it("rejects mappings that exceed or contradict the known physical pallet count", () => {
+    const tooMany: PackingListRevisionInputV2 = {
+      schemaVersion: 2,
+      shipmentId: "shipment-test-1",
+      physicalPalletCount: 1,
+      cartons: [
+        { sourceCartonNumber: "C001", sourcePalletNumber: "P001", lines: [{ sku: "DM-GWM-OF-001", expectedQuantity: 1 }] },
+        { sourceCartonNumber: "C002", sourcePalletNumber: "P002", lines: [{ sku: "DM-GWM-AF-002", expectedQuantity: 1 }] },
+      ],
+    };
+    expect(validatePackingListRevision(tooMany)).toEqual({
+      ok: false,
+      message: "Mapped pallet count cannot exceed the physical pallet count.",
+    });
+
+    const incompleteCount: PackingListRevisionInputV2 = {
+      ...tooMany,
+      physicalPalletCount: 3,
+    };
+    expect(validatePackingListRevision(incompleteCount)).toEqual({
+      ok: false,
+      message: "Complete pallet mapping must match the physical pallet count.",
+    });
+  });
+
+  it("normalizes a legacy pallet-first revision into the carton-first model", () => {
+    const result = validatePackingListRevision(validInput);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.revision).toMatchObject({
+      schemaVersion: 2,
+      shipmentId: "shipment-test-1",
+      physicalPalletCount: 1,
+      cartons: [{
+        sourceCartonNumber: "C001",
+        sourcePalletNumber: "P001",
+      }],
+    });
+    expect(result.palletMapping.status).toBe("complete");
+  });
   it("loads every purchase-order line page before building the shipment scope", async () => {
     const rows = Array.from({ length: 1_200 }, (_, index) => ({
       productId: index === 1_199 ? "product-0" : `product-${index}`,
@@ -224,6 +334,8 @@ describe("pre-arrival packing-list revisions", () => {
   it("projects the confirmed packing-list snapshot into the receipt scope without reading mutable shipment rows", () => {
     expect(receiptFromPackingListRevision(validInput)).toEqual({
       shipmentId: "shipment-test-1",
+      physicalPalletCount: 1,
+      palletMappingStatus: "complete",
       pallets: [{ sourcePalletNumber: "P001" }],
       cartons: [{ sourceCartonNumber: "C001", sourcePalletNumber: "P001" }],
       lines: [
@@ -244,8 +356,8 @@ describe("pre-arrival packing-list revisions", () => {
 
     expect(result).toMatchObject({ ok: true, totalExpectedQuantity: 12 });
     if (result.ok) {
-      expect(result.revision.pallets[0].sourcePalletNumber).toBe("P001");
-      expect(result.revision.pallets[0].cartons[0].sourceCartonNumber).toBe("C001");
+      expect(result.revision.cartons[0].sourcePalletNumber).toBe("P001");
+      expect(result.revision.cartons[0].sourceCartonNumber).toBe("C001");
     }
   });
 
@@ -260,12 +372,12 @@ describe("pre-arrival packing-list revisions", () => {
 
     expect(result).toMatchObject({ ok: true });
     if (!result.ok) return;
-    expect(result.revision.pallets[0].cartons[0].lines[0].sku).toBe("DM-GWM-OF-001");
+    expect(result.revision.cartons[0].lines[0].sku).toBe("DM-GWM-OF-001");
     expect(result.revision.shipmentId).toBe(rawInput.shipmentId);
-    expect(result.revision.pallets[0].sourcePalletNumber).toBe(
+    expect(result.revision.cartons[0].sourcePalletNumber).toBe(
       rawInput.pallets[0].sourcePalletNumber,
     );
-    expect(result.revision.pallets[0].cartons[0].sourceCartonNumber).toBe(
+    expect(result.revision.cartons[0].sourceCartonNumber).toBe(
       rawInput.pallets[0].cartons[0].sourceCartonNumber,
     );
     expect(rawInput).toEqual(originalInput);
@@ -282,8 +394,8 @@ describe("pre-arrival packing-list revisions", () => {
 
     expect(result).toMatchObject({ ok: true });
     if (!result.ok) return;
-    expect(result.revision.pallets[0].cartons[0].lines[0].sku).toBe("DM  X");
-    expect(result.revision.pallets[0].cartons[0].lines[0].sku).not.toBe("DM X");
+    expect(result.revision.cartons[0].lines[0].sku).toBe("DM  X");
+    expect(result.revision.cartons[0].lines[0].sku).not.toBe("DM X");
     expect(rawInput).toEqual(originalInput);
   });
 
@@ -382,7 +494,7 @@ describe("pre-arrival packing-list revisions", () => {
 
     const draftInput = structuredClone(validInput);
     draftInput.pallets[0].cartons[0].lines[0].expectedQuantity = 13;
-    const draft = await repository.createPackingListRevision(draftInput, {
+    const draft = await repository.createPackingListRevision(validated(draftInput), {
       actorId: "demo-partner-user",
     });
     expect(draft).toMatchObject({ ok: true, revision: { version: 2, status: "draft" } });
@@ -423,7 +535,7 @@ describe("pre-arrival packing-list revisions", () => {
     const lowercaseInput = structuredClone(validInput);
     lowercaseInput.pallets[0].cartons[0].lines[0].sku = " dm-gwm-of-001 ";
 
-    const draft = await repository.createPackingListRevision(lowercaseInput, {
+    const draft = await repository.createPackingListRevision(validated(lowercaseInput), {
       actorId: "demo-partner-user",
     });
     expect(draft).toMatchObject({ ok: true });
@@ -453,7 +565,7 @@ describe("pre-arrival packing-list revisions", () => {
       expectedQuantity: 6,
     });
 
-    const draft = await repository.createPackingListRevision(purchaseOrderInput, {
+    const draft = await repository.createPackingListRevision(validated(purchaseOrderInput), {
       actorId: "demo-partner-user",
     });
     expect(draft).toMatchObject({ ok: true, revision: { status: "draft" } });
@@ -470,7 +582,7 @@ describe("pre-arrival packing-list revisions", () => {
     const outsidePurchaseOrder = structuredClone(validInput);
     outsidePurchaseOrder.pallets[0].cartons[0].lines[0].sku = "DM-GWM-CF-003";
 
-    await expect(repository.createPackingListRevision(outsidePurchaseOrder, {
+    await expect(repository.createPackingListRevision(validated(outsidePurchaseOrder), {
       actorId: "demo-partner-user",
     })).resolves.toMatchObject({
       ok: false,
@@ -487,7 +599,7 @@ describe("pre-arrival packing-list revisions", () => {
     await repository.resetForTests();
 
     const unknownSku = await repository.createPackingListRevision(
-      {
+      validated({
         ...validInput,
         pallets: [
           {
@@ -500,12 +612,12 @@ describe("pre-arrival packing-list revisions", () => {
             ],
           },
         ],
-      },
+      }),
       { actorId: "demo-partner-user" },
     );
     expect(unknownSku).toMatchObject({ ok: false, message: expect.stringMatching(/SKU/i) });
 
-    const draft = await repository.createPackingListRevision(validInput, {
+    const draft = await repository.createPackingListRevision(validated(validInput), {
       actorId: "demo-partner-user",
     });
     if (!draft.ok) return;

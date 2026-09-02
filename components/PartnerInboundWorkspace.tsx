@@ -223,7 +223,9 @@ export function PartnerInboundWorkspace() {
   const expectedUnits = preview ? quantityFor(preview.scope) : 0;
   const activePalletLabel = selectedPallets.length === 1
     ? `Pallet ${selectedPallets[0]}`
-    : `${selectedPallets.length} pallets`;
+    : selectedPallets.length > 1
+      ? `${selectedPallets.length} pallets`
+      : "Full shipment";
 
   async function loadScope(nextShipmentId: string, palletNumbers: string[]) {
     if (!nextShipmentId) return;
@@ -612,7 +614,9 @@ export function PartnerInboundWorkspace() {
 
           <fieldset className="inbound-pallet-picker">
             <legend>Scope selection</legend>
-            {preview.shipment.pallets.map((pallet) => <label key={pallet.sourcePalletNumber}><input aria-label={`Pallet ${pallet.sourcePalletNumber}`} checked={selectedPallets.includes(pallet.sourcePalletNumber)} onChange={(event) => togglePallet(pallet.sourcePalletNumber, event.target.checked)} type="checkbox" />Pallet {pallet.sourcePalletNumber}</label>)}
+            {preview.shipment.pallets.length
+              ? preview.shipment.pallets.map((pallet) => <label key={pallet.sourcePalletNumber}><input aria-label={`Pallet ${pallet.sourcePalletNumber}`} checked={selectedPallets.includes(pallet.sourcePalletNumber)} onChange={(event) => togglePallet(pallet.sourcePalletNumber, event.target.checked)} type="checkbox" />Pallet {pallet.sourcePalletNumber}</label>)
+              : <span className="inbound-pallet-unmapped">Pallet mapping not recorded · Full shipment selected</span>}
           </fieldset>
 
           <section className={`inbound-gate ${isHistoryView ? "is-neutral" : activeGateReady ? "is-unlocked" : "is-locked"}`} role="status">

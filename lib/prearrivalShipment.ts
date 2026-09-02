@@ -1,27 +1,61 @@
 import type { WarehouseExpectedReceipt } from "./warehouseLabels";
 
-export type PackingListRevisionInput = {
+export type PackingListLineInput = {
+  sku: string;
+  expectedQuantity: number;
+  batchLot?: string;
+};
+
+export type PackingListCartonInput = {
+  sourceCartonNumber: string;
+  sourcePalletNumber?: string | null;
+  lines: PackingListLineInput[];
+};
+
+export type PackingListRevisionInputV1 = {
+  schemaVersion?: 1;
   shipmentId: string;
   pallets: Array<{
     sourcePalletNumber: string;
     cartons: Array<{
       sourceCartonNumber: string;
-      lines: Array<{
-        sku: string;
-        expectedQuantity: number;
-        batchLot?: string;
-      }>;
+      lines: PackingListLineInput[];
     }>;
   }>;
 };
 
-export type ValidatedPackingListRevision = PackingListRevisionInput;
+export type PackingListRevisionInputV2 = {
+  schemaVersion: 2;
+  shipmentId: string;
+  physicalPalletCount?: number | null;
+  cartons: PackingListCartonInput[];
+};
+
+export type PackingListRevisionInput = PackingListRevisionInputV1 | PackingListRevisionInputV2;
+
+export type ValidatedPackingListRevision = {
+  schemaVersion: 2;
+  shipmentId: string;
+  physicalPalletCount: number | null;
+  cartons: PackingListCartonInput[];
+};
+
+export type PalletMappingStatus = "not_recorded" | "partial" | "complete";
+
+export type PalletMappingSummary = {
+  status: PalletMappingStatus;
+  physicalPalletCount: number | null;
+  mappedPalletCount: number;
+  mappedCartonCount: number;
+  totalCartonCount: number;
+};
 
 export type PackingListRevisionValidationResult =
   | {
       ok: true;
       revision: ValidatedPackingListRevision;
       totalExpectedQuantity: number;
+      palletMapping: PalletMappingSummary;
     }
   | { ok: false; message: string };
 
@@ -160,28 +194,36 @@ export function summarizePackingListReadiness(
 }
 
 export function receiptFromPackingListRevision(
-  revision: ValidatedPackingListRevision,
+  input: PackingListRevisionInput,
 ): WarehouseExpectedReceipt {
+  const validation = validatePackingListRevision(input);
+  if (!validation.ok) throw new Error(validation.message);
+  const revision = validation.revision;
+  const palletNumbers = [...new Set(
+    revision.cartons
+      .map((carton) => carton.sourcePalletNumber)
+      .filter((value): value is string => Boolean(value)),
+  )];
   return {
     shipmentId: revision.shipmentId,
-    pallets: revision.pallets.map((pallet) => ({
-      sourcePalletNumber: pallet.sourcePalletNumber,
+    physicalPalletCount: revision.physicalPalletCount,
+    palletMappingStatus: derivePalletMappingSummary(revision).status,
+    pallets: palletNumbers.map((sourcePalletNumber) => ({ sourcePalletNumber })),
+    cartons: revision.cartons.map((carton) => ({
+      sourceCartonNumber: carton.sourceCartonNumber,
+      ...(carton.sourcePalletNumber
+        ? { sourcePalletNumber: carton.sourcePalletNumber }
+        : {}),
     })),
-    cartons: revision.pallets.flatMap((pallet) =>
-      pallet.cartons.map((carton) => ({
+    lines: revision.cartons.flatMap((carton) =>
+      carton.lines.map((line) => ({
+        ...(carton.sourcePalletNumber
+          ? { sourcePalletNumber: carton.sourcePalletNumber }
+          : {}),
         sourceCartonNumber: carton.sourceCartonNumber,
-        sourcePalletNumber: pallet.sourcePalletNumber,
+        sku: line.sku,
+        expectedQuantity: line.expectedQuantity,
       })),
-    ),
-    lines: revision.pallets.flatMap((pallet) =>
-      pallet.cartons.flatMap((carton) =>
-        carton.lines.map((line) => ({
-          sourcePalletNumber: pallet.sourcePalletNumber,
-          sourceCartonNumber: carton.sourceCartonNumber,
-          sku: line.sku,
-          expectedQuantity: line.expectedQuantity,
-        })),
-      ),
     ),
   };
 }
@@ -224,6 +266,61 @@ function hasIdentifier(value: string): boolean {
   return Boolean(normalizeIdentifier(value));
 }
 
+export function derivePalletMappingSummary(input: {
+  physicalPalletCount?: number | null;
+  cartons: readonly { sourcePalletNumber?: string | null }[];
+}): PalletMappingSummary {
+  const mappedPallets = new Set<string>();
+  let mappedCartonCount = 0;
+  for (const carton of input.cartons) {
+    const palletNumber = normalizeIdentifier(carton.sourcePalletNumber ?? "");
+    if (!palletNumber) continue;
+    mappedCartonCount += 1;
+    mappedPallets.add(palletNumber);
+  }
+  return {
+    status: mappedCartonCount === 0
+      ? "not_recorded"
+      : mappedCartonCount === input.cartons.length
+        ? "complete"
+        : "partial",
+    physicalPalletCount: input.physicalPalletCount ?? null,
+    mappedPalletCount: mappedPallets.size,
+    mappedCartonCount,
+    totalCartonCount: input.cartons.length,
+  };
+}
+
+function normalizePackingListInput(
+  input: PackingListRevisionInput,
+): ValidatedPackingListRevision {
+  if ("schemaVersion" in input && input.schemaVersion === 2) {
+    return {
+      schemaVersion: 2,
+      shipmentId: input.shipmentId,
+      physicalPalletCount: input.physicalPalletCount ?? null,
+      cartons: input.cartons.map((carton) => ({
+        sourceCartonNumber: carton.sourceCartonNumber,
+        sourcePalletNumber: normalizeIdentifier(carton.sourcePalletNumber ?? "") || null,
+        lines: carton.lines.map((line) => ({ ...line })),
+      })),
+    };
+  }
+
+  return {
+    schemaVersion: 2,
+    shipmentId: input.shipmentId,
+    physicalPalletCount: input.pallets.length || null,
+    cartons: input.pallets.flatMap((pallet) =>
+      pallet.cartons.map((carton) => ({
+        sourceCartonNumber: carton.sourceCartonNumber,
+        sourcePalletNumber: pallet.sourcePalletNumber,
+        lines: carton.lines.map((line) => ({ ...line })),
+      })),
+    ),
+  };
+}
+
 export function validatePackingListRevision(
   input: PackingListRevisionInput,
   options: PackingListRevisionValidationOptions = {},
@@ -231,30 +328,20 @@ export function validatePackingListRevision(
   if (!hasIdentifier(input.shipmentId)) {
     return { ok: false, message: "Shipment is required." };
   }
-  if (!input.pallets.length) {
-    return { ok: false, message: "At least one pallet is required." };
-  }
+  const revision = normalizePackingListInput(input);
+  if (!revision.cartons.length) return { ok: false, message: "At least one carton is required." };
+  if (
+    revision.physicalPalletCount !== null
+    && (!Number.isSafeInteger(revision.physicalPalletCount) || revision.physicalPalletCount <= 0)
+  ) return { ok: false, message: "Physical pallet count must be a positive whole number when provided." };
 
   const knownSkus = options.knownSkus
     ? new Set(options.knownSkus.map(normalizeSkuIdentifier).filter(Boolean))
     : undefined;
-  const palletNumbers = new Set<string>();
   const cartonNumbers = new Set<string>();
   let totalExpectedQuantity = 0;
 
-  for (const pallet of input.pallets) {
-    const palletNumber = normalizeIdentifier(pallet.sourcePalletNumber);
-    if (!palletNumber) return { ok: false, message: "Every pallet needs a source pallet number." };
-    if (palletNumbers.has(palletNumber)) {
-      return { ok: false, message: `Duplicate pallet number: ${pallet.sourcePalletNumber}.` };
-    }
-    palletNumbers.add(palletNumber);
-
-    if (!pallet.cartons.length) {
-      return { ok: false, message: `Pallet ${pallet.sourcePalletNumber} needs at least one carton.` };
-    }
-
-    for (const carton of pallet.cartons) {
+  for (const carton of revision.cartons) {
       const cartonNumber = normalizeIdentifier(carton.sourceCartonNumber);
       if (!cartonNumber) return { ok: false, message: "Every carton needs a source carton number." };
       if (cartonNumbers.has(cartonNumber)) {
@@ -282,19 +369,29 @@ export function validatePackingListRevision(
         cartonSkus.add(sku);
         totalExpectedQuantity += line.expectedQuantity;
       }
-    }
   }
 
-  const revision = structuredClone(input);
-  for (const pallet of revision.pallets) {
-    for (const carton of pallet.cartons) {
-      for (const line of carton.lines) line.sku = normalizeSkuIdentifier(line.sku);
-    }
+  for (const carton of revision.cartons) {
+    carton.sourceCartonNumber = normalizeIdentifier(carton.sourceCartonNumber);
+    carton.sourcePalletNumber = normalizeIdentifier(carton.sourcePalletNumber ?? "") || null;
+    for (const line of carton.lines) line.sku = normalizeSkuIdentifier(line.sku);
   }
+
+  const palletMapping = derivePalletMappingSummary(revision);
+  if (
+    palletMapping.physicalPalletCount !== null
+    && palletMapping.mappedPalletCount > palletMapping.physicalPalletCount
+  ) return { ok: false, message: "Mapped pallet count cannot exceed the physical pallet count." };
+  if (
+    palletMapping.status === "complete"
+    && palletMapping.physicalPalletCount !== null
+    && palletMapping.mappedPalletCount !== palletMapping.physicalPalletCount
+  ) return { ok: false, message: "Complete pallet mapping must match the physical pallet count." };
 
   return {
     ok: true,
     revision,
     totalExpectedQuantity,
+    palletMapping,
   };
 }

@@ -6,7 +6,9 @@ export type PartnerDashboardShipmentSource = {
   shipmentReference: string;
   packingListConfirmed: boolean;
   packingListVersion: number;
-  palletCount: number;
+  physicalPalletCount: number | null;
+  mappedPalletCount: number;
+  palletMappingStatus: "not_recorded" | "partial" | "complete";
   cartonCount: number;
   expectedQuantity: number;
   labelConfirmed: boolean;
@@ -249,7 +251,9 @@ export async function loadPartnerDashboardSource(
       shipmentReference: summary.shipmentReference ?? summary.shipmentId,
       packingListConfirmed: Boolean(confirmedRevision),
       packingListVersion: confirmedRevision?.version ?? 0,
-      palletCount: result.shipment.pallets.length,
+      physicalPalletCount: result.shipment.physicalPalletCount ?? null,
+      mappedPalletCount: result.shipment.pallets.length,
+      palletMappingStatus: result.shipment.palletMappingStatus ?? "not_recorded",
       cartonCount: result.shipment.cartons.length,
       expectedQuantity: confirmedRevision?.totalExpectedQuantity
         ?? result.shipment.lines.reduce((total, line) => total + line.expectedQuantity, 0),
