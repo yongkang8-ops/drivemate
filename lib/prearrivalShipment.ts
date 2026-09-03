@@ -289,7 +289,7 @@ export function mapReceiptProductBarcodes(
   );
 }
 
-function normalizeIdentifier(value: string): string {
+export function normalizePackingIdentifier(value: string): string {
   return value.trim().toUpperCase().replace(/\s+/g, " ");
 }
 
@@ -298,7 +298,7 @@ function normalizeSkuIdentifier(value: string): string {
 }
 
 function hasIdentifier(value: string): boolean {
-  return Boolean(normalizeIdentifier(value));
+  return Boolean(normalizePackingIdentifier(value));
 }
 
 export function derivePalletMappingSummary(input: {
@@ -308,7 +308,7 @@ export function derivePalletMappingSummary(input: {
   const mappedPallets = new Set<string>();
   let mappedCartonCount = 0;
   for (const carton of input.cartons) {
-    const palletNumber = normalizeIdentifier(carton.sourcePalletNumber ?? "");
+    const palletNumber = normalizePackingIdentifier(carton.sourcePalletNumber ?? "");
     if (!palletNumber) continue;
     mappedCartonCount += 1;
     mappedPallets.add(palletNumber);
@@ -360,7 +360,7 @@ function normalizePackingListInput(
       physicalPalletCount: input.physicalPalletCount ?? null,
       cartons: input.cartons.map((carton) => ({
         sourceCartonNumber: carton.sourceCartonNumber,
-        sourcePalletNumber: normalizeIdentifier(carton.sourcePalletNumber ?? "") || null,
+        sourcePalletNumber: normalizePackingIdentifier(carton.sourcePalletNumber ?? "") || null,
         kind: carton.kind,
         physicalCartonCount: carton.physicalCartonCount,
         memberCartonNumbers: [...carton.memberCartonNumbers],
@@ -376,7 +376,7 @@ function normalizePackingListInput(
       physicalPalletCount: input.physicalPalletCount ?? null,
       cartons: input.cartons.map((carton) => ({
         sourceCartonNumber: carton.sourceCartonNumber,
-        sourcePalletNumber: normalizeIdentifier(carton.sourcePalletNumber ?? "") || null,
+        sourcePalletNumber: normalizePackingIdentifier(carton.sourcePalletNumber ?? "") || null,
         lines: carton.lines.map((line) => ({ ...line })),
       })),
     };
@@ -418,7 +418,7 @@ export function validatePackingListRevision(
   let totalExpectedQuantity = 0;
 
   for (const carton of revision.cartons) {
-      const cartonNumber = normalizeIdentifier(carton.sourceCartonNumber);
+      const cartonNumber = normalizePackingIdentifier(carton.sourceCartonNumber);
       if (!cartonNumber) return { ok: false, message: "Every carton needs a source carton number." };
       if (cartonNumbers.has(cartonNumber)) {
         return { ok: false, message: `Duplicate carton number: ${carton.sourceCartonNumber}.` };
@@ -446,7 +446,7 @@ export function validatePackingListRevision(
 
         const scopeMembers = new Set<string>();
         for (const memberCartonNumber of cartonScope.memberCartonNumbers) {
-          const member = normalizeIdentifier(memberCartonNumber);
+          const member = normalizePackingIdentifier(memberCartonNumber);
           if (!member) return { ok: false, message: "Every carton member needs a carton number." };
           if (scopeMembers.has(member) || memberCartonNumbers.has(member)) {
             return { ok: false, message: `Duplicate carton member: ${memberCartonNumber}.` };
@@ -485,11 +485,11 @@ export function validatePackingListRevision(
   }
 
   for (const carton of revision.cartons) {
-    carton.sourceCartonNumber = normalizeIdentifier(carton.sourceCartonNumber);
-    carton.sourcePalletNumber = normalizeIdentifier(carton.sourcePalletNumber ?? "") || null;
+    carton.sourceCartonNumber = normalizePackingIdentifier(carton.sourceCartonNumber);
+    carton.sourcePalletNumber = normalizePackingIdentifier(carton.sourcePalletNumber ?? "") || null;
     if (revision.schemaVersion === 3) {
       const cartonScope = carton as PackingListCartonScopeInput;
-      cartonScope.memberCartonNumbers = cartonScope.memberCartonNumbers.map(normalizeIdentifier);
+      cartonScope.memberCartonNumbers = cartonScope.memberCartonNumbers.map(normalizePackingIdentifier);
     }
     for (const line of carton.lines) line.sku = normalizeSkuIdentifier(line.sku);
   }

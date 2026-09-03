@@ -1,4 +1,4 @@
-import { derivePalletMappingSummary, type PackingListRevisionInput } from "./prearrivalShipment";
+import { derivePalletMappingSummary, normalizePackingIdentifier, type PackingListRevisionInput } from "./prearrivalShipment";
 
 export type PackingListFieldErrors = Record<string, string>;
 
@@ -68,7 +68,7 @@ export function validatePackingListDraft(
     path: Array<string | number>,
   ) => {
     const cartonField = packingListFieldKey([...path, "sourceCartonNumber"]);
-    const normalizedCartonNumber = carton.sourceCartonNumber.trim().toUpperCase();
+    const normalizedCartonNumber = normalizePackingIdentifier(carton.sourceCartonNumber);
     if (!normalizedCartonNumber) {
       fieldErrors[cartonField] = "Enter the carton number.";
     } else if (cartonNumbers.has(normalizedCartonNumber)) {
@@ -115,7 +115,7 @@ export function validatePackingListDraft(
     payload.cartons.forEach((carton, cartonIndex) => {
       const path = ["cartons", cartonIndex] as Array<string | number>;
       validateCarton(carton, path);
-      const sourceCartonNumber = carton.sourceCartonNumber.trim().toUpperCase();
+      const sourceCartonNumber = normalizePackingIdentifier(carton.sourceCartonNumber);
       const sourceCartonField = packingListFieldKey([...path, "sourceCartonNumber"]);
       if (sourceCartonNumber && memberCartonNumbers.has(sourceCartonNumber)) {
         fieldErrors[sourceCartonField] = "A carton member cannot also be a source carton scope.";
@@ -142,7 +142,7 @@ export function validatePackingListDraft(
           "memberCartonNumbers",
           memberIndex,
         ]);
-        const member = memberCartonNumber.trim().toUpperCase();
+        const member = normalizePackingIdentifier(memberCartonNumber);
         if (!member) {
           fieldErrors[memberField] = "Enter a carton member number.";
         } else if (scopeMembers.has(member) || memberCartonNumbers.has(member)) {

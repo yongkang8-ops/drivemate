@@ -100,6 +100,20 @@ describe("pre-arrival Packing List revision validation route", () => {
     const payloads = [
       {
         cartons: [
+          { sourceCartonNumber: "G1", kind: "carton_group", physicalCartonCount: 2, memberCartonNumbers: ["A  B", "C"] },
+          { sourceCartonNumber: "G2", kind: "carton_group", physicalCartonCount: 2, memberCartonNumbers: ["A   B", "D"] },
+        ],
+        expectedPath: ["cartons", 1, "memberCartonNumbers", 0],
+      },
+      {
+        cartons: [
+          { sourceCartonNumber: "G1", kind: "carton_group", physicalCartonCount: 2, memberCartonNumbers: ["A  B", "C"] },
+          { sourceCartonNumber: "A   B", kind: "carton", physicalCartonCount: 1, memberCartonNumbers: ["A   B"] },
+        ],
+        expectedPath: ["cartons", 1, "sourceCartonNumber"],
+      },
+      {
+        cartons: [
           {
             sourceCartonNumber: "7#8#",
             kind: "carton_group",
