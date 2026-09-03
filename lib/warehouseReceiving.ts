@@ -27,6 +27,39 @@ export type WarehouseReceiptScope = {
   }>;
 };
 
+/** The operational unit is a whole source scope, even when its SKU also occurs in another scope. */
+export function assertReceiptScopeAvailable(
+  scope: WarehouseReceiptScope,
+  sessions: readonly { id: string; status: string; scopeSnapshot: WarehouseReceiptScope }[],
+  excludeSessionId?: string,
+): { ok: true } | { ok: false; message: string } {
+  const normalize = (value: string) => value.trim().toUpperCase().replace(/\s+/g, " ");
+  const cartonNumbers = new Set(scope.cartonNumbers.map(normalize));
+  const overlap = sessions.find(session => session.id !== excludeSessionId
+    && session.status === "confirmed"
+    && normalize(session.scopeSnapshot.shipmentId) === normalize(scope.shipmentId)
+    && session.scopeSnapshot.cartonNumbers.some(carton => cartonNumbers.has(normalize(carton))));
+  return overlap
+    ? { ok: false, message: "This source scope overlaps an already confirmed receipt. Review receipt history before receiving more stock." }
+    : { ok: true };
+}
+
+export function receiptRequestFingerprint(input: {
+  scope: WarehouseReceiptScope;
+  mode: WarehouseReceiptMode;
+  lines: PreparedReceiptLine[];
+}): string {
+  const normalize = (value: string) => value.trim().toUpperCase().replace(/\s+/g, " ");
+  return JSON.stringify({
+    shipmentId: normalize(input.scope.shipmentId),
+    cartons: input.scope.cartonNumbers.map(normalize).sort(),
+    mode: input.mode,
+    expected: input.scope.lines.map(line => [normalize(line.sku), normalizeBarcode(line.productBarcode), line.expectedQuantity]).sort(),
+    actual: input.lines.map(line => [normalize(line.sku), normalizeBarcode(line.productBarcode), line.expectedQuantity, line.actualQuantity,
+      line.discrepancy?.type ?? null, line.discrepancy?.reason.trim() ?? null]).sort(),
+  });
+}
+
 export type CountedReceiptLine = {
   productBarcode: string;
   actualQuantity: number;

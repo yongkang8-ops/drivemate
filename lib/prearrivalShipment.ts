@@ -246,6 +246,11 @@ export function receiptFromPackingListRevision(
     pallets: palletNumbers.map((sourcePalletNumber) => ({ sourcePalletNumber })),
     cartons: revision.cartons.map((carton) => ({
       sourceCartonNumber: carton.sourceCartonNumber,
+      ...("kind" in carton ? {
+        kind: carton.kind,
+        physicalCartonCount: carton.physicalCartonCount,
+        memberCartonNumbers: [...carton.memberCartonNumbers],
+      } : {}),
       ...(carton.sourcePalletNumber
         ? { sourcePalletNumber: carton.sourcePalletNumber }
         : {}),
@@ -291,6 +296,25 @@ export function mapReceiptProductBarcodes(
 
 export function normalizePackingIdentifier(value: string): string {
   return value.trim().toUpperCase().replace(/\s+/g, " ");
+}
+
+export function preservesUsedPackingScopes(
+  previous: ValidatedPackingListRevision,
+  next: ValidatedPackingListRevision,
+  usedScopeNumbers: readonly string[],
+): boolean {
+  const contract = (carton: PackingListCartonInput | PackingListCartonScopeInput) => JSON.stringify({
+    kind: "kind" in carton ? carton.kind : "carton",
+    count: "physicalCartonCount" in carton ? carton.physicalCartonCount : 1,
+    members: ("memberCartonNumbers" in carton ? carton.memberCartonNumbers : [carton.sourceCartonNumber]).map(normalizePackingIdentifier).sort(),
+    lines: carton.lines.map(line => [line.sku.trim().toUpperCase(), line.expectedQuantity, line.batchLot ?? null]).sort(),
+  });
+  return usedScopeNumbers.every(identifier => {
+    const key = normalizePackingIdentifier(identifier);
+    const before = previous.cartons.find(carton => normalizePackingIdentifier(carton.sourceCartonNumber) === key);
+    const after = next.cartons.find(carton => normalizePackingIdentifier(carton.sourceCartonNumber) === key);
+    return Boolean(before && after && contract(before) === contract(after));
+  });
 }
 
 function normalizeSkuIdentifier(value: string): string {

@@ -20,7 +20,13 @@ export type WarehouseExpectedReceipt = {
   physicalPalletCount?: number | null;
   palletMappingStatus?: "not_recorded" | "partial" | "complete";
   pallets: Array<{ sourcePalletNumber: string }>;
-  cartons: Array<{ sourceCartonNumber: string; sourcePalletNumber?: string }>;
+  cartons: Array<{
+    sourceCartonNumber: string;
+    sourcePalletNumber?: string;
+    kind?: "carton" | "carton_group";
+    physicalCartonCount?: number;
+    memberCartonNumbers?: string[];
+  }>;
   lines: Array<{
     sourcePalletNumber?: string;
     sourceCartonNumber: string;
@@ -144,16 +150,44 @@ export function parseWarehouseBarcode(value?: string | null): WarehouseBarcodePa
 }
 
 function normalizeScopeValues(values?: string[]) {
-  return new Set((values ?? []).map(normalizeIdentifier).filter(Boolean));
+  const normalized = (values ?? []).map(normalizeIdentifier);
+  if (normalized.some(value => !value) || new Set(normalized).size !== normalized.length) {
+    throw new Error("Select each non-empty source identifier once.");
+  }
+  return new Set(normalized);
+}
+
+/** Lookup only: receipt/label API selection must still use the returned parent identifier. */
+export function findWarehouseSourceScope(receipt: WarehouseExpectedReceipt, identifier: string) {
+  const normalized = normalizeIdentifier(identifier);
+  return receipt.cartons.find(carton =>
+    normalizeIdentifier(carton.sourceCartonNumber) === normalized
+    || carton.memberCartonNumbers?.some(member => normalizeIdentifier(member) === normalized));
 }
 
 export function filterWarehouseExpectedReceipt(
   receipt: WarehouseExpectedReceipt,
   selection: WarehouseInboundSelection,
 ): WarehouseExpectedReceipt {
+  if (normalizeIdentifier(selection.shipmentId) !== normalizeIdentifier(receipt.shipmentId)) {
+    throw new Error("Selected shipment does not match the receipt.");
+  }
   const pallets = normalizeScopeValues(selection.palletNumbers);
   const cartons = normalizeScopeValues(selection.cartonNumbers);
   const skus = normalizeScopeValues(selection.skus);
+  for (const selected of cartons) {
+    if (!receipt.cartons.some(carton => normalizeIdentifier(carton.sourceCartonNumber) === selected)) {
+      const parent = findWarehouseSourceScope(receipt, selected);
+      throw new Error(parent
+        ? `Carton ${selected} belongs to group ${parent.sourceCartonNumber}. Select the complete source group.`
+        : `Source carton ${selected} was not found in this shipment.`);
+    }
+  }
+  for (const selected of pallets) {
+    if (!receipt.pallets.some(pallet => normalizeIdentifier(pallet.sourcePalletNumber) === selected)) {
+      throw new Error(`Source pallet ${selected} was not found in this shipment.`);
+    }
+  }
   const selectedCartons = receipt.cartons.filter((carton) => {
     const palletMatch = !pallets.size || (carton.sourcePalletNumber && pallets.has(normalizeIdentifier(carton.sourcePalletNumber)));
     const cartonMatch = !cartons.size || cartons.has(normalizeIdentifier(carton.sourceCartonNumber));
@@ -164,6 +198,14 @@ export function filterWarehouseExpectedReceipt(
     cartonNumbers.has(normalizeIdentifier(line.sourceCartonNumber)) &&
     (!skus.size || skus.has(normalizeIdentifier(line.sku))),
   );
+  if (cartons.size && selectedCartons.length !== cartons.size) {
+    throw new Error("Selected source cartons do not belong to the selected pallets.");
+  }
+  for (const selected of skus) {
+    if (!selectedLines.some(line => normalizeIdentifier(line.sku) === selected)) {
+      throw new Error(`SKU ${selected} was not found in the selected source scope.`);
+    }
+  }
   const selectedPalletNumbers = new Set(
     selectedCartons.map((carton) => carton.sourcePalletNumber).filter(Boolean).map((value) => normalizeIdentifier(value as string)),
   );

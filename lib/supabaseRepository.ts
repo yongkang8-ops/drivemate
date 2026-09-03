@@ -3103,7 +3103,7 @@ export class SupabaseRepository implements DrivemateRepository {
       p_revision_id: revisionId,
       p_actor_id: context.actorId ?? null,
     });
-    if (error) throw error;
+    if (error) return { ok: false, message: error.message };
     if (!data) return { ok: false, message: "Packing-list revision was not found." };
     return { ok: true, revision: toPackingListRevision(data as PackingListRevisionRecord) };
   }

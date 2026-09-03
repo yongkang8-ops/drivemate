@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST as submitLabelJob } from "../app/api/warehouse/labels/route";
 import { POST as submitReceipt } from "../app/api/warehouse/receipts/route";
 import { MemoryRepository } from "../lib/memoryRepository";
+import { validatePackingListRevision } from "../lib/prearrivalShipment";
 
 const shipmentId = "11111111-1111-4111-8111-111111111111";
 const idempotencyKey = "22222222-2222-4222-8222-222222222222";
@@ -83,6 +84,37 @@ const validPayload = {
 };
 
 describe("warehouse receipt API", () => {
+  it("prints a group once, rejects member scopes, and blocks a different-key duplicate receipt", async () => {
+    const validation = validatePackingListRevision({ schemaVersion: 3, shipmentId: "shipment-test-1", cartons: [{
+      sourceCartonNumber: "7#8#9#", kind: "carton_group", physicalCartonCount: 3,
+      memberCartonNumbers: ["7#", "8#", "9#"], lines: [{ sku: "DM-GWM-OF-001", expectedQuantity: 10 }],
+    }] });
+    if (!validation.ok) throw new Error(validation.message);
+    const saved = await repository.createPackingListRevision(validation.revision);
+    if (!saved.ok) throw new Error(saved.message);
+    await repository.confirmPackingListRevision(saved.revision.id);
+    const selection = { shipmentId, cartonNumbers: ["7#8#9#"] };
+    const print = await submitLabelJob(labelRequest({ selection, templateId: "unit_product" }));
+    const printed = await print.json();
+    expect(print.status).toBe(201);
+    expect(printed.job.requestedQuantity).toBe(10);
+    expect(printed.items).toHaveLength(10);
+    await repository.recordWarehouseLabelPrintOutcome(printed.job.id, "printed");
+    const payload = { selection, mode: "counted_quantity", scannedProductBarcodes: ["DMPGWMOF001"],
+      countedLines: [{ productBarcode: "DMPGWMOF001", actualQuantity: 10 }], idempotencyKey };
+    const before = await repository.getAdminState();
+    for (const cartons of [["8#"], ["7#8#9#", "8#"], ["7#8#9#", "404#"]]) {
+      expect((await submitReceipt(receiptRequest({ ...payload, selection: { shipmentId, cartonNumbers: cartons } }))).status).toBe(422);
+    }
+    expect((await repository.getAdminState()).stockMovements).toEqual(before.stockMovements);
+    expect((await submitReceipt(receiptRequest(payload))).status).toBe(201);
+    const after = await repository.getAdminState();
+    const duplicate = await submitReceipt(receiptRequest({ ...payload, idempotencyKey: "44444444-4444-4444-8444-444444444444" }));
+    expect(duplicate.status).toBe(422);
+    expect(await duplicate.json()).toMatchObject({ ok: false, message: expect.stringContaining("overlaps") });
+    expect((await repository.getAdminState()).stockMovements).toEqual(after.stockMovements);
+  });
+
   it("blocks a receipt before any Unit Product labels for the selected carton are confirmed printed", async () => {
     const response = await submitReceipt(receiptRequest(validPayload));
 

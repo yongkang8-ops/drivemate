@@ -52,6 +52,9 @@
 - Modify: `lib/warehouseReceiving.ts`
 - Modify: `lib/repository.ts`
 - Modify: `lib/memoryRepository.ts`
+- Create: `supabase/migrations/20260906_v21_warehouse_receipt_scope_protection.sql`
+- Create: `tests/sql/warehouse-receipt-scope-protection.sql`
+- Create: `tests/sql/warehouse-receipt-concurrency-setup.sql`
 - Test: `tests/warehouseLabels.test.ts`
 - Test: `tests/warehouse-receiving.test.ts`
 - Test: `tests/warehouse-prearrival-receiving.test.ts`
@@ -66,6 +69,7 @@
 - [ ] Write failing tests proving an unknown member and parent-plus-member selection are rejected.
 - [ ] Write a failing repository test: confirm a group, then submit the parent, member alias or full-shipment overlap under a new idempotency key; assert no second receipt and no second stock movement.
 - [ ] Implement group metadata propagation, canonical parent-scope resolution and overlap checks in memory repository and shared validation.
+- [ ] Add a v21 database wrapper that validates current confirmed source scopes and serializes confirmation per shipment; execute sequential and concurrent tests on a disposable local PostgreSQL/Supabase image.
 - [ ] Preserve exact replay behavior for the same idempotency key and run focused tests.
 - [ ] Commit only Task 2 files.
 
@@ -77,7 +81,7 @@
 - Modify: `lib/repository.ts`
 - Modify: `lib/memoryRepository.ts`
 - Modify: `lib/supabaseRepository.ts`
-- Create: `supabase/migrations/20260906_v21_source_carton_groups.sql`
+- Create: `supabase/migrations/20260907_v22_source_carton_detail_evidence.sql`
 - Test: `tests/carton-detail-evidence.test.ts`
 - Test: `tests/carton-detail-evidence-route.test.ts`
 - Test: `tests/source-carton-groups-migration.test.ts`

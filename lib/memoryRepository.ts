@@ -96,13 +96,14 @@ import type {
   RepositoryTestResetOptions,
 } from "./repository";
 import { filterWarehouseExpectedReceipt, type WarehouseExpectedReceipt, type WarehouseInboundSelection, type WarehouseLabelPrintScope } from "./warehouseLabels";
-import { RECEIVING_STAGING_LOCATION, type WarehouseReceiptScope } from "./warehouseReceiving";
+import { RECEIVING_STAGING_LOCATION, assertReceiptScopeAvailable, receiptRequestFingerprint, type WarehouseReceiptScope } from "./warehouseReceiving";
 import { type WarehouseHistoryEvent } from "./warehouseHistory";
 import {
   mapReceiptProductBarcodes,
   receiptFromPackingListRevision,
   summarizePackingListReadiness,
   validatePackingListRevision,
+  preservesUsedPackingScopes,
   type ValidatedPackingListRevision,
 } from "./prearrivalShipment";
 import type {
@@ -867,7 +868,14 @@ export class MemoryRepository implements DrivemateRepository {
     if (!input.lines.length) return { ok: false, message: "At least one receipt line is required." };
 
     const existing = warehouseReceiptSessions.find((session) => session.idempotencyKey === idempotencyKey);
-    if (existing) return { ok: true, session: cloneWarehouseReceiptSession(existing) };
+    if (existing) {
+      if (receiptRequestFingerprint(input) !== receiptRequestFingerprint({
+        scope: existing.scopeSnapshot, mode: existing.mode, lines: existing.lines,
+      })) return { ok: false, message: "Idempotency key was already used for a different receipt request." };
+      return { ok: true, session: cloneWarehouseReceiptSession(existing) };
+    }
+    const availability = assertReceiptScopeAvailable(input.scope, warehouseReceiptSessions);
+    if (!availability.ok) return availability;
 
     const session: WarehouseReceiptSession = {
       id: `memory-receipt-session-${++warehouseReceiptSessionSequence}`,
@@ -895,6 +903,14 @@ export class MemoryRepository implements DrivemateRepository {
 
     const printGate = await this.checkWarehouseReceiptPrintGate(session.scopeSnapshot);
     if (!printGate.ok) return printGate;
+
+    // Recheck after the async gate. The synchronous stock commit below cannot interleave
+    // with another confirmation in the memory adapter.
+    if (warehouseReceiptSessions.find(candidate => candidate.id === sessionId)?.status === "confirmed") {
+      return { ok: true, session: cloneWarehouseReceiptSession(session) };
+    }
+    const availability = assertReceiptScopeAvailable(session.scopeSnapshot, warehouseReceiptSessions, session.id);
+    if (!availability.ok) return availability;
 
     for (const line of session.lines) {
       if (line.actualQuantity === 0) continue;
@@ -1191,6 +1207,18 @@ export class MemoryRepository implements DrivemateRepository {
     if (!revision) return { ok: false, message: "Packing-list revision was not found." };
     if (revision.status !== "draft") {
       return { ok: false, message: "Only a draft packing-list revision can be confirmed." };
+    }
+
+    const previous = latestConfirmedPackingListRevision(revision.shipmentId);
+    const usedScopes = [
+      ...warehouseReceiptSessions.filter(session => session.shipmentId === revision.shipmentId && session.status !== "cancelled")
+        .flatMap(session => session.scopeSnapshot.cartonNumbers),
+      ...warehouseLabelPrintJobs.filter(job => job.status === "printed" && job.templateId === "unit_product"
+        && job.payloadSnapshot.shipmentId === revision.shipmentId)
+        .flatMap(job => Array.isArray(job.payloadSnapshot.cartonNumbers) ? job.payloadSnapshot.cartonNumbers.filter((value): value is string => typeof value === "string") : []),
+    ];
+    if (previous && !preservesUsedPackingScopes(previous.payloadSnapshot, revision.payloadSnapshot, usedScopes)) {
+      return { ok: false, message: "A used source scope cannot be renamed, split or have its expected contents changed. Add traceability details without changing the receipt scope." };
     }
 
     const timestamp = new Date().toISOString();
