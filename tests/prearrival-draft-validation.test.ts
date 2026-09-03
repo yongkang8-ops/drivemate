@@ -26,6 +26,56 @@ const blankDraft = {
 };
 
 describe("pre-arrival Packing List draft validation", () => {
+  it("reports v3 carton-group member structure errors on their exact fields", () => {
+    const result = validatePackingListDraft({
+      schemaVersion: 3,
+      shipmentId: "shipment-test-1",
+      physicalPalletCount: 4,
+      cartons: [
+        {
+          sourceCartonNumber: "7#8#9#",
+          kind: "carton_group",
+          physicalCartonCount: 3,
+          memberCartonNumbers: ["7#", "7#"],
+          sourcePalletNumber: null,
+          lines: [{ sku: "DM-GWM-OF-001", expectedQuantity: 10 }],
+        },
+        {
+          sourceCartonNumber: "7#",
+          kind: "carton",
+          physicalCartonCount: 1,
+          memberCartonNumbers: ["7#"],
+          sourcePalletNumber: null,
+          lines: [{ sku: "DM-GWM-OF-001", expectedQuantity: 10 }],
+        },
+        {
+          sourceCartonNumber: "10#11#",
+          kind: "carton_group",
+          physicalCartonCount: 3,
+          memberCartonNumbers: ["10#", "11#"],
+          sourcePalletNumber: null,
+          lines: [{ sku: "DM-GWM-OF-001", expectedQuantity: 10 }],
+        },
+        {
+          sourceCartonNumber: "12#",
+          kind: "carton_group",
+          physicalCartonCount: 1,
+          memberCartonNumbers: [""],
+          sourcePalletNumber: null,
+          lines: [{ sku: "DM-GWM-OF-001", expectedQuantity: 10 }],
+        },
+      ],
+    }, ["DM-GWM-OF-001"]);
+
+    expect(result.fieldErrors).toMatchObject({
+      "cartons.0.memberCartonNumbers.1": "Use each carton member once.",
+      "cartons.1.sourceCartonNumber": "A carton member cannot also be a source carton scope.",
+      "cartons.2.memberCartonNumbers": "List exactly one member carton for each physical carton.",
+      "cartons.3.physicalCartonCount": "A carton group needs at least two physical cartons.",
+      "cartons.3.memberCartonNumbers.0": "Enter a carton member number.",
+    });
+  });
+
   it("allows a v2 carton draft with no pallet mapping", () => {
     const result = validatePackingListDraft({
       schemaVersion: 2,

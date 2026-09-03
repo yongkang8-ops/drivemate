@@ -35,7 +35,44 @@ const cartonFirstPackingListSchema = z.object({
   })).min(1),
 });
 
+const cartonScopeBaseSchema = z.object({
+  sourceCartonNumber: z.string().trim().min(1).max(80),
+  sourcePalletNumber: z.string().trim().max(80).nullable().optional(),
+  lines: z.array(packingListLineSchema).min(1),
+});
+
+const cartonGroupScopeSchema = cartonScopeBaseSchema.extend({
+  kind: z.literal("carton_group"),
+  physicalCartonCount: z.number().int().min(2),
+  memberCartonNumbers: z.array(z.string().trim().min(1).max(80)).min(2),
+}).superRefine((scope, context) => {
+  if (scope.memberCartonNumbers.length !== scope.physicalCartonCount) {
+    context.addIssue({
+      code: "custom",
+      path: ["memberCartonNumbers"],
+      message: "Member carton count must match the physical carton count.",
+    });
+  }
+});
+
+const cartonScopeSchema = z.discriminatedUnion("kind", [
+  cartonScopeBaseSchema.extend({
+    kind: z.literal("carton"),
+    physicalCartonCount: z.literal(1),
+    memberCartonNumbers: z.array(z.string().trim().min(1).max(80)).length(1),
+  }),
+  cartonGroupScopeSchema,
+]);
+
+const cartonGroupPackingListSchema = z.object({
+  schemaVersion: z.literal(3),
+  shipmentId: z.string().trim().min(1).max(120),
+  physicalPalletCount: z.number().int().positive().nullable().optional(),
+  cartons: z.array(cartonScopeSchema).min(1),
+});
+
 const packingListSchema = z.union([
+  cartonGroupPackingListSchema,
   cartonFirstPackingListSchema,
   legacyPackingListSchema,
 ]);

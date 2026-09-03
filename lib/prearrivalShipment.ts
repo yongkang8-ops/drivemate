@@ -12,6 +12,19 @@ export type PackingListCartonInput = {
   lines: PackingListLineInput[];
 };
 
+export type PackingListCartonScopeInput = PackingListCartonInput & (
+  | {
+      kind: "carton";
+      physicalCartonCount: 1;
+      memberCartonNumbers: string[];
+    }
+  | {
+      kind: "carton_group";
+      physicalCartonCount: number;
+      memberCartonNumbers: string[];
+    }
+);
+
 export type PackingListRevisionInputV1 = {
   schemaVersion?: 1;
   shipmentId: string;
@@ -31,13 +44,35 @@ export type PackingListRevisionInputV2 = {
   cartons: PackingListCartonInput[];
 };
 
-export type PackingListRevisionInput = PackingListRevisionInputV1 | PackingListRevisionInputV2;
+export type PackingListRevisionInputV3 = {
+  schemaVersion: 3;
+  shipmentId: string;
+  physicalPalletCount?: number | null;
+  cartons: PackingListCartonScopeInput[];
+};
 
-export type ValidatedPackingListRevision = {
+export type PackingListRevisionInput = PackingListRevisionInputV1 | PackingListRevisionInputV2 | PackingListRevisionInputV3;
+
+export type ValidatedPackingListRevisionV2 = {
   schemaVersion: 2;
   shipmentId: string;
   physicalPalletCount: number | null;
   cartons: PackingListCartonInput[];
+};
+
+export type ValidatedPackingListRevisionV3 = {
+  schemaVersion: 3;
+  shipmentId: string;
+  physicalPalletCount: number | null;
+  cartons: PackingListCartonScopeInput[];
+};
+
+export type ValidatedPackingListRevision = ValidatedPackingListRevisionV2 | ValidatedPackingListRevisionV3;
+
+export type CartonStructureSummary = {
+  sourceScopeCount: number;
+  physicalCartonCount: number;
+  cartonGroupCount: number;
 };
 
 export type PalletMappingStatus = "not_recorded" | "partial" | "complete";
@@ -291,9 +326,49 @@ export function derivePalletMappingSummary(input: {
   };
 }
 
+export function deriveCartonStructureSummary(
+  input: PackingListRevisionInput | ValidatedPackingListRevision,
+): CartonStructureSummary {
+  if ("schemaVersion" in input && input.schemaVersion === 3) {
+    return {
+      sourceScopeCount: input.cartons.length,
+      physicalCartonCount: input.cartons.reduce(
+        (total, carton) => total + carton.physicalCartonCount,
+        0,
+      ),
+      cartonGroupCount: input.cartons.filter((carton) => carton.kind === "carton_group").length,
+    };
+  }
+  const cartons = "cartons" in input
+    ? input.cartons
+    : input.pallets.flatMap((pallet) => pallet.cartons);
+
+  return {
+    sourceScopeCount: cartons.length,
+    physicalCartonCount: cartons.length,
+    cartonGroupCount: 0,
+  };
+}
+
 function normalizePackingListInput(
   input: PackingListRevisionInput,
 ): ValidatedPackingListRevision {
+  if ("schemaVersion" in input && input.schemaVersion === 3) {
+    return {
+      schemaVersion: 3,
+      shipmentId: input.shipmentId,
+      physicalPalletCount: input.physicalPalletCount ?? null,
+      cartons: input.cartons.map((carton) => ({
+        sourceCartonNumber: carton.sourceCartonNumber,
+        sourcePalletNumber: normalizeIdentifier(carton.sourcePalletNumber ?? "") || null,
+        kind: carton.kind,
+        physicalCartonCount: carton.physicalCartonCount,
+        memberCartonNumbers: [...carton.memberCartonNumbers],
+        lines: carton.lines.map((line) => ({ ...line })),
+      })) as PackingListCartonScopeInput[],
+    };
+  }
+
   if ("schemaVersion" in input && input.schemaVersion === 2) {
     return {
       schemaVersion: 2,
@@ -339,6 +414,7 @@ export function validatePackingListRevision(
     ? new Set(options.knownSkus.map(normalizeSkuIdentifier).filter(Boolean))
     : undefined;
   const cartonNumbers = new Set<string>();
+  const memberCartonNumbers = new Set<string>();
   let totalExpectedQuantity = 0;
 
   for (const carton of revision.cartons) {
@@ -347,7 +423,44 @@ export function validatePackingListRevision(
       if (cartonNumbers.has(cartonNumber)) {
         return { ok: false, message: `Duplicate carton number: ${carton.sourceCartonNumber}.` };
       }
+      if (revision.schemaVersion === 3 && memberCartonNumbers.has(cartonNumber)) {
+        return { ok: false, message: "A carton member cannot also be a source carton scope." };
+      }
       cartonNumbers.add(cartonNumber);
+
+      if (revision.schemaVersion === 3) {
+        const cartonScope = carton as PackingListCartonScopeInput;
+        const isSingleCarton = cartonScope.kind === "carton";
+        if (!Number.isSafeInteger(cartonScope.physicalCartonCount) || cartonScope.physicalCartonCount <= 0) {
+          return { ok: false, message: "Physical carton count must be a positive whole number." };
+        }
+        if (isSingleCarton && cartonScope.physicalCartonCount !== 1) {
+          return { ok: false, message: "A single carton must have a physical carton count of 1." };
+        }
+        if (!isSingleCarton && cartonScope.physicalCartonCount < 2) {
+          return { ok: false, message: "A carton group needs at least two physical cartons." };
+        }
+        if (cartonScope.memberCartonNumbers.length !== cartonScope.physicalCartonCount) {
+          return { ok: false, message: "Member carton count must match the physical carton count." };
+        }
+
+        const scopeMembers = new Set<string>();
+        for (const memberCartonNumber of cartonScope.memberCartonNumbers) {
+          const member = normalizeIdentifier(memberCartonNumber);
+          if (!member) return { ok: false, message: "Every carton member needs a carton number." };
+          if (scopeMembers.has(member) || memberCartonNumbers.has(member)) {
+            return { ok: false, message: `Duplicate carton member: ${memberCartonNumber}.` };
+          }
+          if (!isSingleCarton && cartonNumbers.has(member)) {
+            return { ok: false, message: "A source carton scope cannot also be a carton member." };
+          }
+          scopeMembers.add(member);
+          memberCartonNumbers.add(member);
+        }
+        if (isSingleCarton && !scopeMembers.has(cartonNumber)) {
+          return { ok: false, message: "A single carton must list its own source carton number as its member." };
+        }
+      }
 
       if (!carton.lines.length) {
         return { ok: false, message: `Carton ${carton.sourceCartonNumber} needs at least one SKU line.` };
@@ -374,6 +487,10 @@ export function validatePackingListRevision(
   for (const carton of revision.cartons) {
     carton.sourceCartonNumber = normalizeIdentifier(carton.sourceCartonNumber);
     carton.sourcePalletNumber = normalizeIdentifier(carton.sourcePalletNumber ?? "") || null;
+    if (revision.schemaVersion === 3) {
+      const cartonScope = carton as PackingListCartonScopeInput;
+      cartonScope.memberCartonNumbers = cartonScope.memberCartonNumbers.map(normalizeIdentifier);
+    }
     for (const line of carton.lines) line.sku = normalizeSkuIdentifier(line.sku);
   }
 

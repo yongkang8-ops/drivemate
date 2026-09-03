@@ -98,7 +98,81 @@ export function validatePackingListDraft(
     });
   };
 
-  if ("schemaVersion" in payload && payload.schemaVersion === 2) {
+  if ("schemaVersion" in payload && payload.schemaVersion === 3) {
+    if (
+      payload.physicalPalletCount !== undefined
+      && payload.physicalPalletCount !== null
+      && (!Number.isSafeInteger(payload.physicalPalletCount) || payload.physicalPalletCount <= 0)
+    ) {
+      fieldErrors.physicalPalletCount = "Enter a positive whole number of physical pallets, or leave it blank.";
+    }
+
+    const memberCartonNumbers = new Set<string>();
+    payload.cartons.forEach((carton, cartonIndex) => {
+      const path = ["cartons", cartonIndex] as Array<string | number>;
+      validateCarton(carton, path);
+      const sourceCartonNumber = carton.sourceCartonNumber.trim().toUpperCase();
+      const sourceCartonField = packingListFieldKey([...path, "sourceCartonNumber"]);
+      if (sourceCartonNumber && memberCartonNumbers.has(sourceCartonNumber)) {
+        fieldErrors[sourceCartonField] = "A carton member cannot also be a source carton scope.";
+      }
+
+      const physicalCartonCountField = packingListFieldKey([...path, "physicalCartonCount"]);
+      if (!Number.isSafeInteger(carton.physicalCartonCount) || carton.physicalCartonCount <= 0) {
+        fieldErrors[physicalCartonCountField] = "Enter a positive whole physical carton count.";
+      } else if (carton.kind === "carton" && carton.physicalCartonCount !== 1) {
+        fieldErrors[physicalCartonCountField] = "A single carton must have a physical carton count of 1.";
+      } else if (carton.kind === "carton_group" && carton.physicalCartonCount < 2) {
+        fieldErrors[physicalCartonCountField] = "A carton group needs at least two physical cartons.";
+      }
+
+      const membersField = packingListFieldKey([...path, "memberCartonNumbers"]);
+      if (carton.memberCartonNumbers.length !== carton.physicalCartonCount) {
+        fieldErrors[membersField] = "List exactly one member carton for each physical carton.";
+      }
+
+      const scopeMembers = new Set<string>();
+      carton.memberCartonNumbers.forEach((memberCartonNumber, memberIndex) => {
+        const memberField = packingListFieldKey([
+          ...path,
+          "memberCartonNumbers",
+          memberIndex,
+        ]);
+        const member = memberCartonNumber.trim().toUpperCase();
+        if (!member) {
+          fieldErrors[memberField] = "Enter a carton member number.";
+        } else if (scopeMembers.has(member) || memberCartonNumbers.has(member)) {
+          fieldErrors[memberField] = "Use each carton member once.";
+        } else if (carton.kind === "carton_group" && cartonNumbers.has(member)) {
+          fieldErrors[memberField] = "A source carton scope cannot also be a carton member.";
+        } else {
+          scopeMembers.add(member);
+          memberCartonNumbers.add(member);
+        }
+      });
+
+      if (
+        carton.kind === "carton"
+        && sourceCartonNumber
+        && !scopeMembers.has(sourceCartonNumber)
+      ) {
+        fieldErrors[membersField] = "A single carton must list its own source carton number.";
+      }
+    });
+    const mapping = derivePalletMappingSummary(payload);
+    if (
+      mapping.physicalPalletCount !== null
+      && mapping.mappedPalletCount > mapping.physicalPalletCount
+    ) {
+      fieldErrors.physicalPalletCount = "Mapped pallets cannot exceed the physical pallet count.";
+    } else if (
+      mapping.status === "complete"
+      && mapping.physicalPalletCount !== null
+      && mapping.mappedPalletCount !== mapping.physicalPalletCount
+    ) {
+      fieldErrors.physicalPalletCount = "Complete pallet mapping must match the physical pallet count.";
+    }
+  } else if ("schemaVersion" in payload && payload.schemaVersion === 2) {
     if (
       payload.physicalPalletCount !== undefined
       && payload.physicalPalletCount !== null

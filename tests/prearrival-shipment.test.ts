@@ -4,6 +4,7 @@ import {
   assertCompleteShipmentProductRecords,
   buildShipmentProductScope,
   chunkShipmentProductIds,
+  deriveCartonStructureSummary,
   derivePalletMappingSummary,
   loadCompleteShipmentProductPages,
   mapReceiptProductBarcodes,
@@ -11,6 +12,7 @@ import {
   validatePackingListRevision,
   type PackingListRevisionInput,
   type PackingListRevisionInputV2,
+  type PackingListRevisionInputV3,
   type ValidatedPackingListRevision,
 } from "../lib/prearrivalShipment";
 
@@ -38,6 +40,70 @@ function validated(input: PackingListRevisionInput): ValidatedPackingListRevisio
 }
 
 describe("pre-arrival packing-list revisions", () => {
+  it("keeps grouped source cartons as three scopes with six physical cartons without multiplying SKU quantities", () => {
+    const input: PackingListRevisionInputV3 = {
+      schemaVersion: 3,
+      shipmentId: "shipment-test-1",
+      physicalPalletCount: 4,
+      cartons: [
+        {
+          sourceCartonNumber: "1#",
+          kind: "carton",
+          physicalCartonCount: 1,
+          memberCartonNumbers: ["1#"],
+          sourcePalletNumber: null,
+          lines: [{ sku: "DM-GWM-001", expectedQuantity: 10 }],
+        },
+        {
+          sourceCartonNumber: "7#8#9#",
+          kind: "carton_group",
+          physicalCartonCount: 3,
+          memberCartonNumbers: ["7#", "8#", "9#"],
+          sourcePalletNumber: null,
+          lines: [{ sku: "DM-GWM-002", expectedQuantity: 10 }],
+        },
+        {
+          sourceCartonNumber: "10#11#",
+          kind: "carton_group",
+          physicalCartonCount: 2,
+          memberCartonNumbers: ["10#", "11#"],
+          sourcePalletNumber: null,
+          lines: [{ sku: "DM-GWM-003", expectedQuantity: 10 }],
+        },
+      ],
+    };
+
+    const result = validatePackingListRevision(input);
+
+    expect(result).toMatchObject({
+      ok: true,
+      totalExpectedQuantity: 30,
+      revision: {
+        schemaVersion: 3,
+        cartons: [
+          { kind: "carton", physicalCartonCount: 1, memberCartonNumbers: ["1#"] },
+          {
+            kind: "carton_group",
+            physicalCartonCount: 3,
+            memberCartonNumbers: ["7#", "8#", "9#"],
+            lines: [{ sku: "DM-GWM-002", expectedQuantity: 10 }],
+          },
+          {
+            kind: "carton_group",
+            physicalCartonCount: 2,
+            memberCartonNumbers: ["10#", "11#"],
+            lines: [{ sku: "DM-GWM-003", expectedQuantity: 10 }],
+          },
+        ],
+      },
+    });
+    expect(deriveCartonStructureSummary(input)).toEqual({
+      sourceScopeCount: 3,
+      physicalCartonCount: 6,
+      cartonGroupCount: 2,
+    });
+  });
+
   it("accepts a carton-first revision without pallet mapping", () => {
     const input: PackingListRevisionInputV2 = {
       schemaVersion: 2,

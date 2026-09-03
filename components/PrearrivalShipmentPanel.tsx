@@ -26,7 +26,11 @@ import type {
   PrearrivalShipment,
   PrearrivalShipmentSummary,
 } from "../lib/repository";
-import { derivePalletMappingSummary, type PackingListRevisionInputV2 } from "../lib/prearrivalShipment";
+import {
+  derivePalletMappingSummary,
+  type PackingListRevisionInputV2,
+  type PackingListRevisionInputV3,
+} from "../lib/prearrivalShipment";
 
 type ShipmentListResponse =
   | { ok: true; shipments: PrearrivalShipmentSummary[] }
@@ -39,10 +43,11 @@ type RevisionResponse =
   | { ok: false; message?: string; error?: PackingListServerError };
 
 type CartonSelection = { cartonIndex: number };
+type PackingListDraftPayload = PackingListRevisionInputV2 | PackingListRevisionInputV3;
 type SelectedCarton = {
   sourcePalletNumber?: string | null;
   sourceCartonNumber: string;
-  draftCarton?: PackingListRevisionInputV2["cartons"][number];
+  draftCarton?: PackingListDraftPayload["cartons"][number];
 };
 type DraftLineIds = string[][];
 
@@ -62,7 +67,7 @@ function latestDraftRevision(shipment: PrearrivalShipment): PackingListRevision 
     .sort((left, right) => right.version - left.version)[0];
 }
 
-function payloadFromShipment(shipment: PrearrivalShipment): PackingListRevisionInputV2 {
+function payloadFromShipment(shipment: PrearrivalShipment): PackingListDraftPayload {
   const confirmed = latestConfirmedRevision(shipment);
   if (confirmed) return structuredClone(confirmed.payloadSnapshot);
 
@@ -88,7 +93,17 @@ function blankPackingListLine() {
   return { sku: "", expectedQuantity: 1 };
 }
 
-function blankPackingListCarton() {
+function blankPackingListCarton(schemaVersion: 2 | 3): PackingListDraftPayload["cartons"][number] {
+  if (schemaVersion === 3) {
+    return {
+      sourceCartonNumber: "",
+      sourcePalletNumber: null,
+      kind: "carton",
+      physicalCartonCount: 1,
+      memberCartonNumbers: [""],
+      lines: [blankPackingListLine()],
+    };
+  }
   return {
     sourceCartonNumber: "",
     sourcePalletNumber: null,
@@ -101,7 +116,7 @@ function initialPackingListPayload(shipmentId: string): PackingListRevisionInput
     schemaVersion: 2,
     shipmentId,
     physicalPalletCount: null,
-    cartons: [blankPackingListCarton()],
+    cartons: [blankPackingListCarton(2)],
   };
 }
 
@@ -126,7 +141,7 @@ export function PrearrivalShipmentPanel() {
   const [shipments, setShipments] = useState<PrearrivalShipmentSummary[]>([]);
   const [shipment, setShipment] = useState<PrearrivalShipment | null>(null);
   const [selection, setSelection] = useState<CartonSelection>({ cartonIndex: 0 });
-  const [draftPayload, setDraftPayload] = useState<PackingListRevisionInputV2 | null>(null);
+  const [draftPayload, setDraftPayload] = useState<PackingListDraftPayload | null>(null);
   const [message, setMessage] = useState("Loading pre-arrival shipment data.");
   const [busy, setBusy] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<PackingListFieldErrors>({});
@@ -145,7 +160,7 @@ export function PrearrivalShipmentPanel() {
     return `draft-line-${draftLineIdSequence.current}`;
   }
 
-  function lineIdsForPayload(payload: PackingListRevisionInputV2): DraftLineIds {
+  function lineIdsForPayload(payload: PackingListDraftPayload): DraftLineIds {
     return payload.cartons.map((carton) =>
       carton.lines.map(() => createDraftLineId()));
   }
@@ -307,7 +322,11 @@ export function PrearrivalShipmentPanel() {
     const nextPayload = structuredClone(draftPayload);
     const nextLineIds = structuredClone(draftLineIds);
     clearDraftErrors();
-    nextPayload.cartons.push(blankPackingListCarton());
+    if (nextPayload.schemaVersion === 3) {
+      nextPayload.cartons.push(blankPackingListCarton(3) as PackingListRevisionInputV3["cartons"][number]);
+    } else {
+      nextPayload.cartons.push(blankPackingListCarton(2) as PackingListRevisionInputV2["cartons"][number]);
+    }
     nextLineIds.push([createDraftLineId()]);
     setDraftPayload(nextPayload);
     setDraftLineIds(nextLineIds);
