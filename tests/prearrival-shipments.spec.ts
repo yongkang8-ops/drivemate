@@ -227,6 +227,82 @@ test("Partner confirms cartons without pallet mapping and Warehouse uses the ful
   await expect(page.locator(".inbound-scope-bar p")).toContainText("12 expected units");
 });
 
+test("editing a v3 single carton keeps its sole member carton number in the saved revision", async ({
+  page,
+  request,
+}) => {
+  const v3Payload = {
+    schemaVersion: 3,
+    shipmentId: "shipment-test-1",
+    cartons: [{
+      sourceCartonNumber: "C001",
+      kind: "carton",
+      physicalCartonCount: 1,
+      memberCartonNumbers: ["C001"],
+      sourcePalletNumber: null,
+      lines: [{ sku: "DM-GWM-OF-001", expectedQuantity: 12 }],
+    }, {
+      sourceCartonNumber: "7#8#",
+      kind: "carton_group",
+      physicalCartonCount: 2,
+      memberCartonNumbers: ["7#", "8#"],
+      sourcePalletNumber: null,
+      lines: [{ sku: "DM-GWM-AF-002", expectedQuantity: 10 }],
+    }],
+  };
+  const created = await request.post(
+    "/api/prearrival/shipments/shipment-test-1/revisions",
+    { headers: partnerHeaders, data: v3Payload },
+  );
+  expect(created.status()).toBe(201);
+  const createdBody = await created.json();
+  const confirmed = await request.post(
+    `/api/prearrival/revisions/${createdBody.revision.id}/confirm`,
+    { headers: partnerHeaders },
+  );
+  expect(confirmed.ok()).toBeTruthy();
+
+  await page.goto("/prearrival");
+  await page.getByRole("button", { name: "Create revision" }).click();
+  await page.getByLabel("Carton number").fill("C002");
+  await page.getByRole("button", { name: /7#8#/ }).click();
+  await page.getByLabel("Carton number").fill("7#8# revised");
+  await page.getByRole("button", { name: "Add carton" }).click();
+  await page.getByLabel("Carton number").fill("C003");
+  await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-AF-002");
+
+  const savedRevision = page.waitForRequest((candidate) => (
+    candidate.method() === "POST"
+    && /\/api\/prearrival\/shipments\/[^/]+\/revisions$/.test(
+      new URL(candidate.url()).pathname,
+    )
+  ), { timeout: 5_000 });
+  await page.getByRole("button", { name: "Confirm Packing List" }).click();
+  await expect(page.getByText(
+    "A single carton must list its own source carton number.",
+    { exact: true },
+  )).toHaveCount(0);
+  const savedPayload = (await savedRevision).postDataJSON();
+
+  expect(savedPayload.cartons).toEqual(expect.arrayContaining([
+    expect.objectContaining({
+      sourceCartonNumber: "C002",
+      kind: "carton",
+      memberCartonNumbers: ["C002"],
+    }),
+    expect.objectContaining({
+      sourceCartonNumber: "C003",
+      kind: "carton",
+      memberCartonNumbers: ["C003"],
+    }),
+    expect.objectContaining({
+      sourceCartonNumber: "7#8# revised",
+      kind: "carton_group",
+      memberCartonNumbers: ["7#", "8#"],
+    }),
+  ]));
+});
+
 test("first Packing List validation stays local and cancel clears errors", async ({
   page,
   request,

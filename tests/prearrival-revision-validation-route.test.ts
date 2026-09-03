@@ -96,6 +96,75 @@ describe("pre-arrival Packing List revision validation route", () => {
     expect(getRepository).not.toHaveBeenCalled();
   });
 
+  it("returns field paths for v3 cross-scope member conflicts without entering the repository", async () => {
+    const payloads = [
+      {
+        cartons: [
+          {
+            sourceCartonNumber: "7#8#",
+            kind: "carton_group",
+            physicalCartonCount: 2,
+            memberCartonNumbers: ["7#", "8#"],
+          },
+          {
+            sourceCartonNumber: "9#10#",
+            kind: "carton_group",
+            physicalCartonCount: 2,
+            memberCartonNumbers: ["8#", "10#"],
+          },
+        ],
+        expectedPath: ["cartons", 1, "memberCartonNumbers", 0],
+      },
+      {
+        cartons: [
+          {
+            sourceCartonNumber: "7#8#",
+            kind: "carton_group",
+            physicalCartonCount: 2,
+            memberCartonNumbers: ["7#", "8#"],
+          },
+          {
+            sourceCartonNumber: "7#",
+            kind: "carton",
+            physicalCartonCount: 1,
+            memberCartonNumbers: ["7#"],
+          },
+        ],
+        expectedPath: ["cartons", 1, "sourceCartonNumber"],
+      },
+    ] as const;
+
+    for (const { cartons, expectedPath } of payloads) {
+      const response = await POST(new Request(
+        "https://drivemateparts.com.au/api/prearrival/shipments/shipment-test-1/revisions",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            schemaVersion: 3,
+            shipmentId: "shipment-test-1",
+            cartons: cartons.map((carton) => ({
+              ...carton,
+              sourcePalletNumber: null,
+              lines: [{ sku: "DM-GWM-OF-001", expectedQuantity: 10 }],
+            })),
+          }),
+        },
+      ), { params: Promise.resolve({ shipmentId: "shipment-test-1" }) });
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toEqual({
+        ok: false,
+        error: {
+          fieldErrors: expect.arrayContaining([
+            expect.objectContaining({ path: expectedPath }),
+          ]),
+        },
+      });
+    }
+    expect(getRepository).not.toHaveBeenCalled();
+  });
+
   it("accepts a v2 revision without pallet mapping", async () => {
     const createPackingListRevision = vi.fn().mockResolvedValue({
       ok: true,

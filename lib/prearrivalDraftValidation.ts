@@ -10,6 +10,10 @@ export function packingListFieldKey(path: Array<string | number>): string {
   return path.map(String).join(".");
 }
 
+export function packingListFieldPath(key: string): Array<string | number> {
+  return key.split(".").map((segment) => /^\d+$/.test(segment) ? Number(segment) : segment);
+}
+
 export function mapPackingListServerErrors(
   error?: PackingListServerError,
 ): PackingListFieldErrors {
@@ -42,16 +46,16 @@ export function mapPackingListServerErrors(
 
 export function validatePackingListDraft(
   payload: PackingListRevisionInput,
-  knownSkus: readonly string[],
+  knownSkus?: readonly string[],
 ): {
   ok: boolean;
   fieldErrors: PackingListFieldErrors;
   firstField: string | undefined;
   summary: string | undefined;
 } {
-  const normalizedKnownSkus = new Set(
-    knownSkus.map((sku) => sku.trim().toUpperCase()),
-  );
+  const normalizedKnownSkus = knownSkus
+    ? new Set(knownSkus.map((sku) => sku.trim().toUpperCase()))
+    : undefined;
   const fieldErrors: PackingListFieldErrors = {};
   const palletNumbers = new Set<string>();
   const cartonNumbers = new Set<string>();
@@ -79,7 +83,7 @@ export function validatePackingListDraft(
       const normalizedSku = line.sku.trim().toUpperCase();
       if (!normalizedSku) {
         fieldErrors[skuField] = "Enter a recognised SKU.";
-      } else if (!normalizedKnownSkus.has(normalizedSku)) {
+      } else if (normalizedKnownSkus && !normalizedKnownSkus.has(normalizedSku)) {
         fieldErrors[skuField] = "Select an SKU from the product master.";
       } else if (cartonSkus.has(normalizedSku)) {
         fieldErrors[skuField] = "Use each SKU once per carton.";

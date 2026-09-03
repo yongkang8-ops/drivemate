@@ -386,7 +386,12 @@ export function PrearrivalShipmentPanel() {
     const carton = nextPayload.cartons[selection.cartonIndex];
     if (!carton) return;
     if (field === "pallet") carton.sourcePalletNumber = value || null;
-    if (field === "carton") carton.sourceCartonNumber = value;
+    if (field === "carton") {
+      carton.sourceCartonNumber = value;
+      if ("kind" in carton && carton.kind === "carton") {
+        carton.memberCartonNumbers = [value];
+      }
+    }
     if (field === "sku" && carton.lines[lineIndex]) carton.lines[lineIndex].sku = value;
     if (field === "quantity" && carton.lines[lineIndex]) {
       carton.lines[lineIndex].expectedQuantity = Number(value);

@@ -4,6 +4,7 @@ import { can } from "../../../../../../lib/auth";
 import { mutationRequestAllowed } from "../../../../../../lib/requestSecurity";
 import { getRepository } from "../../../../../../lib/repository";
 import { getRequestContext } from "../../../../../../lib/serverAuth";
+import { packingListFieldPath, validatePackingListDraft } from "../../../../../../lib/prearrivalDraftValidation";
 import { validatePackingListRevision } from "../../../../../../lib/prearrivalShipment";
 
 const packingListLineSchema = z.object({
@@ -113,6 +114,19 @@ export async function POST(
       { ok: false, message: "Route shipment does not match the packing-list payload." },
       { status: 400 },
     );
+  }
+
+  const draftValidation = validatePackingListDraft(parsed.data);
+  if (!draftValidation.ok) {
+    return NextResponse.json({
+      ok: false,
+      error: {
+        fieldErrors: Object.entries(draftValidation.fieldErrors).map(([key, message]) => ({
+          path: packingListFieldPath(key),
+          message,
+        })),
+      },
+    }, { status: 400 });
   }
 
   const validation = validatePackingListRevision(parsed.data);
