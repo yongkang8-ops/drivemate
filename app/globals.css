@@ -493,7 +493,7 @@ body:has(.inbound-app) .site-shell { min-height: 100vh; }
 }
 
 @container (max-width: 760px) {
-  .inbound-job-row { grid-template-columns: minmax(220px, 1.35fr) minmax(180px, 1fr); }
+  .inbound-job-row { grid-template-columns: minmax(0, 1fr); }
   .inbound-job-actions { grid-column: 1 / -1; justify-self: start; }
 }
 .inbound-summary-panel > .inbound-section-label:first-of-type { margin-top: 30px; }
@@ -896,8 +896,8 @@ body:has(.partner-dashboard-app) .site-shell { min-height: 100vh; }
   .inbound-queue-head { display: none; }
   .inbound-queue-row { grid-template-columns: minmax(0, 1fr) repeat(3, auto); min-height: 56px; font-size: 12px; }
   .inbound-job-row { grid-template-columns: 1fr; gap: 13px; }
-  .inbound-job-actions { display: grid; grid-template-columns: 1fr 1fr; justify-self: stretch; }
-  .inbound-job-actions .button { justify-content: center; }
+  .inbound-job-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); justify-self: stretch; }
+  .inbound-job-actions .button { width: 100%; min-width: 0; justify-content: center; }
   .inbound-actions { align-items: stretch; flex-direction: column; }
   .inbound-actions .button { justify-content: center; }
   .inbound-receipt-line { grid-template-columns: 1fr; }

@@ -16,8 +16,20 @@ test("print job remains readable from mobile through narrow desktop", async ({ p
   await expect(page.getByText("Awaiting physical confirmation")).toBeVisible();
 
   const printJob = page.locator(".inbound-job-row");
+  const workPanel = page.locator(".inbound-work-panel").filter({ has: printJob });
   const reference = printJob.locator("strong").nth(0);
   const status = printJob.locator("strong").nth(1);
+  const actions = printJob.locator(".inbound-job-actions");
+  const cancelButton = actions.getByRole("button", { name: "Cancel print" });
+  const confirmButton = actions.getByRole("button", { name: "Confirm printed" });
+
+  const expectHorizontallyContained = (
+    child: { x: number; width: number },
+    container: { x: number; width: number },
+  ) => {
+    expect(child.x).toBeGreaterThanOrEqual(container.x - 1);
+    expect(child.x + child.width).toBeLessThanOrEqual(container.x + container.width + 1);
+  };
 
   for (const viewport of [
     { width: 1040, height: 900 },
@@ -35,12 +47,38 @@ test("print job remains readable from mobile through narrow desktop", async ({ p
     expect(documentWidth.scrollWidth).toBeLessThanOrEqual(documentWidth.clientWidth);
 
     const maxTextHeight = viewport.width > 700 ? 48 : 72;
-    const referenceBox = await reference.boundingBox();
-    const statusBox = await status.boundingBox();
+    const [panelBox, printJobBox, referenceBox, statusBox, actionsBox] = await Promise.all([
+      workPanel.boundingBox(),
+      printJob.boundingBox(),
+      reference.boundingBox(),
+      status.boundingBox(),
+      actions.boundingBox(),
+    ]);
+    expect(panelBox).not.toBeNull();
+    expect(printJobBox).not.toBeNull();
     expect(referenceBox).not.toBeNull();
     expect(statusBox).not.toBeNull();
+    expect(actionsBox).not.toBeNull();
+    expectHorizontallyContained(printJobBox!, panelBox!);
+    expectHorizontallyContained(referenceBox!, panelBox!);
+    expectHorizontallyContained(statusBox!, panelBox!);
+    expectHorizontallyContained(actionsBox!, panelBox!);
     expect(referenceBox!.height).toBeLessThanOrEqual(maxTextHeight);
     expect(statusBox!.height).toBeLessThanOrEqual(maxTextHeight);
+
+    if (viewport.width === 390) {
+      const [cancelBox, confirmBox] = await Promise.all([
+        cancelButton.boundingBox(),
+        confirmButton.boundingBox(),
+      ]);
+      expect(cancelBox).not.toBeNull();
+      expect(confirmBox).not.toBeNull();
+      expect(Math.abs(cancelBox!.width - confirmBox!.width)).toBeLessThanOrEqual(1);
+      expectHorizontallyContained(cancelBox!, actionsBox!);
+      expectHorizontallyContained(confirmBox!, actionsBox!);
+      expectHorizontallyContained(cancelBox!, printJobBox!);
+      expectHorizontallyContained(confirmBox!, printJobBox!);
+    }
   }
 });
 
