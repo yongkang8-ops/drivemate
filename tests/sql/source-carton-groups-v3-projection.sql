@@ -6,7 +6,7 @@ declare
   supplier uuid; import_run uuid; po uuid; product_a uuid; product_b uuid;
   shipment_v3 uuid; shipment_v3_open uuid; shipment_v2 uuid; shipment_v1 uuid;
   revision_v3 uuid; revision_v3_open uuid; revision_v2 uuid; revision_v1 uuid; invalid_revision uuid;
-  payload_v3 jsonb; before_movements bigint; rejected boolean:=false;
+  payload_v3 jsonb; before_movements bigint; rejected boolean:=false; group_parent_rejected boolean:=false;
 begin
   insert into auth.users(id) values(actor);
   insert into public.suppliers(legal_name) values('LOCAL QA generic supplier '||gen_random_uuid()) returning id into supplier;
@@ -125,6 +125,20 @@ begin
   if (select count(*) from public.shipment_carton_members where shipment_id=shipment_v3)<>6 then
     raise exception 'Rejected v3 revision changed the existing projection';
   end if;
+  insert into public.shipment_packing_list_versions(
+    shipment_id,version,status,payload_snapshot,created_by
+  ) values(
+    shipment_v3,3,'draft',
+    jsonb_set(payload_v3,'{cartons,1,memberCartonNumbers}',jsonb_build_array('BATCH-A','CASE-BETA','CASE-GAMMA')),
+    actor
+  ) returning id into invalid_revision;
+  begin
+    perform public.dm_confirm_packing_list_revision(invalid_revision,actor);
+  exception when others then
+    if sqlerrm not like '%cannot also be a source scope%' then raise; end if;
+    group_parent_rejected:=true;
+  end;
+  if not group_parent_rejected then raise exception 'Group parent was accepted as its own physical member'; end if;
 
   insert into public.shipment_packing_list_versions(shipment_id,version,status,payload_snapshot,created_by)
   values(shipment_v2,1,'draft',jsonb_build_object(

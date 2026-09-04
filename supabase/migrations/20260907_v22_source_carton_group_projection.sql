@@ -177,7 +177,10 @@ begin
       if v_normalized_member=any(v_member_ids) then
         raise exception 'Member carton identifier % belongs to more than one source scope',v_member.value;
       end if;
-      if v_normalized_member=any(v_scope_ids) and v_normalized_member<>v_normalized_scope then
+      if v_scope_kind='carton_group' and v_normalized_member=any(v_scope_ids) then
+        raise exception 'Member carton identifier % cannot also be a source scope',v_member.value;
+      end if;
+      if v_scope_kind='carton' and v_normalized_member=any(v_scope_ids) and v_normalized_member<>v_normalized_scope then
         raise exception 'Member carton identifier % cannot also be a source scope',v_member.value;
       end if;
       if v_scope_kind='carton' and v_normalized_member<>v_normalized_scope then
