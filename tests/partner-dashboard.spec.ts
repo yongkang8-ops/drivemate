@@ -119,6 +119,58 @@ test("the dashboard keeps private module navigation inside its workspace chrome"
   ).toHaveAttribute("href", "/admin/staff");
 });
 
+test("partner dashboard mobile navigation uses two visible columns", async ({ page }) => {
+  await page.goto("/partner");
+  await expect(page.getByRole("heading", { name: "Operations dashboard" })).toBeVisible();
+
+  for (const width of [390, 701, 768, 880, 1040, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+
+    const navigation = page.locator(".partner-dashboard-nav");
+    await expect(navigation).toBeVisible();
+    const layout = await navigation.evaluate((element) => {
+      const documentElement = document.documentElement;
+      const navigationRect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return {
+        documentClientWidth: documentElement.clientWidth,
+        documentScrollWidth: documentElement.scrollWidth,
+        navigationClientWidth: element.clientWidth,
+        navigationScrollWidth: element.scrollWidth,
+        navigationRect: { left: navigationRect.left, right: navigationRect.right },
+        display: style.display,
+        gridTemplateColumns: style.gridTemplateColumns,
+        links: Array.from(element.querySelectorAll("a"), (link) => {
+          const rect = link.getBoundingClientRect();
+          const linkStyle = getComputedStyle(link);
+          return {
+            text: link.textContent?.trim() ?? "",
+            left: rect.left,
+            right: rect.right,
+            visible: rect.width > 0 && rect.height > 0 && linkStyle.display !== "none" && linkStyle.visibility !== "hidden",
+          };
+        }),
+      };
+    });
+
+    expect(layout.documentScrollWidth, `document overflow at ${width}px`).toBeLessThanOrEqual(layout.documentClientWidth);
+    expect(layout.navigationScrollWidth, `navigation overflow at ${width}px`).toBeLessThanOrEqual(layout.navigationClientWidth);
+    for (const link of layout.links) {
+      expect(link.left, `${link.text} starts outside navigation at ${width}px`).toBeGreaterThanOrEqual(layout.navigationRect.left - 1);
+      expect(link.right, `${link.text} ends outside navigation at ${width}px`).toBeLessThanOrEqual(layout.navigationRect.right + 1);
+      expect(link.left, `${link.text} starts outside viewport at ${width}px`).toBeGreaterThanOrEqual(-1);
+      expect(link.right, `${link.text} ends outside viewport at ${width}px`).toBeLessThanOrEqual(layout.documentClientWidth + 1);
+    }
+
+    if (width === 390) {
+      expect(layout.display).toBe("grid");
+      expect(layout.gridTemplateColumns.trim().split(/\s+/)).toHaveLength(2);
+      expect(layout.links.length).toBeGreaterThan(0);
+      for (const link of layout.links) expect(link.visible, `${link.text} is hidden at 390px`).toBe(true);
+    }
+  }
+});
+
 test("shipment actions stay inside the worklist at a narrow desktop width", async ({
   page,
   request,
