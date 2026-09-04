@@ -11,6 +11,14 @@ test("authenticated Inventory uses only the private operations shell", async ({ 
   await expect(page.locator(".site-header")).toBeHidden();
   await expect(page.locator(".site-footer")).toBeHidden();
   await expect(page.getByLabel("Account session")).toBeHidden();
+
+  const viewport = page.viewportSize();
+  const appBox = await page.locator(".inventory-location-app").boundingBox();
+  expect(viewport).not.toBeNull();
+  expect(appBox).not.toBeNull();
+  expect(Math.abs(appBox!.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(appBox!.x + appBox!.width - viewport!.width)).toBeLessThanOrEqual(1);
+  expect(appBox!.height).toBeGreaterThanOrEqual(viewport!.height);
 });
 
 test.describe("unauthenticated Inventory SSR shell", () => {

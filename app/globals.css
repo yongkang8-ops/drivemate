@@ -620,6 +620,7 @@ body:has(.inventory-location-app) .auth-panel,
 body:has(.staff-operations-app) .site-header,
 body:has(.staff-operations-app) .site-footer,
 body:has(.staff-operations-app) .auth-panel { display: none; }
+body:has(.staff-operations-app) .staff-management-route { padding: 0; }
 .partner-dashboard-app { display: grid; grid-template-columns: 250px minmax(0, 1fr); min-height: 100vh; background: #f8fbfa; color: #10272b; }
 .partner-dashboard-sidebar { display: flex; min-height: 100%; flex-direction: column; padding: 28px 18px 24px; background: #123a3c; color: #d5e7e4; }
 .partner-dashboard-brand { padding: 2px 12px 30px; }
@@ -1150,7 +1151,7 @@ body:has(.staff-operations-app) .auth-panel { display: none; }
 }
 
 /* Private Staff management */
-.staff-management-route { width: 100%; max-width: none; padding: 0; background: #eef3f2; }
+.staff-management-route { width: 100%; max-width: none; padding: 24px 0 48px; background: #eef3f2; }
 .staff-management-route > .auth-panel { width: min(100% - 48px, 1320px); margin: 0 auto 18px; }
 .staff-management-route > .auth-panel.is-authenticated { min-height: 62px; box-sizing: border-box; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 14px; padding: 11px 17px; }
 .staff-management-route > .auth-panel.is-authenticated .eyebrow, .staff-management-route > .auth-panel.is-authenticated h2 { display: none; }
@@ -1268,7 +1269,7 @@ body:has(.staff-operations-app) .auth-panel { display: none; }
 }
 
 @media (max-width: 700px) {
-  .staff-management-route { max-width: 100%; padding: 0; overflow-x: clip; }
+  .staff-management-route { max-width: 100%; padding: 0 0 32px; overflow-x: clip; }
   .staff-management-route > .auth-panel { width: calc(100% - 32px); margin: 16px; }
   .staff-management-route > .auth-panel.is-authenticated { grid-template-columns: 1fr auto; }
   .staff-management-route > .auth-panel.is-authenticated .auth-notice { display: none; }

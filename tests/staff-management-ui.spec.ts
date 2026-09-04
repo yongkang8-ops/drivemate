@@ -75,6 +75,18 @@ test("authenticated Staff uses only the private operations shell", async ({ page
   await expect(page.locator(".site-header")).toBeHidden();
   await expect(page.locator(".site-footer")).toBeHidden();
   await expect(page.getByLabel("Account session")).toBeHidden();
+
+  const viewport = page.viewportSize();
+  const app = page.locator(".staff-operations-app");
+  const appBox = await app.boundingBox();
+  expect(viewport).not.toBeNull();
+  expect(appBox).not.toBeNull();
+  expect(Math.abs(appBox!.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(appBox!.x + appBox!.width - viewport!.width)).toBeLessThanOrEqual(1);
+  expect(appBox!.height).toBeGreaterThanOrEqual(viewport!.height);
+  await expect(app).toHaveCSS("border-top-width", "0px");
+  await expect(app).toHaveCSS("border-radius", "0px");
+  await expect(app).toHaveCSS("box-shadow", "none");
 });
 
 test.describe("unauthenticated Staff SSR shell", () => {
@@ -90,6 +102,12 @@ test.describe("unauthenticated Staff SSR shell", () => {
     await expect(page.getByRole("heading", { name: "Workspace access required" })).toBeVisible();
     await expect(page.locator(".site-footer")).toBeVisible();
     await expect(page.locator(".staff-operations-app")).toHaveCount(0);
+
+    const routeSpacing = await page.locator(".staff-management-route").evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { paddingTop: style.paddingTop, paddingBottom: style.paddingBottom };
+    });
+    expect(routeSpacing).toEqual({ paddingTop: "24px", paddingBottom: "48px" });
   });
 });
 
