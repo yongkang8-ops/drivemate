@@ -73,34 +73,30 @@
 - [ ] Preserve exact replay behavior for the same idempotency key and run focused tests.
 - [ ] Commit only Task 2 files.
 
-### Task 3: Append-only carton-detail evidence and v21 migration draft
+### Task 3A: Required generic v3 database projection
 
 **Files:**
-- Create: `lib/cartonDetailEvidence.ts`
-- Create: `app/api/prearrival/shipments/[shipmentId]/carton-details/route.ts`
-- Modify: `lib/repository.ts`
-- Modify: `lib/memoryRepository.ts`
-- Modify: `lib/supabaseRepository.ts`
-- Create: `supabase/migrations/20260907_v22_source_carton_detail_evidence.sql`
-- Test: `tests/carton-detail-evidence.test.ts`
-- Test: `tests/carton-detail-evidence-route.test.ts`
+- Create: `supabase/migrations/20260907_v22_source_carton_group_projection.sql`
 - Test: `tests/source-carton-groups-migration.test.ts`
 - Modify: `tests/migration-order.test.ts`
+- Create: `tests/sql/source-carton-groups-v3-projection.sql`
 
 **Interfaces:**
-- `CartonDetailKind = "packing_allocation" | "observed_contents"`.
-- `createCartonDetailEvidence(input, baseline, context)` returns one immutable version with `partial | complete | difference` status.
-- Repository methods: `listCartonDetailEvidence(shipmentId, sourceCartonNumber)` and `appendCartonDetailEvidence(input, context)`.
+- `shipment_cartons` remains the stable source-scope projection; `carton_count` stores physical carton count and `scope_kind` distinguishes `carton | carton_group`.
+- `shipment_carton_members` stores normalized member identifiers with shipment-level uniqueness.
+- `dm_confirm_packing_list_revision` accepts schema v3 while delegating v1/v2 unchanged.
 
-- [ ] Write failing domain tests for partial allocation, exact complete allocation, over-allocation rejection, observed difference with a required reason, and no stock side effects.
-- [ ] Implement the isolated evidence validator with server-derived status and immutable version metadata.
-- [ ] Write failing route tests for auth, stale baseline, invalid member/SKU and idempotent replay; then implement GET/POST using `prearrival_manage`.
-- [ ] Write behavior-oriented migration tests, then add v21 tables, constraints and transaction functions for v3 projection and evidence append. Do not execute against Production.
-- [ ] Implement repository adapters and run focused tests.
-- [ ] If a local disposable PostgreSQL/Supabase runtime exists, execute v20 then v21 and record transaction results; otherwise report database execution as unverified.
-- [ ] Commit only Task 3 files.
+- [x] Write failing migration contract tests for generic scope/member projection, v1/v2 delegation and migration order.
+- [x] Add v22 tables, constraints and transaction support for schema v3 without supplier, freight-provider or file-format coupling.
+- [x] Execute initial through v22 on a disposable local Supabase PostgreSQL runtime.
+- [x] Verify generic identifiers, physical-carton totals, optional pallet mapping, rollback safety, no stock side effects and v1/v2 compatibility.
+- [ ] Run full local QA, independent review and commit only Task 3A files.
 
-### Task 4: Operations UI and responsive behavior
+### Deferred Task 3B: Append-only per-carton detail evidence
+
+Deferred until a real per-member allocation, carton-loss/damage traceability need, or warehouse unopened-carton lookup requirement exists. It will contain the previously planned immutable `packing_allocation | observed_contents` versions, private GET/POST API, audit trail and later right-side drawer. It is not a dependency for label printing, group receipt, staging, putaway or inventory.
+
+### Task 4A: Required Operations UI and responsive group workflow
 
 **Files:**
 - Modify: `components/PrearrivalShipmentPanel.tsx`
@@ -115,15 +111,18 @@
 - Test: `tests/warehouse-history.test.ts`
 
 **Interfaces:**
-- UI consumes the Task 1 carton structure summary and Task 3 evidence status.
-- The carton-detail drawer saves through the private Task 3 endpoint and leaves the form intact on failure.
+- UI consumes the Task 1 carton structure summary and Task 3A v3 source-scope contract.
+- Operational submissions always emit canonical parent scope identifiers.
 
-- [ ] Write failing browser/component tests for carton/group fields, 35-vs-38 summary labels, group total copy, Warehouse group selection and information-only incomplete detail status.
+- [ ] Write failing browser/component tests for carton/group fields, 35-vs-38 summary labels, group total copy and Warehouse group selection.
 - [ ] Implement the existing-system UI: explicit labels above inputs, inline errors, stable state feedback and member lookup without adding another design system.
-- [ ] Add the right-side detail drawer with packing/observed modes, unsaved-close confirmation and the exact success copy `Carton details saved. Inventory has not changed.`.
-- [ ] Add dashboard and history projections without changing inventory arithmetic.
+- [ ] Add dashboard and history source-scope/physical-carton projections without changing inventory arithmetic.
 - [ ] Verify keyboard operation and 390/701/768/880/1280px layouts; run focused Playwright.
-- [ ] Commit only Task 4 files.
+- [ ] Commit only Task 4A files.
+
+### Deferred Task 4B: Per-carton evidence UI
+
+Deferred with Task 3B. It will add the right-side detail drawer, packing/observed modes, unsaved-close confirmation, evidence completeness status and version-history events only after the underlying evidence subsystem is justified.
 
 ### Task 5: Authoritative 706-unit v3 draft and full local QA
 

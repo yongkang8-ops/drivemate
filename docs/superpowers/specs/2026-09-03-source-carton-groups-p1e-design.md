@@ -1,6 +1,6 @@
 # P1E 来源箱组与后补装箱明细设计
 
-状态：方案方向已获用户同意；本文为代码检查后细化的规格，待用户确认后进入实施计划、TDD 与本地 QA。
+状态：方案已确认。2026-09-04 决定将数据库 v3 投影作为上线前必做 Task 3A；逐箱明细补录与页面作为 Task 3B 延后到出现真实资料或追溯需求时。
 
 ## 1. 业务目标
 
@@ -143,7 +143,7 @@ v3 的 `cartons` 保留现有集合字段，但每条记录显式区分单箱与
 
 ## 9. 持久化和接口范围
 
-拟新增 v21 本地迁移，保留 v20 作为已完成依赖，不改写既有迁移历史。
+Task 3A 新增 v22 本地迁移，保留 v20/v21 作为已完成依赖，不改写既有迁移历史。
 
 - 当前 `shipment_cartons` 投影保存记录类型、实体箱数和成员箱号；shipment 内成员互斥由确认事务同时校验。
 - 确认函数增加 v3 分支；旧 v1/v2 保持可读，不将历史裸字符串自动解析成箱组。
@@ -152,6 +152,8 @@ v3 的 `cartons` 保留现有集合字段，但每条记录显式区分单箱与
 - 补录接口不调用收货/上架接口，不更新 stock balances、stock movements 或 receipt session。
 - Memory repository 与 Supabase repository 采用相同领域校验；API、数据库与前端三层均拒绝非法父子范围或数量输入。
 - 审计表和补录记录同事务提交；回滚失败不允许留下“成功”历史。
+
+Task 3A 仅落地通用 v3 来源范围投影：`shipment_cartons` 表示稳定来源范围、`carton_count` 表示实体箱数、独立成员关系表提供 shipment 内唯一成员标识。核心模型不解析显示字符串，也不依赖供应商、货代或电子表格列名。逐箱数量、版本证据、API 与界面均留在延后的 Task 3B。
 
 实现涉及 `lib/prearrivalShipment.ts`、`lib/prearrivalDraftValidation.ts`、`lib/warehouseLabels.ts`、`lib/warehouseInboundScope.ts`、`lib/warehouseDashboard.ts`、`lib/warehouseHistory.ts`、两个 repository、对应 API 与现有操作台组件。后补校验放在独立小模块，不继续堆入页面组件。
 
