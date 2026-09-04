@@ -119,6 +119,7 @@ test("pre-arrival mobile navigation uses two visible columns", async ({ page }) 
     expect(layout.documentScrollWidth, `document overflow at ${width}px`).toBeLessThanOrEqual(layout.documentClientWidth);
     expect(layout.navigationScrollWidth, `navigation overflow at ${width}px`).toBeLessThanOrEqual(layout.navigationClientWidth);
     for (const link of layout.links) {
+      expect(link.visible, `${link.text} is hidden at ${width}px`).toBe(true);
       expect(link.left, `${link.text} starts outside navigation at ${width}px`).toBeGreaterThanOrEqual(layout.navigationRect.left - 1);
       expect(link.right, `${link.text} ends outside navigation at ${width}px`).toBeLessThanOrEqual(layout.navigationRect.right + 1);
       expect(link.left, `${link.text} starts outside viewport at ${width}px`).toBeGreaterThanOrEqual(-1);
@@ -129,7 +130,6 @@ test("pre-arrival mobile navigation uses two visible columns", async ({ page }) 
       expect(layout.display).toBe("grid");
       expect(layout.gridTemplateColumns.trim().split(/\s+/)).toHaveLength(2);
       expect(layout.links.length).toBeGreaterThan(0);
-      for (const link of layout.links) expect(link.visible, `${link.text} is hidden at 390px`).toBe(true);
     }
   }
 });
