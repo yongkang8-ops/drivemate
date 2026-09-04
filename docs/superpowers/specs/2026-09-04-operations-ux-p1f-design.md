@@ -4,7 +4,7 @@ Date: 2026-09-04
 
 Branch: `hotfix/operations-ux-p1f-20260904`
 
-Status: user selected Approach A; written specification awaiting final review
+Status: user selected Approach A; written specification confirmed on 2026-09-04
 
 ## 1. Objective
 
