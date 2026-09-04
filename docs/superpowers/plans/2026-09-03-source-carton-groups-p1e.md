@@ -136,9 +136,9 @@ Deferred with Task 3B. It will add the right-side detail drawer, packing/observe
 **Interfaces:**
 - The new draft uses schema v3 and exposes separate `packingListDataReady`, `productBarcodeReadiness`, and `productionImportAuthorized` fields.
 
-- [ ] Add failing draft assertions for the exact 35 scopes, 38 cartons, 2 groups, 119 SKUs, 706 units, 4 physical pallets, no mappings and 40 shock absorbers.
-- [ ] Generate a new v3 draft from the existing audited source values without modifying the prior draft or source workbooks.
-- [ ] Set Packing List data readiness true, barcode readiness unknown until Production is checked, and Production import authorization false.
-- [ ] Run all Vitest tests, typecheck, Next.js production build, focused Playwright and `git diff --check`.
-- [ ] Record exact pass/fail/skip counts, local database execution status, responsive evidence and residual risks in the QA report.
-- [ ] Commit the new draft, test and QA report; do not push or deploy.
+- [x] Add failing draft assertions for the exact 35 scopes, 38 cartons, 2 groups, 119 SKUs, 706 units, 4 physical pallets, no mappings and 40 shock absorbers.
+- [x] Generate a new v3 draft from the existing audited source values without modifying the prior draft or source workbooks.
+- [x] Set Packing List data readiness true, barcode readiness unknown until Production is checked, and Production import authorization false.
+- [x] Run all Vitest tests, typecheck, Next.js production build, focused Playwright and `git diff --check`.
+- [x] Record exact pass/fail/skip counts, local database execution status, responsive evidence and residual risks in the QA report.
+- [x] Commit the new draft, test and QA report; do not push or deploy.
