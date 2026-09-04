@@ -48,7 +48,7 @@ test("keeps every Warehouse module accessible before Packing List confirmation",
   await page.getByRole("link", { name: "Receipt history" }).click();
   await expect(page.getByRole("heading", { name: "Receipt history" })).toBeVisible();
   await expect(page.getByText("No audit events match this view")).toBeVisible();
-  await expect(page.getByLabel("Carton")).toHaveValue("");
+  await expect(page.getByLabel("Source scope")).toHaveValue("");
 
   await expect(page.getByRole("button", { name: "Print labels" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Confirm receipt" })).toHaveCount(0);
@@ -113,4 +113,71 @@ test("putaway keeps confirmation disabled until the scanned DMLOC is a saved act
 
   await expect(page.getByText("Scanned destination is not an active physical putaway location.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Confirm put away" })).toBeDisabled();
+});
+
+test("resolves a member carton to its canonical source group for Warehouse operations", async ({
+  page,
+  request,
+}) => {
+  const payload = {
+    schemaVersion: 3,
+    shipmentId: "shipment-test-1",
+    cartons: [{
+      sourceCartonNumber: "7#8#9#",
+      kind: "carton_group",
+      physicalCartonCount: 3,
+      memberCartonNumbers: ["7#", "8#", "9#"],
+      sourcePalletNumber: null,
+      lines: [{ sku: "DM-GWM-OF-001", expectedQuantity: 10 }],
+    }],
+  };
+  const created = await request.post(
+    "/api/prearrival/shipments/shipment-test-1/revisions",
+    { headers: { "x-drivemate-role": "partner" }, data: payload },
+  );
+  expect(created.status()).toBe(201);
+  const body = await created.json();
+  await request.post(`/api/prearrival/revisions/${body.revision.id}/confirm`, {
+    headers: { "x-drivemate-role": "partner" },
+  });
+
+  await page.goto("/warehouse");
+  await page.getByLabel("Find source scope or member carton").fill("UNKNOWN-99");
+  await page.getByLabel("Find source scope or member carton").press("Enter");
+  await expect(page.getByText("UNKNOWN-99 is not part of this confirmed Packing List.", { exact: true })).toBeVisible();
+
+  await page.getByLabel("Find source scope or member carton").fill("8#");
+  const canonicalRequest = page.waitForRequest((candidate) => {
+    const url = new URL(candidate.url());
+    return url.pathname === "/api/warehouse/labels"
+      && url.searchParams.getAll("cartonNumber").includes("7#8#9#");
+  });
+  await page.getByLabel("Find source scope or member carton").press("Enter");
+  await canonicalRequest;
+
+  await expect(page.getByText("Member carton 8# resolved to source group 7#8#9#.", { exact: true })).toBeVisible();
+  await expect(page.locator(".inbound-scope-bar p")).toContainText("7#8#9#");
+  await expect(page.locator(".inbound-scope-bar p")).toContainText("10 expected units");
+
+  const printRequest = page.waitForRequest((candidate) => (
+    candidate.method() === "POST"
+    && new URL(candidate.url()).pathname === "/api/warehouse/labels"
+  ));
+  await page.getByRole("button", { name: "Print labels" }).click();
+  expect((await printRequest).postDataJSON()).toMatchObject({
+    selection: {
+      shipmentId: "shipment-test-1",
+      cartonNumbers: ["7#8#9#"],
+    },
+  });
+
+  for (const width of [390, 701, 768, 880, 1280]) {
+    await page.setViewportSize({ width, height: 1024 });
+    const layout = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth);
+    await expect(page.getByRole("region", { name: "Source carton scopes" })).toBeVisible();
+  }
 });

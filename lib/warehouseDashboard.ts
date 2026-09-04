@@ -1,4 +1,5 @@
 import type { DrivemateRepository } from "./repository";
+import { deriveCartonStructureSummary } from "./prearrivalShipment";
 import { buildWarehouseHistory, type WarehouseHistoryEvent, type WarehouseHistoryTimeZone } from "./warehouseHistory";
 
 export type PartnerDashboardShipmentSource = {
@@ -9,7 +10,9 @@ export type PartnerDashboardShipmentSource = {
   physicalPalletCount: number | null;
   mappedPalletCount: number;
   palletMappingStatus: "not_recorded" | "partial" | "complete";
-  cartonCount: number;
+  sourceScopeCount: number;
+  physicalCartonCount: number;
+  cartonGroupCount: number;
   expectedQuantity: number;
   labelConfirmed: boolean;
   receiptQuantity: number;
@@ -246,6 +249,9 @@ export async function loadPartnerDashboardSource(
     const shipmentEvents = events.filter((event) => event.shipmentId === summary.shipmentId);
     const receiptQuantity = totalFor(shipmentEvents, "receipt_confirmed");
     const locatedQuantity = totalFor(shipmentEvents, "putaway_confirmed");
+    const cartonStructure = confirmedRevision
+      ? deriveCartonStructureSummary(confirmedRevision.payloadSnapshot)
+      : { sourceScopeCount: 0, physicalCartonCount: 0, cartonGroupCount: 0 };
     return {
       shipmentId: summary.shipmentId,
       shipmentReference: summary.shipmentReference ?? summary.shipmentId,
@@ -254,7 +260,7 @@ export async function loadPartnerDashboardSource(
       physicalPalletCount: result.shipment.physicalPalletCount ?? null,
       mappedPalletCount: result.shipment.pallets.length,
       palletMappingStatus: result.shipment.palletMappingStatus ?? "not_recorded",
-      cartonCount: result.shipment.cartons.length,
+      ...cartonStructure,
       expectedQuantity: confirmedRevision?.totalExpectedQuantity
         ?? result.shipment.lines.reduce((total, line) => total + line.expectedQuantity, 0),
       labelConfirmed: shipmentEvents.some((event) => event.action === "print_confirmed"),

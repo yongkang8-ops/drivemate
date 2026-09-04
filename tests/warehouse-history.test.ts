@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWarehouseHistory } from "../lib/warehouseHistory";
+import { buildWarehouseHistory, summarizeWarehouseHistoryScope } from "../lib/warehouseHistory";
 
 describe("warehouse history projection", () => {
   const event = {
@@ -33,6 +33,30 @@ describe("warehouse history projection", () => {
       date: "29 Aug 2026",
       time: "08:45",
       timeZone: "Asia/Shanghai",
+    });
+  });
+
+  it("separates canonical source scopes from physical carton totals", () => {
+    const summary = summarizeWarehouseHistoryScope({
+      cartons: [
+        {
+          sourceCartonNumber: "C001",
+          kind: "carton",
+          physicalCartonCount: 1,
+        },
+        {
+          sourceCartonNumber: "7#8#9#",
+          kind: "carton_group",
+          physicalCartonCount: 3,
+        },
+      ],
+      selectedSourceScopes: ["7#8#9#"],
+    });
+
+    expect(summary).toEqual({
+      sourceScopeCount: 1,
+      physicalCartonCount: 3,
+      cartonGroupCount: 1,
     });
   });
 });

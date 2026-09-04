@@ -110,7 +110,7 @@ describe("pre-arrival Packing List draft validation", () => {
 
     expect(result.fieldErrors).toMatchObject({
       physicalPalletCount: "Enter a positive whole number of physical pallets, or leave it blank.",
-      "cartons.0.sourceCartonNumber": "Enter the carton number.",
+      "cartons.0.sourceCartonNumber": "Enter the source scope number.",
       "cartons.0.lines.0.sku": "Enter a recognised SKU.",
       "cartons.0.lines.0.expectedQuantity": "Enter a positive whole quantity.",
     });
@@ -139,7 +139,7 @@ describe("pre-arrival Packing List draft validation", () => {
     expect(result.ok).toBe(false);
     expect(result.fieldErrors).toEqual({
       "pallets.0.sourcePalletNumber": "Enter the pallet number.",
-      "pallets.0.cartons.0.sourceCartonNumber": "Enter the carton number.",
+      "pallets.0.cartons.0.sourceCartonNumber": "Enter the source scope number.",
       "pallets.0.cartons.0.lines.0.sku": "Enter a recognised SKU.",
       "pallets.0.cartons.0.lines.0.expectedQuantity":
         "Enter a positive whole quantity.",
@@ -208,9 +208,9 @@ describe("pre-arrival Packing List draft validation", () => {
     ]);
 
     expect(result.fieldErrors).toMatchObject({
-      "pallets.0.cartons.0.lines.1.sku": "Use each SKU once per carton.",
+      "pallets.0.cartons.0.lines.1.sku": "Use each SKU once per source scope.",
       "pallets.1.sourcePalletNumber": "Use a unique pallet number.",
-      "pallets.1.cartons.0.sourceCartonNumber": "Use a unique carton number.",
+      "pallets.1.cartons.0.sourceCartonNumber": "Use a unique source scope number.",
     });
     expect(draft.pallets[1].sourcePalletNumber).toBe(" p001 ");
     expect(draft.pallets[0].cartons[0].lines[1].sku).toBe(" dm-gwm-of-001 ");

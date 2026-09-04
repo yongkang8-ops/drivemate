@@ -70,9 +70,9 @@ export function validatePackingListDraft(
     const cartonField = packingListFieldKey([...path, "sourceCartonNumber"]);
     const normalizedCartonNumber = normalizePackingIdentifier(carton.sourceCartonNumber);
     if (!normalizedCartonNumber) {
-      fieldErrors[cartonField] = "Enter the carton number.";
+      fieldErrors[cartonField] = "Enter the source scope number.";
     } else if (cartonNumbers.has(normalizedCartonNumber)) {
-      fieldErrors[cartonField] = "Use a unique carton number.";
+      fieldErrors[cartonField] = "Use a unique source scope number.";
     } else {
       cartonNumbers.add(normalizedCartonNumber);
     }
@@ -86,7 +86,7 @@ export function validatePackingListDraft(
       } else if (normalizedKnownSkus && !normalizedKnownSkus.has(normalizedSku)) {
         fieldErrors[skuField] = "Select an SKU from the product master.";
       } else if (cartonSkus.has(normalizedSku)) {
-        fieldErrors[skuField] = "Use each SKU once per carton.";
+        fieldErrors[skuField] = "Use each SKU once per source scope.";
       } else {
         cartonSkus.add(normalizedSku);
       }

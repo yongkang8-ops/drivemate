@@ -169,7 +169,7 @@ test("Partner initializes the first packing list and unlocks the Warehouse label
   await page.getByRole("button", { name: "Create first Packing List" }).click();
   await page.getByLabel("Physical pallets").fill("2");
   await page.getByLabel("Pallet number").fill("P001");
-  await page.getByLabel("Carton number").fill("C001");
+  await page.getByLabel("Source scope number").fill("C001");
   await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
   await page.getByLabel("Expected quantity", { exact: true }).fill("12");
 
@@ -178,15 +178,15 @@ test("Partner initializes the first packing list and unlocks the Warehouse label
   await page.getByLabel("SKU 2").fill("DM-GWM-AF-002");
   await page.getByLabel("Expected quantity 2").fill("6");
 
-  await page.getByRole("button", { name: "Add carton" }).click();
+  await page.getByRole("button", { name: "Add source scope" }).click();
   await page.getByLabel("Pallet number").fill("P001");
-  await page.getByLabel("Carton number").fill("C002");
+  await page.getByLabel("Source scope number").fill("C002");
   await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
   await page.getByLabel("Expected quantity", { exact: true }).fill("24");
 
-  await page.getByRole("button", { name: "Add carton" }).click();
+  await page.getByRole("button", { name: "Add source scope" }).click();
   await page.getByLabel("Pallet number").fill("P002");
-  await page.getByLabel("Carton number").fill("C003");
+  await page.getByLabel("Source scope number").fill("C003");
   await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-AF-002");
   await page.getByLabel("Expected quantity", { exact: true }).fill("10");
 
@@ -212,7 +212,7 @@ test("Partner confirms cartons without pallet mapping and Warehouse uses the ful
   await page.goto("/prearrival");
   await page.getByRole("button", { name: "Create first Packing List" }).click();
   await page.getByLabel("Physical pallets").fill("4");
-  await page.getByLabel("Carton number").fill("C001");
+  await page.getByLabel("Source scope number").fill("C001");
   await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
   await page.getByLabel("Expected quantity", { exact: true }).fill("12");
 
@@ -264,11 +264,11 @@ test("editing a v3 single carton keeps its sole member carton number in the save
 
   await page.goto("/prearrival");
   await page.getByRole("button", { name: "Create revision" }).click();
-  await page.getByLabel("Carton number").fill("C002");
+  await page.getByLabel("Source scope number").fill("C002");
   await page.getByRole("button", { name: /7#8#/ }).click();
-  await page.getByLabel("Carton number").fill("7#8# revised");
-  await page.getByRole("button", { name: "Add carton" }).click();
-  await page.getByLabel("Carton number").fill("C003");
+  await page.getByLabel("Source scope number").fill("7#8# revised");
+  await page.getByRole("button", { name: "Add source scope" }).click();
+  await page.getByLabel("Source scope number").fill("C003");
   await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-AF-002");
 
   const savedRevision = page.waitForRequest((candidate) => (
@@ -303,6 +303,71 @@ test("editing a v3 single carton keeps its sole member carton number in the save
   ]));
 });
 
+test("creates a v3 carton group without multiplying its expected quantity", async ({
+  page,
+  request,
+}) => {
+  await request.post("/api/test/reset?packingList=empty");
+  await page.goto("/prearrival");
+  await page.getByRole("button", { name: "Create first Packing List" }).click();
+
+  await expect(page.getByLabel("Scope type")).toHaveValue("carton");
+  await page.getByLabel("Scope type").selectOption("carton_group");
+  await page.getByLabel("Source scope number").fill("7#8#9#");
+  await page.getByLabel("Physical cartons").fill("3");
+  await page.getByLabel("Member carton 1").fill("7#");
+  await page.getByLabel("Member carton 2").fill("8#");
+  await page.getByLabel("Member carton 3").fill("9#");
+  await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
+  await page.getByLabel("Expected quantity", { exact: true }).fill("10");
+
+  const savedRevision = page.waitForRequest((candidate) => (
+    candidate.method() === "POST"
+    && /\/api\/prearrival\/shipments\/[^/]+\/revisions$/.test(
+      new URL(candidate.url()).pathname,
+    )
+  ));
+  await page.getByRole("button", { name: "Confirm Packing List" }).click();
+
+  const savedPayload = (await savedRevision).postDataJSON();
+  expect(savedPayload).toMatchObject({
+    schemaVersion: 3,
+    cartons: [{
+      sourceCartonNumber: "7#8#9#",
+      kind: "carton_group",
+      physicalCartonCount: 3,
+      memberCartonNumbers: ["7#", "8#", "9#"],
+      lines: [{ sku: "DM-GWM-OF-001", expectedQuantity: 10 }],
+    }],
+  });
+  const structureSummary = page.getByLabel("Carton structure summary");
+  await expect(structureSummary).toContainText(/Source scopes\s*1/i);
+  await expect(structureSummary).toContainText(/Physical cartons\s*3/i);
+  await expect(structureSummary).toContainText(/Carton groups\s*1/i);
+  await expect(page.getByText("3 physical cartons · 10 units", { exact: true })).toBeVisible();
+});
+
+test("carton group editor stays contained from mobile through desktop widths", async ({
+  page,
+  request,
+}) => {
+  await request.post("/api/test/reset?packingList=empty");
+  await page.goto("/prearrival");
+  await page.getByRole("button", { name: "Create first Packing List" }).click();
+  await page.getByLabel("Scope type").selectOption("carton_group");
+  await page.getByLabel("Physical cartons").fill("3");
+
+  for (const width of [390, 701, 768, 880, 1280]) {
+    await page.setViewportSize({ width, height: 1024 });
+    const layout = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth);
+    await expect(page.getByRole("group", { name: "Member carton numbers" })).toBeVisible();
+  }
+});
+
 test("first Packing List validation stays local and cancel clears errors", async ({
   page,
   request,
@@ -331,11 +396,11 @@ test("first Packing List validation stays local and cancel clears errors", async
     "Complete the highlighted Packing List fields before confirming.",
   );
   await expect(page.getByText("Enter the pallet number.", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("Enter the carton number.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Enter the source scope number.", { exact: true })).toBeVisible();
   await expect(page.getByText("Enter a recognised SKU.", { exact: true })).toBeVisible();
   expect(revisionPostCount).toBe(0);
 
-  const cartonInput = page.getByLabel("Carton number");
+  const cartonInput = page.getByLabel("Source scope number");
   expect(await cartonInput.evaluate((input) => {
     const describedBy = input.getAttribute("aria-describedby");
     return {
@@ -352,7 +417,7 @@ test("first Packing List validation stays local and cancel clears errors", async
   });
 
   await cartonInput.fill("C001");
-  await expect(page.getByText("Enter the carton number.", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Enter the source scope number.", { exact: true })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Cancel working copy" }).click();
   await expect(errorSummary).toHaveCount(0);
@@ -381,7 +446,7 @@ test("first Packing List rejects an existing SKU outside the shipment purchase o
   await page.goto("/prearrival");
   await page.getByRole("button", { name: "Create first Packing List" }).click();
   await page.getByLabel("Pallet number").fill("P001");
-  await page.getByLabel("Carton number").fill("C001");
+  await page.getByLabel("Source scope number").fill("C001");
   await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-CF-003");
   await page.getByLabel("Expected quantity", { exact: true }).fill("1");
   await page.getByRole("button", { name: "Confirm Packing List" }).click();
@@ -432,14 +497,14 @@ test("validation selects and focuses the first error in a hidden carton", async 
   await page.goto("/prearrival");
   await page.getByRole("button", { name: "Create first Packing List" }).click();
   await page.getByLabel("Pallet number").fill("P001");
-  await page.getByLabel("Carton number").fill("C001");
+  await page.getByLabel("Source scope number").fill("C001");
 
-  await page.getByRole("button", { name: "Add carton" }).click();
-  await page.getByLabel("Carton number").fill("C002");
+  await page.getByRole("button", { name: "Add source scope" }).click();
+  await page.getByLabel("Source scope number").fill("C002");
   await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
   await page.getByRole("button", { name: "Confirm Packing List" }).click();
 
-  await expect(page.getByRole("heading", { name: /Carton C001 expected contents/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Source scope C001 expected contents/ })).toBeVisible();
   await expect(page.getByLabel("SKU", { exact: true })).toHaveValue("");
   await expect(page.getByLabel("SKU", { exact: true })).toBeFocused();
 });
@@ -480,13 +545,13 @@ test("duplicate Packing List values stay local and do not create a revision", as
   await page.goto("/prearrival");
   await page.getByRole("button", { name: "Create first Packing List" }).click();
   await page.getByLabel("Pallet number").fill("P001");
-  await page.getByLabel("Carton number").fill("C001");
+  await page.getByLabel("Source scope number").fill("C001");
   await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
   await page.getByRole("button", { name: "Add SKU line" }).click();
   await page.getByLabel("SKU 2").fill(" dm-gwm-of-001 ");
   await page.getByRole("button", { name: "Confirm Packing List" }).click();
 
-  await expect(page.getByText("Use each SKU once per carton.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Use each SKU once per source scope.", { exact: true })).toBeVisible();
   await expect(page.getByLabel("SKU 2")).toBeFocused();
   expect(revisionPostCount).toBe(0);
 });
@@ -550,9 +615,9 @@ test("a saved draft retries confirmation without creating another revision", asy
   await expect(page.getByLabel("Shipment")).toBeDisabled();
   await expect(page.getByRole("button", { name: "Create revision" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Add SKU line" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Add carton" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Add source scope" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Remove SKU line 2" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Remove carton" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Remove source scope" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Cancel working copy" })).toBeDisabled();
   expect(await page.locator(".prearrival-editor input").evaluateAll(
     (inputs) => inputs.every((input) => (input as HTMLInputElement).disabled),
@@ -623,7 +688,7 @@ test("a deterministically rejected saved draft can start a corrected revision", 
   await page.goto("/prearrival");
   await page.getByRole("button", { name: "Create first Packing List" }).click();
   await page.getByLabel("Pallet number").fill("P001");
-  await page.getByLabel("Carton number").fill("C001");
+  await page.getByLabel("Source scope number").fill("C001");
   await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
   await page.getByLabel("Expected quantity", { exact: true }).fill("12");
   await page.getByRole("button", { name: "Confirm Packing List" }).click();
@@ -664,7 +729,7 @@ test("reload recovers a server-saved draft when the create response is lost", as
   await page.goto("/prearrival");
   await page.getByRole("button", { name: "Create first Packing List" }).click();
   await page.getByLabel("Pallet number").fill("P001");
-  await page.getByLabel("Carton number").fill("C001");
+  await page.getByLabel("Source scope number").fill("C001");
   await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
   await page.getByLabel("Expected quantity", { exact: true }).fill("17");
   await page.getByRole("button", { name: "Confirm Packing List" }).click();
@@ -710,7 +775,7 @@ test("reload resolves an unknown confirm response from server truth", async ({
   await page.goto("/prearrival");
   await page.getByRole("button", { name: "Create first Packing List" }).click();
   await page.getByLabel("Pallet number").fill("P001");
-  await page.getByLabel("Carton number").fill("C001");
+  await page.getByLabel("Source scope number").fill("C001");
   await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
   await page.getByRole("button", { name: "Confirm Packing List" }).click();
 
@@ -744,7 +809,7 @@ test("an unknown create result requires shipment reconciliation", async ({
   await page.goto("/prearrival");
   await page.getByRole("button", { name: "Create first Packing List" }).click();
   await page.getByLabel("Pallet number").fill("P001");
-  await page.getByLabel("Carton number").fill("C001");
+  await page.getByLabel("Source scope number").fill("C001");
   await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
   await page.getByRole("button", { name: "Confirm Packing List" }).click();
 
@@ -787,12 +852,12 @@ test("Partner creates and confirms a pre-arrival packing-list revision", async (
 
   await expect(page.getByRole("heading", { name: "Pre-arrival shipments" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Packing structure" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /Carton C001 expected contents/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Source scope C001 expected contents/ })).toBeVisible();
   await expect(page.getByText("v1 confirmed")).toBeVisible();
 
   await page.getByRole("button", { name: "Create revision" }).click();
   await page.getByLabel("Pallet number").fill("P001");
-  await page.getByLabel("Carton number").fill("C001");
+  await page.getByLabel("Source scope number").fill("C001");
   await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
   await page.getByLabel("Expected quantity", { exact: true }).fill("13");
   await page.getByRole("button", { name: "Confirm packing list" }).click();

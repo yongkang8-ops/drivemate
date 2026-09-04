@@ -232,7 +232,7 @@ export function PartnerDashboard() {
                           ? `Packing List v${shipment.packingListVersion}`
                           : "Packing List not confirmed"}
                       </span>
-                      {` · ${shipment.physicalPalletCount ?? "Unknown"} physical pallets · ${shipment.mappedPalletCount || "—"} mapped · ${shipment.cartonCount} cartons · ${shipment.palletMappingStatus.replace("_", " ")}`}
+                      {` · ${shipment.physicalPalletCount ?? "Unknown"} physical pallets · ${shipment.mappedPalletCount || "—"} mapped · ${shipment.sourceScopeCount} source ${shipment.sourceScopeCount === 1 ? "scope" : "scopes"} · ${shipment.physicalCartonCount} physical ${shipment.physicalCartonCount === 1 ? "carton" : "cartons"}${shipment.cartonGroupCount ? ` · ${shipment.cartonGroupCount} ${shipment.cartonGroupCount === 1 ? "group" : "groups"}` : ""} · ${shipment.palletMappingStatus.replace("_", " ")}`}
                     </span>
                   </div>
                   <div className="partner-shipment-stage">

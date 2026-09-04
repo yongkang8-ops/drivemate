@@ -114,11 +114,11 @@ Deferred until a real per-member allocation, carton-loss/damage traceability nee
 - UI consumes the Task 1 carton structure summary and Task 3A v3 source-scope contract.
 - Operational submissions always emit canonical parent scope identifiers.
 
-- [ ] Write failing browser/component tests for carton/group fields, 35-vs-38 summary labels, group total copy and Warehouse group selection.
-- [ ] Implement the existing-system UI: explicit labels above inputs, inline errors, stable state feedback and member lookup without adding another design system.
-- [ ] Add dashboard and history source-scope/physical-carton projections without changing inventory arithmetic.
-- [ ] Verify keyboard operation and 390/701/768/880/1280px layouts; run focused Playwright.
-- [ ] Commit only Task 4A files.
+- [x] Write failing browser/component tests for carton/group fields, source-scope/physical-carton summary labels, group total copy and Warehouse group selection.
+- [x] Implement the existing-system UI: explicit labels above inputs, inline errors, stable state feedback and member lookup without adding another design system.
+- [x] Add dashboard and history source-scope/physical-carton projections without changing inventory arithmetic.
+- [x] Verify keyboard operation and 390/701/768/880/1280px layouts; run focused Playwright.
+- [x] Commit only Task 4A files.
 
 ### Deferred Task 4B: Per-carton evidence UI
 

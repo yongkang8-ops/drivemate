@@ -12,6 +12,7 @@ test("partners can review the saved inbound operation snapshot in either display
   await expect(page.getByRole("heading", { name: "Attention queue" })).toBeVisible();
   await expect(page.getByText("Label print confirmation required")).toBeVisible();
   await expect(page.getByText("Prepare labels", { exact: true })).toBeVisible();
+  await expect(page.getByText(/2 source scopes · 2 physical cartons/)).toBeVisible();
   await expect(page.getByLabel("Display timezone")).toHaveValue("Australia/Brisbane");
 
   await page.getByLabel("Display timezone").selectOption("Asia/Shanghai");
@@ -43,6 +44,40 @@ test("the dashboard reflects a label-confirmed receipt that remains in system st
   await expect(operationStatus.getByText("Receipt confirmed", { exact: true })).toBeVisible();
   await expect(operationStatus.getByText("Putaway pending", { exact: true })).toBeVisible();
   await expect(page.locator(".partner-metric-grid article").nth(2).getByText("18", { exact: true })).toBeVisible();
+});
+
+test("the dashboard separates a carton group from its physical carton count", async ({
+  page,
+  request,
+}) => {
+  const created = await request.post(
+    "/api/prearrival/shipments/shipment-test-1/revisions",
+    {
+      headers: { "x-drivemate-role": "partner" },
+      data: {
+        schemaVersion: 3,
+        shipmentId: "shipment-test-1",
+        cartons: [{
+          sourceCartonNumber: "7#8#9#",
+          kind: "carton_group",
+          physicalCartonCount: 3,
+          memberCartonNumbers: ["7#", "8#", "9#"],
+          sourcePalletNumber: null,
+          lines: [{ sku: "DM-GWM-OF-001", expectedQuantity: 10 }],
+        }],
+      },
+    },
+  );
+  expect(created.status()).toBe(201);
+  const body = await created.json();
+  const confirmed = await request.post(
+    `/api/prearrival/revisions/${body.revision.id}/confirm`,
+    { headers: { "x-drivemate-role": "partner" } },
+  );
+  expect(confirmed.ok()).toBeTruthy();
+
+  await page.goto("/partner");
+  await expect(page.getByText(/1 source scope · 3 physical cartons · 1 group/)).toBeVisible();
 });
 
 test("an unconfirmed Packing List stays visible but blocked before label preparation", async ({

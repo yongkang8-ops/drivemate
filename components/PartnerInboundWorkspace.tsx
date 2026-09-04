@@ -27,7 +27,13 @@ type ScopePreview = {
     shipmentId: string;
     shipmentReference?: string;
     pallets: Array<{ sourcePalletNumber: string }>;
-    cartons: Array<{ sourceCartonNumber: string; sourcePalletNumber?: string }>;
+    cartons: Array<{
+      sourceCartonNumber: string;
+      sourcePalletNumber?: string;
+      kind?: "carton" | "carton_group";
+      physicalCartonCount?: number;
+      memberCartonNumbers?: string[];
+    }>;
   };
   scope: WarehouseReceiptScope;
   printGate: { ok: boolean; message?: string };
@@ -86,9 +92,14 @@ function ProductLabel({ sku, barcode }: { sku: string; barcode: string }) {
   );
 }
 
-function makeScopeUrl(shipmentId: string, palletNumbers: string[]) {
+function makeScopeUrl(
+  shipmentId: string,
+  palletNumbers: string[] = [],
+  cartonNumbers: string[] = [],
+) {
   const params = new URLSearchParams({ shipmentId });
   palletNumbers.forEach((palletNumber) => params.append("palletNumber", palletNumber));
+  cartonNumbers.forEach((cartonNumber) => params.append("cartonNumber", cartonNumber));
   return `/api/warehouse/labels?${params.toString()}`;
 }
 
@@ -200,6 +211,12 @@ export function PartnerInboundWorkspace() {
   const [shipments, setShipments] = useState<PrearrivalShipmentSummary[]>([]);
   const [shipmentId, setShipmentId] = useState("");
   const [selectedPallets, setSelectedPallets] = useState<string[]>([]);
+  const [selectedCartons, setSelectedCartons] = useState<string[]>([]);
+  const [availableCartons, setAvailableCartons] = useState<ScopePreview["shipment"]["cartons"]>([]);
+  const [scopeLookup, setScopeLookup] = useState("");
+  const [scopeLookupMessage, setScopeLookupMessage] = useState("");
+  const [scopeLoading, setScopeLoading] = useState(false);
+  const [scopeError, setScopeError] = useState(false);
   const [preview, setPreview] = useState<ScopePreview | null>(null);
   const [view, setView] = useState<WorkspaceView>("label_print");
   const [putawayReady, setPutawayReady] = useState(false);
@@ -218,40 +235,74 @@ export function PartnerInboundWorkspace() {
   const [receiptResult, setReceiptResult] = useState<{ sessionId: string; stagingLocation?: string } | null>(null);
   const [putawayResult, setPutawayResult] = useState<{ quantity: number; destinationLocation: string } | null>(null);
   const [reprintReason, setReprintReason] = useState("");
+  const scopeRequestToken = useRef(0);
 
-  const receiptUnlocked = preview?.printGate.ok === true;
+  const receiptUnlocked = !scopeLoading && !scopeError && preview?.printGate.ok === true;
   const expectedUnits = preview ? quantityFor(preview.scope) : 0;
+  const activeSourceScopes = availableCartons.filter((carton) => (
+    preview?.scope.cartonNumbers.includes(carton.sourceCartonNumber)
+  ));
+  const activePhysicalCartons = activeSourceScopes.reduce(
+    (total, carton) => total + (carton.physicalCartonCount ?? 1),
+    0,
+  );
+  const activeCartonGroups = activeSourceScopes.filter(
+    (carton) => carton.kind === "carton_group",
+  ).length;
   const activePalletLabel = selectedPallets.length === 1
     ? `Pallet ${selectedPallets[0]}`
     : selectedPallets.length > 1
       ? `${selectedPallets.length} pallets`
-      : "Full shipment";
+      : selectedCartons.length === 1
+        ? `Source scope ${selectedCartons[0]}`
+        : selectedCartons.length > 1
+          ? `${selectedCartons.length} source scopes`
+          : "Full shipment";
 
-  async function loadScope(nextShipmentId: string, palletNumbers: string[]) {
+  async function loadScope(
+    nextShipmentId: string,
+    palletNumbers: string[],
+    cartonNumbers: string[] = [],
+  ) {
     if (!nextShipmentId) return;
-    const response = await fetch(makeScopeUrl(nextShipmentId, palletNumbers), {
-      cache: "no-store",
-      headers: await buildApiHeaders("warehouse_staff"),
-    });
-    const body = (await response.json()) as ScopePreviewResponse;
-    if (!response.ok || !body.ok) {
-      setPreview(null);
-      setMessage(("message" in body && body.message) || "Inbound scope could not be loaded.");
-      return;
+    const requestToken = ++scopeRequestToken.current;
+    setScopeLoading(true);
+    setScopeError(false);
+    setMessage("Loading selected inbound scope.");
+    try {
+      const response = await fetch(makeScopeUrl(nextShipmentId, palletNumbers, cartonNumbers), {
+        cache: "no-store",
+        headers: await buildApiHeaders("warehouse_staff"),
+      });
+      const body = (await response.json()) as ScopePreviewResponse;
+      if (requestToken !== scopeRequestToken.current) return;
+      if (!response.ok || !body.ok) {
+        setScopeError(true);
+        setMessage(("message" in body && body.message) || "Inbound scope could not be loaded.");
+        return;
+      }
+      setAvailableCartons(body.shipment.cartons);
+      setPreview(body);
+      setActualByBarcode(Object.fromEntries(
+        body.scope.lines.map((line) => [normalizeBarcode(line.productBarcode), 0]),
+      ));
+      setScannedProductBarcodes([]);
+      setCompletedCountedBarcodes([]);
+      setActiveBarcode(null);
+      setDiscrepancyReasonByBarcode({});
+      setDiscrepancyTypeByBarcode({});
+      setReceiptResult(null);
+      setPutawayResult(null);
+      void loadPutawayAvailability(nextShipmentId, body.scope.cartonNumbers);
+      setMessage(body.printGate.ok ? "Label print confirmed. Receipt unlocked for this scope." : "Select the label queue, then confirm the physical print result.");
+    } catch {
+      if (requestToken === scopeRequestToken.current) {
+        setScopeError(true);
+        setMessage("Inbound scope could not be loaded. Try selecting the scope again.");
+      }
+    } finally {
+      if (requestToken === scopeRequestToken.current) setScopeLoading(false);
     }
-    setPreview(body);
-    setActualByBarcode(Object.fromEntries(
-      body.scope.lines.map((line) => [normalizeBarcode(line.productBarcode), 0]),
-    ));
-    setScannedProductBarcodes([]);
-    setCompletedCountedBarcodes([]);
-    setActiveBarcode(null);
-    setDiscrepancyReasonByBarcode({});
-    setDiscrepancyTypeByBarcode({});
-    setReceiptResult(null);
-    setPutawayResult(null);
-    void loadPutawayAvailability(nextShipmentId, body.scope.cartonNumbers);
-    setMessage(body.printGate.ok ? "Label print confirmed. Receipt unlocked for this scope." : "Select the label queue, then confirm the physical print result.");
   }
 
   async function loadPutawayAvailability(nextShipmentId: string, cartonNumbers: string[]) {
@@ -289,6 +340,8 @@ export function PartnerInboundWorkspace() {
     if (firstShipment.packingListStatus !== "confirmed") {
       setPreview(null);
       setSelectedPallets([]);
+      setSelectedCartons([]);
+      setAvailableCartons([]);
       setMessage("Confirm the Shipment Packing List in Pre-arrival to unlock Warehouse.");
       return;
     }
@@ -304,8 +357,10 @@ export function PartnerInboundWorkspace() {
     }
     const firstPallet = allScope.shipment.pallets[0]?.sourcePalletNumber;
     const initialPallets = firstPallet ? [firstPallet] : [];
+    setAvailableCartons(allScope.shipment.cartons);
     setSelectedPallets(initialPallets);
-    await loadScope(firstShipmentId, initialPallets);
+    setSelectedCartons([]);
+    await loadScope(firstShipmentId, initialPallets, []);
   }
 
   useEffect(() => {
@@ -318,10 +373,14 @@ export function PartnerInboundWorkspace() {
     setPrintState("select");
     setPutawayReady(false);
     setPutawayResult(null);
+    setScopeLookup("");
+    setScopeLookupMessage("");
     const nextShipment = shipments.find((shipment) => shipment.shipmentId === nextShipmentId);
     if (nextShipment?.packingListStatus !== "confirmed") {
       setPreview(null);
       setSelectedPallets([]);
+      setSelectedCartons([]);
+      setAvailableCartons([]);
       setMessage("Confirm the Shipment Packing List in Pre-arrival to unlock Warehouse.");
       return;
     }
@@ -337,8 +396,10 @@ export function PartnerInboundWorkspace() {
       }
       const firstPallet = body.shipment.pallets[0]?.sourcePalletNumber;
       const nextPallets = firstPallet ? [firstPallet] : [];
+      setAvailableCartons(body.shipment.cartons);
       setSelectedPallets(nextPallets);
-      await loadScope(nextShipmentId, nextPallets);
+      setSelectedCartons([]);
+      await loadScope(nextShipmentId, nextPallets, []);
     })();
   }
 
@@ -351,22 +412,80 @@ export function PartnerInboundWorkspace() {
       return;
     }
     setSelectedPallets(nextPallets);
+    setSelectedCartons([]);
+    setScopeLookupMessage("");
     setPrintJob(null);
     setPrintState("select");
     setPutawayReady(false);
     setPutawayResult(null);
-    void loadScope(shipmentId, nextPallets);
+    void loadScope(shipmentId, nextPallets, []);
+  }
+
+  function resetOperationState() {
+    setPrintJob(null);
+    setPrintState("select");
+    setPutawayReady(false);
+    setPutawayResult(null);
+  }
+
+  function toggleSourceScope(sourceCartonNumber: string, checked: boolean) {
+    const nextCartons = checked
+      ? [...new Set([...selectedCartons, sourceCartonNumber])]
+      : selectedCartons.filter((value) => value !== sourceCartonNumber);
+    setSelectedCartons(nextCartons);
+    setSelectedPallets([]);
+    setScopeLookupMessage("");
+    resetOperationState();
+    void loadScope(shipmentId, [], nextCartons);
+  }
+
+  function selectFullShipment() {
+    setSelectedPallets([]);
+    setSelectedCartons([]);
+    setScopeLookupMessage("Full shipment selected.");
+    resetOperationState();
+    void loadScope(shipmentId, [], []);
+  }
+
+  function resolveScopeLookup() {
+    const identifier = normalizeBarcode(scopeLookup);
+    if (!identifier) {
+      setScopeLookupMessage("Enter a source scope or member carton number.");
+      return;
+    }
+    const sourceScope = availableCartons.find((carton) => (
+      normalizeBarcode(carton.sourceCartonNumber) === identifier
+      || carton.memberCartonNumbers?.some((member) => normalizeBarcode(member) === identifier)
+    ));
+    if (!sourceScope) {
+      setScopeLookupMessage(`${scopeLookup.trim()} is not part of this confirmed Packing List.`);
+      return;
+    }
+
+    setSelectedPallets([]);
+    setSelectedCartons([sourceScope.sourceCartonNumber]);
+    setScopeLookup("");
+    resetOperationState();
+    const isMember = normalizeBarcode(sourceScope.sourceCartonNumber) !== identifier;
+    setScopeLookupMessage(isMember
+      ? `Member carton ${scopeLookup.trim()} resolved to source group ${sourceScope.sourceCartonNumber}.`
+      : `Source scope ${sourceScope.sourceCartonNumber} selected.`);
+    void loadScope(shipmentId, [], [sourceScope.sourceCartonNumber]);
   }
 
   async function createPrintJob() {
-    if (!preview) return;
+    if (!preview || scopeLoading || scopeError) return;
     setBusy(true);
     try {
       const response = await fetch("/api/warehouse/labels", {
         method: "POST",
         headers: await buildApiHeaders("warehouse_staff", { "Content-Type": "application/json" }),
         body: JSON.stringify({
-          selection: { shipmentId, palletNumbers: selectedPallets },
+          selection: {
+            shipmentId,
+            ...(selectedPallets.length ? { palletNumbers: selectedPallets } : {}),
+            ...(selectedCartons.length ? { cartonNumbers: selectedCartons } : {}),
+          },
           templateId: "unit_product",
         }),
       });
@@ -400,7 +519,7 @@ export function PartnerInboundWorkspace() {
       }
       setPrintJob(body.job);
       setPrintState(outcome === "printed" ? "confirmed" : "cancelled");
-      await loadScope(shipmentId, selectedPallets);
+      await loadScope(shipmentId, selectedPallets, selectedCartons);
       setMessage(outcome === "printed" ? "Receipt unlocked for the selected scope." : "Print cancelled. Receipt remains locked.");
     } finally {
       setBusy(false);
@@ -496,7 +615,7 @@ export function PartnerInboundWorkspace() {
       activeReceiptLine.actualQuantity === activeReceiptLine.expectedQuantity || activeLineHasDifferenceReason
     ),
   );
-  const canConfirmReceipt = receiptUnlocked && !busy && !receiptResult && receiptLines.length > 0 && receiptLines.every((line) => {
+  const canConfirmReceipt = receiptUnlocked && !scopeLoading && !busy && !receiptResult && receiptLines.length > 0 && receiptLines.every((line) => {
     if (!line.scanned) return false;
     if (receiptMode === "scan_each") return line.actualQuantity === line.expectedQuantity;
     return completedCountedBarcodes.includes(line.barcode)
@@ -606,18 +725,38 @@ export function PartnerInboundWorkspace() {
         <main className="inbound-main">
           <section className="inbound-scope-bar">
             <div><span>Active inbound scope</span><strong>{preview.shipment.shipmentReference ?? `Shipment ${preview.shipment.shipmentId}`}</strong></div>
-            <p>{activePalletLabel} / {preview.scope.cartonNumbers.join(", ")} / {expectedUnits} expected units</p>
+            <p>{scopeLoading ? "Loading selected scope…" : scopeError ? "Selected scope could not be loaded. Choose a scope to retry." : `${activePalletLabel} / ${preview.scope.cartonNumbers.join(", ")} / ${expectedUnits} expected units`}</p>
             <select aria-label="Shipment" value={shipmentId} onChange={(event) => switchShipment(event.target.value)}>
               {shipments.map((shipment) => <option key={shipment.shipmentId} value={shipment.shipmentId}>{shipment.shipmentReference ?? shipment.shipmentId}</option>)}
             </select>
           </section>
 
           <fieldset className="inbound-pallet-picker">
-            <legend>Scope selection</legend>
+            <legend>Optional pallet filter</legend>
             {preview.shipment.pallets.length
-              ? preview.shipment.pallets.map((pallet) => <label key={pallet.sourcePalletNumber}><input aria-label={`Pallet ${pallet.sourcePalletNumber}`} checked={selectedPallets.includes(pallet.sourcePalletNumber)} onChange={(event) => togglePallet(pallet.sourcePalletNumber, event.target.checked)} type="checkbox" />Pallet {pallet.sourcePalletNumber}</label>)
+              ? preview.shipment.pallets.map((pallet) => <label key={pallet.sourcePalletNumber}><input aria-label={`Pallet ${pallet.sourcePalletNumber}`} checked={selectedPallets.includes(pallet.sourcePalletNumber)} disabled={scopeLoading} onChange={(event) => togglePallet(pallet.sourcePalletNumber, event.target.checked)} type="checkbox" />Pallet {pallet.sourcePalletNumber}</label>)
               : <span className="inbound-pallet-unmapped">Pallet mapping not recorded · Full shipment selected</span>}
           </fieldset>
+
+          <section className="inbound-source-scope-picker" aria-labelledby="source-scope-heading">
+            <div className="inbound-source-scope-heading">
+              <div><span>Canonical receipt scope</span><h2 id="source-scope-heading">Source carton scopes</h2><p>Select a complete source scope. A member carton lookup always resolves to its parent group.</p></div>
+              <button className="button button-secondary" disabled={scopeLoading} type="button" onClick={selectFullShipment}>Full shipment</button>
+            </div>
+            <form className="inbound-scope-lookup" onSubmit={(event) => { event.preventDefault(); resolveScopeLookup(); }}>
+              <label htmlFor="warehouse-scope-lookup">Find source scope or member carton</label>
+              <div><input id="warehouse-scope-lookup" disabled={scopeLoading} value={scopeLookup} onChange={(event) => setScopeLookup(event.target.value)} placeholder="Scan or enter a carton number" /><button className="button button-secondary" disabled={scopeLoading} type="submit">Find scope</button></div>
+              <p role="status">{scopeLookupMessage || "Member carton numbers are lookup aliases only; operations use the canonical source scope."}</p>
+            </form>
+            <div className="inbound-source-scope-grid">
+              {availableCartons.map((carton) => {
+                const isGroup = carton.kind === "carton_group";
+                const count = carton.physicalCartonCount ?? 1;
+                return <label className={selectedCartons.includes(carton.sourceCartonNumber) ? "is-selected" : ""} key={carton.sourceCartonNumber}><input aria-label={`Source scope ${carton.sourceCartonNumber}`} checked={selectedCartons.includes(carton.sourceCartonNumber)} disabled={scopeLoading} onChange={(event) => toggleSourceScope(carton.sourceCartonNumber, event.target.checked)} type="checkbox" /><span><strong>{carton.sourceCartonNumber}</strong>{isGroup ? <b>Group</b> : null}<small>{count} physical {count === 1 ? "carton" : "cartons"} · {carton.memberCartonNumbers?.join(", ") || carton.sourceCartonNumber}</small></span></label>;
+              })}
+            </div>
+            <p className="inbound-scope-summary"><strong>{activeSourceScopes.length}</strong> source {activeSourceScopes.length === 1 ? "scope" : "scopes"} · <strong>{activePhysicalCartons}</strong> physical {activePhysicalCartons === 1 ? "carton" : "cartons"}{activeCartonGroups ? ` · ${activeCartonGroups} ${activeCartonGroups === 1 ? "group" : "groups"}` : ""}</p>
+          </section>
 
           <section className={`inbound-gate ${isHistoryView ? "is-neutral" : activeGateReady ? "is-unlocked" : "is-locked"}`} role="status">
             {isHistoryView ? <ClipboardText size={25} weight="duotone" /> : activeGateReady ? <CheckCircle size={25} weight="fill" /> : <WarningCircle size={25} weight="fill" />}
@@ -633,7 +772,7 @@ export function PartnerInboundWorkspace() {
                 <div className="inbound-range-row"><strong>{activePalletLabel}</strong><span>Selected</span><strong>{preview.scope.cartonNumbers.join(", ")}</strong><span>{expectedUnits} labels</span></div>
                 <span className="inbound-section-label">Product label queue</span>
                 <div className="inbound-queue" role="table"><div className="inbound-queue-head" role="row"><span>SKU</span><span>Expected</span><span>Labels</span><span>Status</span></div>{preview.scope.lines.map((line) => <div className="inbound-queue-row" role="row" key={line.sku}><code>{line.sku}</code><strong>{line.expectedQuantity}</strong><strong>{line.expectedQuantity}</strong><b>Ready</b></div>)}</div>
-                <div className="inbound-actions"><button className="button button-secondary" type="button" onClick={() => setPrintState("preview")}>Preview labels</button><button className="button button-primary" type="button" disabled={busy || printState === "awaiting_outcome"} onClick={() => void createPrintJob()}><Printer size={18} />Print labels</button></div>
+                <div className="inbound-actions"><button className="button button-secondary" type="button" disabled={scopeLoading || scopeError} onClick={() => setPrintState("preview")}>Preview labels</button><button className="button button-primary" type="button" disabled={scopeLoading || scopeError || busy || printState === "awaiting_outcome"} onClick={() => void createPrintJob()}><Printer size={18} />Print labels</button></div>
                 {printState === "preview" ? <p className="inbound-message" role="status">Preview ready. The queue contains {expectedUnits} fixed-size Unit Product labels.</p> : null}
                 {printJob ? <section className="inbound-job-row"><div><span>Print job</span><strong>{printJob.id}</strong></div><div><span>Status</span><strong>{printState === "awaiting_outcome" ? "Awaiting physical confirmation" : printJob.status === "printed" ? "Printed confirmation recorded" : "Cancelled"}</strong></div>{printState === "awaiting_outcome" ? <div className="inbound-job-actions"><button className="button button-secondary" type="button" disabled={busy} onClick={() => void recordPrintOutcome("cancelled")}>Cancel print</button><button className="button button-primary" type="button" disabled={busy} onClick={() => void recordPrintOutcome("printed")}>Confirm printed</button></div> : null}</section> : null}
               </section>
@@ -651,7 +790,7 @@ export function PartnerInboundWorkspace() {
               </section>
               <aside className="inbound-summary-panel"><h2>{receiptMode === "counted_quantity" ? "Receipt review" : "Expected and audit"}</h2><p>{receiptMode === "counted_quantity" ? "Confirmation is available after each line is valid." : `Packing-list expectation for ${preview.scope.cartonNumbers.join(", ")}.`}</p>{receiptMode === "counted_quantity" ? <><span className="inbound-section-label">Current line</span><div className="inbound-current-line-summary"><strong>{activeReceiptLine?.sku ?? "No product scanned"}</strong><span>{activeReceiptLine ? `Expected ${activeReceiptLine.expectedQuantity}` : "Scan a product to begin"}</span><span>{activeReceiptLine ? `Actual ${activeReceiptLine.actualQuantity}` : ""}</span><b>{activeReceiptLine ? activeReceiptLine.actualQuantity !== activeReceiptLine.expectedQuantity ? activeLineHasDifferenceReason ? "Difference recorded" : "Difference reason required" : "Ready to record" : ""}</b></div></> : null}<div className="inbound-audit-table"><div><span>SKU</span><span>Expected</span><span>Actual</span></div>{receiptLines.map((line) => <div key={line.barcode}><code>{line.sku}</code><strong>{line.expectedQuantity}</strong><strong>{line.actualQuantity}</strong></div>)}</div><span className="inbound-section-label">Print audit</span><div className={`inbound-print-audit ${receiptUnlocked ? "is-confirmed" : ""}`}><strong>{printJob?.id ?? "No print job"}</strong><span>{receiptUnlocked ? "Printed confirmation recorded" : "Receipt remains locked"}</span><b>{receiptUnlocked ? "Confirmed" : "Locked"}</b></div><span className="inbound-section-label">Receipt destination</span><div className="inbound-staging-note"><strong>BNE-RECEIVING-STAGING</strong><p>System-only location. No source scan required.</p></div></aside>
             </div>
-          ) : view === "put_away" ? <WarehousePutawayPanel selection={{ shipmentId: preview.scope.shipmentId, cartonNumbers: preview.scope.cartonNumbers }} onPutawayConfirmed={(outcome) => { setPutawayResult(outcome); void loadPutawayAvailability(preview.scope.shipmentId, preview.scope.cartonNumbers); }} /> : <ReceiptHistoryPanel selection={{ shipmentId: preview.scope.shipmentId, cartonNumbers: preview.scope.cartonNumbers }} />}
+          ) : view === "put_away" ? <WarehousePutawayPanel selection={{ shipmentId: preview.scope.shipmentId, cartonNumbers: preview.scope.cartonNumbers }} onPutawayConfirmed={(outcome) => { setPutawayResult(outcome); void loadPutawayAvailability(preview.scope.shipmentId, preview.scope.cartonNumbers); }} /> : <ReceiptHistoryPanel selection={{ shipmentId: preview.scope.shipmentId, cartonNumbers: preview.scope.cartonNumbers }} sourceCartons={availableCartons} />}
 
           <section className="inbound-bottom-note"><div><span>{bottomLabel}</span><strong>{bottomTitle}</strong><p>{bottomCopy}</p></div><button className="button button-secondary" type="button" onClick={() => setView("receipt_history")}>View receipt history</button></section>
           <p className="inbound-message" role="status">{isHistoryView ? "Read-only audit view." : message}</p>

@@ -10,6 +10,7 @@ test("receipt history is read-only and displays timezone-aware putaway audit row
   await expect(page.getByRole("link", { name: "Receipt history" })).not.toHaveAttribute("aria-disabled", "true");
   await page.getByRole("link", { name: "Receipt history" }).click();
   await expect(page.getByRole("heading", { name: "Receipt history" })).toBeVisible();
+  await expect(page.locator(".inbound-history-scope-summary")).toContainText(/1 source scope · 1 physical carton/);
   await expect(page.getByText("No audit events match this view")).toBeVisible();
   await expect(page.getByLabel("Display timezone")).toHaveValue("Australia/Brisbane");
   await page.getByLabel("Display timezone").selectOption("Asia/Shanghai");

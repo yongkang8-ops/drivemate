@@ -22,6 +22,12 @@ export type WarehouseHistoryEvent = {
 
 export type WarehouseHistoryTimeZone = "Australia/Brisbane" | "Asia/Shanghai";
 
+export type WarehouseHistorySourceScope = {
+  sourceCartonNumber: string;
+  kind?: "carton" | "carton_group";
+  physicalCartonCount?: number;
+};
+
 const actionLabels: Record<WarehouseHistoryAction, string> = {
   print_confirmed: "Label print confirmed",
   print_cancelled: "Label print cancelled",
@@ -30,6 +36,31 @@ const actionLabels: Record<WarehouseHistoryAction, string> = {
   discrepancy_recorded: "Receipt difference recorded",
   putaway_confirmed: "Putaway confirmed",
 };
+
+function normalizeSourceScope(value: string) {
+  return value.trim().toUpperCase().replace(/\s+/g, " ");
+}
+
+export function summarizeWarehouseHistoryScope(input: {
+  cartons: readonly WarehouseHistorySourceScope[];
+  selectedSourceScopes?: readonly string[];
+}) {
+  const selected = new Set(
+    (input.selectedSourceScopes ?? []).map(normalizeSourceScope).filter(Boolean),
+  );
+  const cartons = selected.size
+    ? input.cartons.filter((carton) => selected.has(normalizeSourceScope(carton.sourceCartonNumber)))
+    : input.cartons;
+
+  return {
+    sourceScopeCount: cartons.length,
+    physicalCartonCount: cartons.reduce(
+      (total, carton) => total + (carton.physicalCartonCount ?? 1),
+      0,
+    ),
+    cartonGroupCount: cartons.filter((carton) => carton.kind === "carton_group").length,
+  };
+}
 
 function formatDate(value: Date, timeZone: WarehouseHistoryTimeZone) {
   return new Intl.DateTimeFormat("en-AU", {

@@ -27,7 +27,9 @@ import type {
   PrearrivalShipmentSummary,
 } from "../lib/repository";
 import {
+  deriveCartonStructureSummary,
   derivePalletMappingSummary,
+  type PackingListCartonScopeInput,
   type PackingListRevisionInputV2,
   type PackingListRevisionInputV3,
 } from "../lib/prearrivalShipment";
@@ -51,6 +53,36 @@ type SelectedCarton = {
 };
 type DraftLineIds = string[][];
 
+function toV3CartonScope(input: {
+  sourceCartonNumber: string;
+  sourcePalletNumber?: string | null;
+  kind?: "carton" | "carton_group";
+  physicalCartonCount?: number;
+  memberCartonNumbers?: string[];
+  lines: PackingListCartonScopeInput["lines"];
+}): PackingListCartonScopeInput {
+  if (input.kind === "carton_group") {
+    return {
+      sourceCartonNumber: input.sourceCartonNumber,
+      sourcePalletNumber: input.sourcePalletNumber ?? null,
+      kind: "carton_group",
+      physicalCartonCount: input.physicalCartonCount ?? input.memberCartonNumbers?.length ?? 2,
+      memberCartonNumbers: input.memberCartonNumbers?.length
+        ? [...input.memberCartonNumbers]
+        : ["", ""],
+      lines: structuredClone(input.lines),
+    };
+  }
+  return {
+    sourceCartonNumber: input.sourceCartonNumber,
+    sourcePalletNumber: input.sourcePalletNumber ?? null,
+    kind: "carton",
+    physicalCartonCount: 1,
+    memberCartonNumbers: [input.sourceCartonNumber],
+    lines: structuredClone(input.lines),
+  };
+}
+
 function latestConfirmedRevision(shipment: PrearrivalShipment): PackingListRevision | undefined {
   return shipment.revisions
     .filter((revision) => revision.status === "confirmed")
@@ -69,15 +101,20 @@ function latestDraftRevision(shipment: PrearrivalShipment): PackingListRevision 
 
 function payloadFromShipment(shipment: PrearrivalShipment): PackingListDraftPayload {
   const confirmed = latestConfirmedRevision(shipment);
-  if (confirmed) return structuredClone(confirmed.payloadSnapshot);
+  if (confirmed) return upgradePayloadToV3(confirmed.payloadSnapshot);
 
-  const payload = {
-    schemaVersion: 2 as const,
+  const payload: PackingListRevisionInputV3 = {
+    schemaVersion: 3,
     shipmentId: shipment.shipmentId,
     physicalPalletCount: shipment.physicalPalletCount ?? null,
-    cartons: shipment.cartons.map((carton) => ({
+    cartons: shipment.cartons.map((carton) => toV3CartonScope({
       sourceCartonNumber: carton.sourceCartonNumber,
       sourcePalletNumber: carton.sourcePalletNumber ?? null,
+      kind: carton.kind ?? "carton",
+      physicalCartonCount: carton.physicalCartonCount ?? 1,
+      memberCartonNumbers: carton.memberCartonNumbers?.length
+        ? [...carton.memberCartonNumbers]
+        : [carton.sourceCartonNumber],
       lines: shipment.lines
         .filter((line) => line.sourceCartonNumber === carton.sourceCartonNumber)
         .map((line) => ({
@@ -111,12 +148,29 @@ function blankPackingListCarton(schemaVersion: 2 | 3): PackingListDraftPayload["
   };
 }
 
-function initialPackingListPayload(shipmentId: string): PackingListRevisionInputV2 {
+function upgradePayloadToV3(
+  payload: PackingListRevisionInputV2 | PackingListRevisionInputV3,
+): PackingListRevisionInputV3 {
+  if (payload.schemaVersion === 3) return structuredClone(payload);
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
+    shipmentId: payload.shipmentId,
+    physicalPalletCount: payload.physicalPalletCount ?? null,
+    cartons: payload.cartons.map((carton) => ({
+      ...structuredClone(carton),
+      kind: "carton" as const,
+      physicalCartonCount: 1 as const,
+      memberCartonNumbers: [carton.sourceCartonNumber],
+    })),
+  };
+}
+
+function initialPackingListPayload(shipmentId: string): PackingListRevisionInputV3 {
+  return {
+    schemaVersion: 3,
     shipmentId,
     physicalPalletCount: null,
-    cartons: [blankPackingListCarton(2)],
+    cartons: [blankPackingListCarton(3) as PackingListRevisionInputV3["cartons"][number]],
   };
 }
 
@@ -204,6 +258,9 @@ export function PrearrivalShipmentPanel() {
 
   function startCorrectedRevision() {
     if (!draftPayload || !pendingRevisionId || busy || reconciliationRequired) return;
+    const nextPayload = upgradePayloadToV3(draftPayload);
+    setDraftPayload(nextPayload);
+    setDraftLineIds(lineIdsForPayload(nextPayload));
     setPendingRevisionId(null);
     clearDraftErrors();
     setMessage("Saved draft retained for audit. Edit this working copy to create a corrected revision.");
@@ -399,6 +456,71 @@ export function PrearrivalShipmentPanel() {
     setDraftPayload(nextPayload);
   }
 
+  function updateSelectedScopeKind(kind: "carton" | "carton_group") {
+    if (!draftPayload || draftPayload.schemaVersion !== 3 || editorLocked) return;
+    const nextPayload = structuredClone(draftPayload);
+    const carton = nextPayload.cartons[selection.cartonIndex];
+    if (!carton) return;
+    clearDraftErrors();
+    if (kind === "carton") {
+      carton.kind = "carton";
+      carton.physicalCartonCount = 1;
+      carton.memberCartonNumbers = [carton.sourceCartonNumber];
+    } else {
+      carton.kind = "carton_group";
+      carton.physicalCartonCount = Math.max(2, carton.physicalCartonCount);
+      carton.memberCartonNumbers = Array.from(
+        { length: carton.physicalCartonCount },
+        (_, index) => carton.memberCartonNumbers[index] ?? "",
+      );
+    }
+    setDraftPayload(nextPayload);
+  }
+
+  function updateSelectedPhysicalCartonCount(value: string) {
+    if (!draftPayload || draftPayload.schemaVersion !== 3 || editorLocked) return;
+    const nextPayload = structuredClone(draftPayload);
+    const carton = nextPayload.cartons[selection.cartonIndex];
+    if (!carton || carton.kind !== "carton_group") return;
+    const nextCount = value === "" ? 0 : Number(value);
+    carton.physicalCartonCount = nextCount;
+    carton.memberCartonNumbers = Array.from(
+      { length: Math.max(0, Number.isSafeInteger(nextCount) ? nextCount : 0) },
+      (_, index) => carton.memberCartonNumbers[index] ?? "",
+    );
+    clearFieldError(packingListFieldKey([
+      "cartons",
+      selection.cartonIndex,
+      "physicalCartonCount",
+    ]));
+    clearFieldError(packingListFieldKey([
+      "cartons",
+      selection.cartonIndex,
+      "memberCartonNumbers",
+    ]));
+    setDraftPayload(nextPayload);
+  }
+
+  function updateSelectedMemberCarton(memberIndex: number, value: string) {
+    if (!draftPayload || draftPayload.schemaVersion !== 3 || editorLocked) return;
+    const nextPayload = structuredClone(draftPayload);
+    const carton = nextPayload.cartons[selection.cartonIndex];
+    if (!carton || carton.kind !== "carton_group" || carton.memberCartonNumbers[memberIndex] === undefined) return;
+    carton.memberCartonNumbers[memberIndex] = value;
+    clearFieldError(packingListFieldKey([
+      "cartons",
+      selection.cartonIndex,
+      "memberCartonNumbers",
+      memberIndex,
+    ]));
+    clearFieldError(packingListFieldKey([
+      "cartons",
+      selection.cartonIndex,
+      "memberCartonNumbers",
+    ]));
+    setDraftPayload(nextPayload);
+  }
+
   function updatePhysicalPalletCount(value: string) {
     if (!draftPayload || editorLocked) return;
     clearFieldError("physicalPalletCount");
@@ -505,6 +627,11 @@ export function PrearrivalShipmentPanel() {
     : shipment.cartons.map((carton) => ({
         sourceCartonNumber: carton.sourceCartonNumber,
         sourcePalletNumber: carton.sourcePalletNumber ?? null,
+        kind: carton.kind ?? "carton",
+        physicalCartonCount: carton.physicalCartonCount ?? 1,
+        memberCartonNumbers: carton.memberCartonNumbers?.length
+          ? [...carton.memberCartonNumbers]
+          : [carton.sourceCartonNumber],
         lines: shipment.lines.filter(
           (line) => line.sourceCartonNumber === carton.sourceCartonNumber,
         ),
@@ -512,6 +639,21 @@ export function PrearrivalShipmentPanel() {
   const mappingSummary = derivePalletMappingSummary({
     physicalPalletCount: draftPayload?.physicalPalletCount ?? shipment.physicalPalletCount ?? null,
     cartons: structureCartons,
+  });
+  const cartonStructureSummary = deriveCartonStructureSummary({
+    schemaVersion: 3,
+    shipmentId: shipment.shipmentId,
+    physicalPalletCount: draftPayload?.physicalPalletCount ?? shipment.physicalPalletCount ?? null,
+    cartons: structureCartons.map((carton) => toV3CartonScope({
+      sourceCartonNumber: carton.sourceCartonNumber,
+      sourcePalletNumber: carton.sourcePalletNumber,
+      kind: "kind" in carton ? carton.kind : "carton",
+      physicalCartonCount: "physicalCartonCount" in carton ? carton.physicalCartonCount : 1,
+      memberCartonNumbers: "memberCartonNumbers" in carton
+        ? carton.memberCartonNumbers
+        : [carton.sourceCartonNumber],
+      lines: carton.lines,
+    })),
   });
   const mappingLabel = {
     not_recorded: "Not recorded",
@@ -524,6 +666,16 @@ export function PrearrivalShipmentPanel() {
     "cartons",
     selection.cartonIndex,
     "sourceCartonNumber",
+  ]);
+  const physicalCartonCountField = packingListFieldKey([
+    "cartons",
+    selection.cartonIndex,
+    "physicalCartonCount",
+  ]);
+  const membersField = packingListFieldKey([
+    "cartons",
+    selection.cartonIndex,
+    "memberCartonNumbers",
   ]);
   const errorId = (field: string) => `prearrival-error-${field.replace(/\./g, "-")}`;
   const fieldId = (field: string) => `prearrival-field-${field.replace(/\./g, "-")}`;
@@ -566,7 +718,7 @@ export function PrearrivalShipmentPanel() {
               <strong>{shipments.find((item) => item.shipmentId === shipment.shipmentId)?.shipmentReference ?? shipment.shipmentId}</strong>
             </div>
             <p>{packingListConfirmed
-              ? `Packing List v${confirmed?.version ?? shipment.confirmedPackingListVersion ?? 0} / ${mappingSummary.physicalPalletCount ?? "Unknown"} physical pallets / ${shipment.cartons.length} cartons`
+              ? `Packing List v${confirmed?.version ?? shipment.confirmedPackingListVersion ?? 0} / ${mappingSummary.physicalPalletCount ?? "Unknown"} physical pallets / ${cartonStructureSummary.sourceScopeCount} source scopes / ${cartonStructureSummary.physicalCartonCount} physical cartons`
               : `${shipment.packingListStatus === "draft" ? "Draft exists" : "Packing List not started"} / Warehouse locked until confirmation`}</p>
             <select
               aria-label="Shipment"
@@ -609,7 +761,12 @@ export function PrearrivalShipmentPanel() {
             <section className="prearrival-structure">
               <h2>Packing structure</h2>
               <p>Original source numbers are retained.</p>
-              <span className="prearrival-section-label">Cartons</span>
+              <span className="prearrival-section-label">Source carton scopes</span>
+              <div className="prearrival-carton-summary" aria-label="Carton structure summary">
+                <span>Source scopes <strong>{cartonStructureSummary.sourceScopeCount}</strong></span>
+                <span>Physical cartons <strong>{cartonStructureSummary.physicalCartonCount}</strong></span>
+                <span>Carton groups <strong>{cartonStructureSummary.cartonGroupCount}</strong></span>
+              </div>
               <div className="prearrival-mapping-summary" aria-label="Pallet mapping summary">
                 <span>Physical pallets <strong>{mappingSummary.physicalPalletCount ?? "Unknown"}</strong></span>
                 <span>Mapped pallets <strong>{mappingSummary.mappedPalletCount || "—"}</strong></span>
@@ -623,6 +780,13 @@ export function PrearrivalShipmentPanel() {
               ) : null}
               {structureCartons.map((carton, cartonIndex) => {
                 const quantity = carton.lines.reduce((sum, line) => sum + line.expectedQuantity, 0);
+                const isGroup = "kind" in carton && carton.kind === "carton_group";
+                const physicalCartonCount = "physicalCartonCount" in carton
+                  ? carton.physicalCartonCount
+                  : 1;
+                const members = "memberCartonNumbers" in carton
+                  ? carton.memberCartonNumbers
+                  : [carton.sourceCartonNumber];
                 return (
                   <div className="prearrival-pallet" key={`${carton.sourceCartonNumber}-${cartonIndex}`}>
                     <button
@@ -630,16 +794,17 @@ export function PrearrivalShipmentPanel() {
                       type="button"
                       onClick={() => setSelection({ cartonIndex })}
                     >
-                      <strong><CaretRight size={14} />{carton.sourceCartonNumber || `New carton ${cartonIndex + 1}`}</strong>
-                      <span>{carton.sourcePalletNumber ? `Pallet ${carton.sourcePalletNumber}` : "Pallet not recorded"} · {quantity} units</span>
+                      <strong><CaretRight size={14} />{carton.sourceCartonNumber || `New source scope ${cartonIndex + 1}`}{isGroup ? <b className="prearrival-scope-badge">Group</b> : null}</strong>
+                      <span>{physicalCartonCount} physical {physicalCartonCount === 1 ? "carton" : "cartons"} · {quantity} units</span>
+                      {isGroup ? <small>{members.filter(Boolean).join(", ") || "Member cartons pending"}</small> : null}
                     </button>
                   </div>
                 );
               })}
               {draftPayload ? (
                 <div className="prearrival-structure-actions" aria-label="Packing List structure actions">
-                  <button className="secondary-button" type="button" onClick={addCarton} disabled={editorLocked}><Plus size={15} />Add carton</button>
-                  <button className="prearrival-remove-button" type="button" onClick={removeSelectedCarton} disabled={editorLocked || draftPayload.cartons.length <= 1}><Trash size={14} />Remove carton</button>
+                  <button className="secondary-button" type="button" onClick={addCarton} disabled={editorLocked}><Plus size={15} />Add source scope</button>
+                  <button className="prearrival-remove-button" type="button" onClick={removeSelectedCarton} disabled={editorLocked || draftPayload.cartons.length <= 1}><Trash size={14} />Remove source scope</button>
                 </div>
               ) : null}
               <div className="prearrival-phase-copy"><span>Export label position</span><p>No DriveMate label is required in China. Australian printing is prepared from this data.</p></div>
@@ -649,10 +814,10 @@ export function PrearrivalShipmentPanel() {
               <div className="prearrival-detail-heading">
                 <div>
                   <h2>{selectedCarton
-                    ? `Carton ${selectedCarton.sourceCartonNumber || "working copy"} expected contents`
+                    ? `Source scope ${selectedCarton.sourceCartonNumber || "working copy"} expected contents`
                     : "Packing List contents"}</h2>
                   <p>{packingListConfirmed
-                    ? "The selected carton determines Australian label quantities and receipt validation."
+                    ? "The selected source scope determines Australian label quantities and receipt validation."
                     : "Complete every source identifier and SKU quantity before confirming the first Packing List."}</p>
                 </div>
                 <ClipboardText size={28} weight="duotone" />
@@ -684,7 +849,10 @@ export function PrearrivalShipmentPanel() {
                   <div className="prearrival-editor-grid">
                     <div className="prearrival-field"><label htmlFor="physical-pallet-count">Physical pallets <span>Optional</span></label><input id="physical-pallet-count" ref={(element) => { fieldRefs.current.physicalPalletCount = element; }} aria-invalid={Boolean(fieldErrors.physicalPalletCount)} aria-describedby={fieldErrors.physicalPalletCount ? errorId("physicalPalletCount") : undefined} disabled={editorLocked} min="1" type="number" value={draftPayload.physicalPalletCount ?? ""} onChange={(event) => updatePhysicalPalletCount(event.target.value)} />{fieldErrors.physicalPalletCount ? <span className="prearrival-field-error" id={errorId("physicalPalletCount")}>{fieldErrors.physicalPalletCount}</span> : null}</div>
                     <div className="prearrival-field"><label htmlFor={fieldId(palletField)}>Pallet number <span>Optional</span></label><input id={fieldId(palletField)} ref={(element) => { fieldRefs.current[palletField] = element; }} aria-invalid={Boolean(fieldErrors[palletField])} aria-describedby={fieldErrors[palletField] ? errorId(palletField) : undefined} disabled={editorLocked} placeholder="Not recorded" value={selectedCarton.draftCarton.sourcePalletNumber ?? ""} onChange={(event) => { clearFieldError(palletField); updateSelectedCarton("pallet", event.target.value); }} />{fieldErrors[palletField] ? <span className="prearrival-field-error" id={errorId(palletField)}>{fieldErrors[palletField]}</span> : null}</div>
-                    <div className="prearrival-field"><label htmlFor={fieldId(cartonField)}>Carton number</label><input id={fieldId(cartonField)} ref={(element) => { fieldRefs.current[cartonField] = element; }} aria-invalid={Boolean(fieldErrors[cartonField])} aria-describedby={fieldErrors[cartonField] ? errorId(cartonField) : undefined} disabled={editorLocked} value={selectedCarton.draftCarton.sourceCartonNumber} onChange={(event) => { clearFieldError(cartonField); updateSelectedCarton("carton", event.target.value); }} />{fieldErrors[cartonField] ? <span className="prearrival-field-error" id={errorId(cartonField)}>{fieldErrors[cartonField]}</span> : null}</div>
+                    {"kind" in selectedCarton.draftCarton ? <div className="prearrival-field"><label htmlFor={fieldId(`cartons.${selection.cartonIndex}.kind`)}>Scope type</label><select id={fieldId(`cartons.${selection.cartonIndex}.kind`)} aria-label="Scope type" disabled={editorLocked} value={selectedCarton.draftCarton.kind} onChange={(event) => updateSelectedScopeKind(event.target.value as "carton" | "carton_group")}><option value="carton">Single carton</option><option value="carton_group">Carton group</option></select></div> : null}
+                    <div className="prearrival-field"><label htmlFor={fieldId(cartonField)}>Source scope number</label><input id={fieldId(cartonField)} ref={(element) => { fieldRefs.current[cartonField] = element; }} aria-invalid={Boolean(fieldErrors[cartonField])} aria-describedby={fieldErrors[cartonField] ? errorId(cartonField) : undefined} disabled={editorLocked} value={selectedCarton.draftCarton.sourceCartonNumber} onChange={(event) => { clearFieldError(cartonField); updateSelectedCarton("carton", event.target.value); }} />{fieldErrors[cartonField] ? <span className="prearrival-field-error" id={errorId(cartonField)}>{fieldErrors[cartonField]}</span> : null}</div>
+                    {"kind" in selectedCarton.draftCarton ? <div className="prearrival-field"><label htmlFor={fieldId(physicalCartonCountField)}>Physical cartons</label><input id={fieldId(physicalCartonCountField)} ref={(element) => { fieldRefs.current[physicalCartonCountField] = element; }} aria-invalid={Boolean(fieldErrors[physicalCartonCountField])} aria-describedby={fieldErrors[physicalCartonCountField] ? errorId(physicalCartonCountField) : undefined} disabled={editorLocked || selectedCarton.draftCarton.kind === "carton"} min={selectedCarton.draftCarton.kind === "carton_group" ? 2 : 1} type="number" value={selectedCarton.draftCarton.physicalCartonCount} onChange={(event) => updateSelectedPhysicalCartonCount(event.target.value)} />{fieldErrors[physicalCartonCountField] ? <span className="prearrival-field-error" id={errorId(physicalCartonCountField)}>{fieldErrors[physicalCartonCountField]}</span> : null}</div> : null}
+                    {"kind" in selectedCarton.draftCarton && selectedCarton.draftCarton.kind === "carton_group" ? <fieldset className="prearrival-member-editor"><legend>Member carton numbers</legend><p>Each physical carton can locate this source group. Operational records still use the source scope number above.</p>{fieldErrors[membersField] ? <span className="prearrival-field-error" id={errorId(membersField)}>{fieldErrors[membersField]}</span> : null}<div>{selectedCarton.draftCarton.memberCartonNumbers.map((member, memberIndex) => { const memberField = packingListFieldKey(["cartons", selection.cartonIndex, "memberCartonNumbers", memberIndex]); return <div className="prearrival-field" key={memberField}><label htmlFor={fieldId(memberField)}>Member carton {memberIndex + 1}</label><input id={fieldId(memberField)} ref={(element) => { fieldRefs.current[memberField] = element; }} aria-invalid={Boolean(fieldErrors[memberField])} aria-describedby={fieldErrors[memberField] ? errorId(memberField) : undefined} disabled={editorLocked} value={member} onChange={(event) => updateSelectedMemberCarton(memberIndex, event.target.value)} />{fieldErrors[memberField] ? <span className="prearrival-field-error" id={errorId(memberField)}>{fieldErrors[memberField]}</span> : null}</div>; })}</div></fieldset> : null}
                     {selectedCarton.draftCarton.lines.map((line, lineIndex) => {
                       const skuField = packingListFieldKey(["cartons", selection.cartonIndex, "lines", lineIndex, "sku"]);
                       const quantityField = packingListFieldKey(["cartons", selection.cartonIndex, "lines", lineIndex, "expectedQuantity"]);
@@ -718,7 +886,7 @@ export function PrearrivalShipmentPanel() {
                 </div>
               )}
 
-              <div className="prearrival-validation"><span>Validation before export confirmation</span><strong>Every carton needs a source carton number, recognised SKU and positive expected quantity. Pallet mapping is optional and can be revised later.</strong></div>
+              <div className="prearrival-validation"><span>Validation before export confirmation</span><strong>Every source scope needs a unique number, recognised SKU and positive expected quantity. Carton groups also require one unique member number per physical carton. Pallet mapping is optional and can be revised later.</strong></div>
               <div className="prearrival-actions"><button className="secondary-button" type="button" onClick={() => setMessage(packingListConfirmed ? "The current confirmed Packing List is shown in this workspace." : "Confirm the first Packing List to make Australian label quantities available.")}>View Packing List</button>{packingListConfirmed ? <Link className="button button-primary" href={`/warehouse?shipmentId=${encodeURIComponent(shipment.shipmentId)}`}>Prepare AU labels <ArrowRight size={18} /></Link> : null}</div>
               <p className="prearrival-message" role="status">{message}</p>
             </section>
