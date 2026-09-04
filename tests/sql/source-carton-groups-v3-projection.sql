@@ -1,12 +1,27 @@
 -- Run only in a disposable local database. All fixture records are rolled back.
 begin;
+create function public.dm_local_qa_force_member_failure()
+returns trigger language plpgsql as $$
+begin
+  if regexp_replace(upper(trim(new.member_identifier)),'\s+',' ','g')='FORCE-ROLLBACK' then
+    raise exception 'LOCAL QA forced late projection failure';
+  end if;
+  return new;
+end;
+$$;
+create trigger dm_local_qa_force_member_failure
+before insert on public.shipment_carton_members
+for each row execute function public.dm_local_qa_force_member_failure();
+
 do $$
 declare
   actor uuid:=gen_random_uuid();
   supplier uuid; import_run uuid; po uuid; product_a uuid; product_b uuid;
-  shipment_v3 uuid; shipment_v3_open uuid; shipment_v2 uuid; shipment_v1 uuid;
-  revision_v3 uuid; revision_v3_open uuid; revision_v2 uuid; revision_v1 uuid; invalid_revision uuid;
+  shipment_v3 uuid; shipment_v3_open uuid; shipment_v3_pallet uuid; shipment_invalid uuid; shipment_v2 uuid; shipment_v1 uuid;
+  revision_v3 uuid; revision_v3_open uuid; revision_v3_pallet uuid; revision_v2 uuid; revision_v1 uuid; invalid_revision uuid;
   payload_v3 jsonb; before_movements bigint; rejected boolean:=false; group_parent_rejected boolean:=false;
+  late_failure_rejected boolean:=false;
+  invalid_case record; invalid_payload jsonb;
 begin
   insert into auth.users(id) values(actor);
   insert into public.suppliers(legal_name) values('LOCAL QA generic supplier '||gen_random_uuid()) returning id into supplier;
@@ -28,6 +43,8 @@ begin
     values(po,'LOCAL-V22-V3-'||gen_random_uuid()) returning id into shipment_v3;
   insert into public.shipments(purchase_order_id,shipment_reference)
     values(po,'LOCAL-V22-V3-OPEN-'||gen_random_uuid()) returning id into shipment_v3_open;
+  insert into public.shipments(purchase_order_id,shipment_reference)
+    values(po,'LOCAL-V22-V3-PALLET-'||gen_random_uuid()) returning id into shipment_v3_pallet;
   insert into public.shipments(purchase_order_id,shipment_reference)
     values(po,'LOCAL-V22-V2-'||gen_random_uuid()) returning id into shipment_v2;
   insert into public.shipments(purchase_order_id,shipment_reference)
@@ -104,6 +121,71 @@ begin
     raise exception 'Optional physical pallet total incorrectly blocked a known pallet mapping';
   end if;
 
+  insert into public.shipment_packing_list_versions(shipment_id,version,status,payload_snapshot,created_by)
+  values(shipment_v3_pallet,1,'draft',jsonb_build_object(
+    'schemaVersion',3,'shipmentId',shipment_v3_pallet,'physicalPalletCount',1,
+    'cartons',jsonb_build_array(
+      jsonb_build_object(
+        'sourceCartonNumber','PALLET-SCOPE-A','kind','carton','physicalCartonCount',1,
+        'memberCartonNumbers',jsonb_build_array('PALLET-SCOPE-A'),'sourcePalletNumber',' Pallet  A ',
+        'lines',jsonb_build_array(jsonb_build_object('sku','LOCAL-V22-A','expectedQuantity',1))
+      ),
+      jsonb_build_object(
+        'sourceCartonNumber','PALLET-SCOPE-B','kind','carton','physicalCartonCount',1,
+        'memberCartonNumbers',jsonb_build_array('PALLET-SCOPE-B'),'sourcePalletNumber','pallet   a',
+        'lines',jsonb_build_array(jsonb_build_object('sku','LOCAL-V22-B','expectedQuantity',1))
+      )
+    )
+  ),actor) returning id into revision_v3_pallet;
+  perform public.dm_confirm_packing_list_revision(revision_v3_pallet,actor);
+  if (select count(*) from public.shipment_pallets where shipment_id=shipment_v3_pallet)<>1
+    or (select count(distinct pallet_id) from public.shipment_cartons where shipment_id=shipment_v3_pallet)<>1 then
+    raise exception 'Equivalent pallet identifiers did not project to one canonical pallet';
+  end if;
+
+  for invalid_case in
+    select value from jsonb_array_elements(jsonb_build_array(
+      jsonb_build_object('name','shipment_mismatch','payload',jsonb_build_object(
+        'schemaVersion',3,'shipmentId',gen_random_uuid(),'cartons',jsonb_build_array(jsonb_build_object(
+          'sourceCartonNumber','INVALID-SCOPE','kind','carton','physicalCartonCount',1,
+          'memberCartonNumbers',jsonb_build_array('INVALID-SCOPE'),
+          'lines',jsonb_build_array(jsonb_build_object('sku','LOCAL-V22-A','expectedQuantity',1)))))),
+      jsonb_build_object('name','missing_kind','payload',jsonb_build_object(
+        'schemaVersion',3,'cartons',jsonb_build_array(jsonb_build_object(
+          'sourceCartonNumber','INVALID-SCOPE','physicalCartonCount',1,
+          'memberCartonNumbers',jsonb_build_array('INVALID-SCOPE'),
+          'lines',jsonb_build_array(jsonb_build_object('sku','LOCAL-V22-A','expectedQuantity',1)))))),
+      jsonb_build_object('name','missing_physical_count','payload',jsonb_build_object(
+        'schemaVersion',3,'cartons',jsonb_build_array(jsonb_build_object(
+          'sourceCartonNumber','INVALID-SCOPE','kind','carton',
+          'memberCartonNumbers',jsonb_build_array('INVALID-SCOPE'),
+          'lines',jsonb_build_array(jsonb_build_object('sku','LOCAL-V22-A','expectedQuantity',1)))))),
+      jsonb_build_object('name','non_string_member','payload',jsonb_build_object(
+        'schemaVersion',3,'cartons',jsonb_build_array(jsonb_build_object(
+          'sourceCartonNumber','INVALID-SCOPE','kind','carton','physicalCartonCount',1,
+          'memberCartonNumbers',jsonb_build_array(123),
+          'lines',jsonb_build_array(jsonb_build_object('sku','LOCAL-V22-A','expectedQuantity',1))))))
+    ))
+  loop
+    insert into public.shipments(purchase_order_id,shipment_reference)
+      values(po,'LOCAL-V22-INVALID-'||(invalid_case.value->>'name')||'-'||gen_random_uuid())
+      returning id into shipment_invalid;
+    invalid_payload:=invalid_case.value->'payload';
+    if invalid_case.value->>'name'<>'shipment_mismatch' then
+      invalid_payload:=jsonb_set(invalid_payload,'{shipmentId}',to_jsonb(shipment_invalid));
+    end if;
+    insert into public.shipment_packing_list_versions(shipment_id,version,status,payload_snapshot,created_by)
+      values(shipment_invalid,1,'draft',invalid_payload,actor) returning id into invalid_revision;
+    rejected:=false;
+    begin
+      perform public.dm_confirm_packing_list_revision(invalid_revision,actor);
+    exception when others then rejected:=true;
+    end;
+    if not rejected then
+      raise exception 'Invalid explicit v3 contract was accepted: %',invalid_case.value->>'name';
+    end if;
+  end loop;
+
   insert into public.shipment_packing_list_versions(
     shipment_id,version,status,payload_snapshot,created_by
   ) values(
@@ -139,6 +221,28 @@ begin
     group_parent_rejected:=true;
   end;
   if not group_parent_rejected then raise exception 'Group parent was accepted as its own physical member'; end if;
+  insert into public.shipment_packing_list_versions(
+    shipment_id,version,status,payload_snapshot,created_by
+  ) values(
+    shipment_v3,4,'draft',
+    jsonb_set(
+      jsonb_set(payload_v3,'{cartons,0,sourceCartonNumber}','"FORCE-ROLLBACK"'),
+      '{cartons,0,memberCartonNumbers}',jsonb_build_array('FORCE-ROLLBACK')
+    ),
+    actor
+  ) returning id into invalid_revision;
+  begin
+    perform public.dm_confirm_packing_list_revision(invalid_revision,actor);
+  exception when others then
+    if sqlerrm not like '%forced late projection failure%' then raise; end if;
+    late_failure_rejected:=true;
+  end;
+  if not late_failure_rejected then raise exception 'Late projection failure was not triggered'; end if;
+  if (select status from public.shipment_packing_list_versions where id=revision_v3)<>'confirmed'
+    or (select status from public.shipment_packing_list_versions where id=invalid_revision)<>'draft'
+    or (select count(*) from public.shipment_carton_members where shipment_id=shipment_v3)<>6 then
+    raise exception 'Late projection failure did not fully restore prior confirmation and projection';
+  end if;
 
   insert into public.shipment_packing_list_versions(shipment_id,version,status,payload_snapshot,created_by)
   values(shipment_v2,1,'draft',jsonb_build_object(

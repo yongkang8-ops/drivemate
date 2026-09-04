@@ -4,6 +4,14 @@ begin;
 alter table public.shipment_cartons
   add column if not exists scope_kind text not null default 'carton';
 
+alter table public.shipment_pallets
+  add column if not exists normalized_pallet_number text generated always as (
+    regexp_replace(upper(trim(pallet_number)),'\s+',' ','g')
+  ) stored;
+
+create unique index if not exists shipment_pallets_normalized_number_unique
+  on public.shipment_pallets(shipment_id,normalized_pallet_number);
+
 do $$
 begin
   if not exists (
@@ -102,6 +110,10 @@ begin
   if v_schema_version<>3 then
     raise exception 'Unsupported packing-list schema version %',v_schema_version;
   end if;
+  if jsonb_typeof(v_revision.payload_snapshot->'shipmentId')<>'string'
+    or v_revision.payload_snapshot->>'shipmentId'<>v_revision.shipment_id::text then
+    raise exception 'Packing-list shipment does not match its revision';
+  end if;
 
   perform public.dm_assert_used_packing_scopes_preserved(p_revision_id);
   select * into v_shipment from public.shipments
@@ -113,13 +125,19 @@ begin
     raise exception 'Schema v3 packing list requires at least one source scope';
   end if;
 
+  if v_revision.payload_snapshot ? 'physicalPalletCount'
+    and jsonb_typeof(v_revision.payload_snapshot->'physicalPalletCount') not in ('number','null') then
+    raise exception 'Physical pallet count must be a positive integer or null';
+  end if;
   v_physical_pallet_count:=nullif(v_revision.payload_snapshot->>'physicalPalletCount','')::integer;
   if v_physical_pallet_count is not null and v_physical_pallet_count<=0 then
     raise exception 'Physical pallet count must be a positive integer';
   end if;
   select count(*),
          count(*) filter (where nullif(trim(value->>'sourcePalletNumber'),'') is not null),
-         count(distinct upper(nullif(trim(value->>'sourcePalletNumber'),'')))
+         count(distinct public.dm_normalize_warehouse_scope_identifier(
+           nullif(trim(value->>'sourcePalletNumber'),'')
+         ))
     into v_total_carton_count,v_mapped_carton_count,v_mapped_pallet_count
   from jsonb_array_elements(v_revision.payload_snapshot->'cartons');
   if v_physical_pallet_count is not null and v_mapped_pallet_count>v_physical_pallet_count then
@@ -133,6 +151,10 @@ begin
 
   -- First collect every stable source-scope identifier before validating members.
   for v_carton in select value from jsonb_array_elements(v_revision.payload_snapshot->'cartons') loop
+    if jsonb_typeof(v_carton)<>'object'
+      or jsonb_typeof(v_carton->'sourceCartonNumber')<>'string' then
+      raise exception 'Every schema v3 source scope must be an object with a string identifier';
+    end if;
     v_source_scope:=trim(coalesce(v_carton->>'sourceCartonNumber',''));
     if v_source_scope='' then raise exception 'Source scope identifier is required'; end if;
     v_normalized_scope:=public.dm_normalize_warehouse_scope_identifier(v_source_scope);
@@ -145,12 +167,18 @@ begin
   for v_carton in select value from jsonb_array_elements(v_revision.payload_snapshot->'cartons') loop
     v_source_scope:=trim(v_carton->>'sourceCartonNumber');
     v_normalized_scope:=public.dm_normalize_warehouse_scope_identifier(v_source_scope);
-    v_scope_kind:=coalesce(nullif(v_carton->>'kind',''),'carton');
+    if jsonb_typeof(v_carton->'kind')<>'string' then
+      raise exception 'Schema v3 source scope % requires an explicit kind',v_source_scope;
+    end if;
+    v_scope_kind:=v_carton->>'kind';
     if v_scope_kind not in ('carton','carton_group') then
       raise exception 'Unsupported source scope kind %',v_scope_kind;
     end if;
+    if jsonb_typeof(v_carton->'physicalCartonCount')<>'number' then
+      raise exception 'Schema v3 source scope % requires an explicit physical carton count',v_source_scope;
+    end if;
     begin
-      v_physical_carton_count:=coalesce(nullif(v_carton->>'physicalCartonCount','')::integer,1);
+      v_physical_carton_count:=(v_carton->>'physicalCartonCount')::integer;
     exception when invalid_text_representation then
       raise exception 'Physical carton count must be a positive integer for %',v_source_scope;
     end;
@@ -159,6 +187,14 @@ begin
     end if;
     if jsonb_typeof(v_carton->'memberCartonNumbers')<>'array' then
       raise exception 'Member carton identifiers are required for %',v_source_scope;
+    end if;
+    if exists (
+      select 1 from jsonb_array_elements(v_carton->'memberCartonNumbers') member
+      where jsonb_typeof(member.value)<>'string'
+    ) then raise exception 'Every member carton identifier must be a string for %',v_source_scope; end if;
+    if v_carton ? 'sourcePalletNumber'
+      and jsonb_typeof(v_carton->'sourcePalletNumber') not in ('string','null') then
+      raise exception 'Source pallet identifier must be a string or null for %',v_source_scope;
     end if;
     if v_scope_kind='carton' and (
       v_physical_carton_count<>1
@@ -192,6 +228,12 @@ begin
     if jsonb_typeof(v_carton->'lines')<>'array' or jsonb_array_length(v_carton->'lines')=0 then
       raise exception 'Source scope % requires at least one SKU line',v_source_scope;
     end if;
+    if exists (
+      select 1 from jsonb_array_elements(v_carton->'lines') line
+      where jsonb_typeof(line.value)<>'object'
+        or jsonb_typeof(line.value->'sku')<>'string'
+        or jsonb_typeof(line.value->'expectedQuantity')<>'number'
+    ) then raise exception 'Every source-scope line requires a string SKU and numeric expected quantity'; end if;
     if (select count(*) from jsonb_array_elements(v_carton->'lines')) <>
        (select count(distinct upper(trim(value->>'sku'))) from jsonb_array_elements(v_carton->'lines')) then
       raise exception 'Source scope % contains a duplicate SKU',v_source_scope;
@@ -231,9 +273,11 @@ begin
 
   for v_carton in select value from jsonb_array_elements(v_revision.payload_snapshot->'cartons') loop
     v_source_scope:=trim(v_carton->>'sourceCartonNumber');
-    v_scope_kind:=coalesce(nullif(v_carton->>'kind',''),'carton');
-    v_physical_carton_count:=coalesce(nullif(v_carton->>'physicalCartonCount','')::integer,1);
-    v_pallet_number:=nullif(trim(v_carton->>'sourcePalletNumber'),'');
+    v_scope_kind:=v_carton->>'kind';
+    v_physical_carton_count:=(v_carton->>'physicalCartonCount')::integer;
+    v_pallet_number:=nullif(public.dm_normalize_warehouse_scope_identifier(
+      coalesce(v_carton->>'sourcePalletNumber','')
+    ),'');
     v_pallet_id:=null;
     if v_pallet_number is not null then
       insert into public.shipment_pallets(shipment_id,pallet_number,source_evidence)

@@ -17,6 +17,8 @@ describe("source carton group database projection", () => {
     expect(sql).toContain("create table if not exists public.shipment_carton_members");
     expect(sql).toContain("unique (shipment_id, normalized_member_identifier)");
     expect(sql).toContain("foreign key (carton_id, shipment_id)");
+    expect(sql).toContain("add column if not exists normalized_pallet_number text generated always as");
+    expect(sql).toContain("shipment_pallets_normalized_number_unique");
   });
 
   it("adds v3 confirmation while retaining the v1 and v2 implementation", () => {
