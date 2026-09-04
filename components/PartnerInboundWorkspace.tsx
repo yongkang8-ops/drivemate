@@ -16,6 +16,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { buildApiHeaders } from "../lib/clientAuth";
 import type { PrearrivalShipmentSummary, WarehouseLabelPrintJob } from "../lib/repository";
 import type { ReceiptDiscrepancyType, WarehouseReceiptScope } from "../lib/warehouseReceiving";
+import { describeUnmappedPalletSelection } from "../lib/warehouseScopePresentation";
 import { WarehousePutawayPanel } from "./WarehousePutawayPanel";
 import { ReceiptHistoryPanel } from "./ReceiptHistoryPanel";
 
@@ -735,7 +736,7 @@ export function PartnerInboundWorkspace() {
             <legend>Optional pallet filter</legend>
             {preview.shipment.pallets.length
               ? preview.shipment.pallets.map((pallet) => <label key={pallet.sourcePalletNumber}><input aria-label={`Pallet ${pallet.sourcePalletNumber}`} checked={selectedPallets.includes(pallet.sourcePalletNumber)} disabled={scopeLoading} onChange={(event) => togglePallet(pallet.sourcePalletNumber, event.target.checked)} type="checkbox" />Pallet {pallet.sourcePalletNumber}</label>)
-              : <span className="inbound-pallet-unmapped">Pallet mapping not recorded · Full shipment selected</span>}
+              : <span className="inbound-pallet-unmapped">{describeUnmappedPalletSelection(selectedCartons)}</span>}
           </fieldset>
 
           <section className="inbound-source-scope-picker" aria-labelledby="source-scope-heading">

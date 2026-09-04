@@ -216,6 +216,11 @@ test("Partner confirms cartons without pallet mapping and Warehouse uses the ful
   await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-OF-001");
   await page.getByLabel("Expected quantity", { exact: true }).fill("12");
 
+  await page.getByRole("button", { name: "Add source scope" }).click();
+  await page.getByLabel("Source scope number").fill("C002");
+  await page.getByLabel("SKU", { exact: true }).fill("DM-GWM-AF-002");
+  await page.getByLabel("Expected quantity", { exact: true }).fill("6");
+
   await expect(page.getByText("Not recorded", { exact: true })).toBeVisible();
   await expect(page.getByText("Enter the pallet number.", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Confirm Packing List" }).click();
@@ -224,7 +229,17 @@ test("Partner confirms cartons without pallet mapping and Warehouse uses the ful
   await expect(page.getByText(/4 physical pallets/i)).toBeVisible();
   await page.getByRole("link", { name: "Prepare AU labels" }).click();
   await expect(page.getByText("Pallet mapping not recorded · Full shipment selected", { exact: true })).toBeVisible();
-  await expect(page.locator(".inbound-scope-bar p")).toContainText("12 expected units");
+  await expect(page.locator(".inbound-scope-bar p")).toContainText("18 expected units");
+
+  await page.getByLabel("Source scope C001").check();
+  await expect(page.getByText("Pallet mapping not recorded · Source scope C001 selected", { exact: true })).toBeVisible();
+
+  await page.getByLabel("Source scope C002").check();
+  await expect(page.getByText("Pallet mapping not recorded · 2 source scopes selected", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Full shipment" }).click();
+  await expect(page.getByText("Pallet mapping not recorded · Full shipment selected", { exact: true })).toBeVisible();
+  await expect(page.locator(".inbound-scope-bar p")).toContainText("18 expected units");
 });
 
 test("editing a v3 single carton keeps its sole member carton number in the saved revision", async ({
