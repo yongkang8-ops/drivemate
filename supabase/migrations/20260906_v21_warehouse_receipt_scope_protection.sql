@@ -47,13 +47,20 @@ begin
     order by version desc limit 1;
   if v_payload is null then raise exception 'Confirmed packing list was not found for this shipment'; end if;
   if jsonb_typeof(p_scope_snapshot)<>'object'
-    or p_scope_snapshot->>'shipmentId'<>p_shipment_id::text
+    or jsonb_typeof(p_scope_snapshot->'shipmentId')<>'string'
     or jsonb_typeof(p_scope_snapshot->'cartonNumbers')<>'array'
     or jsonb_array_length(p_scope_snapshot->'cartonNumbers')=0
     or jsonb_typeof(p_scope_snapshot->'lines')<>'array'
     or jsonb_array_length(p_scope_snapshot->'lines')=0 then
     raise exception 'Warehouse receipt scope is invalid';
   end if;
+  begin
+    if (p_scope_snapshot->>'shipmentId')::uuid is distinct from p_shipment_id then
+      raise exception 'Warehouse receipt scope is invalid';
+    end if;
+  exception when invalid_text_representation or null_value_not_allowed then
+    raise exception 'Warehouse receipt scope is invalid';
+  end;
   if (select count(*) from jsonb_array_elements_text(p_scope_snapshot->'cartonNumbers')) <>
      (select count(distinct public.dm_normalize_warehouse_scope_identifier(value)) from jsonb_array_elements_text(p_scope_snapshot->'cartonNumbers')) then
     raise exception 'Select each source scope once';

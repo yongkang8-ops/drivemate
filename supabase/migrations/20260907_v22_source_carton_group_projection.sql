@@ -110,10 +110,16 @@ begin
   if v_schema_version<>3 then
     raise exception 'Unsupported packing-list schema version %',v_schema_version;
   end if;
-  if jsonb_typeof(v_revision.payload_snapshot->'shipmentId')<>'string'
-    or v_revision.payload_snapshot->>'shipmentId'<>v_revision.shipment_id::text then
+  if jsonb_typeof(v_revision.payload_snapshot->'shipmentId')<>'string' then
     raise exception 'Packing-list shipment does not match its revision';
   end if;
+  begin
+    if (v_revision.payload_snapshot->>'shipmentId')::uuid<>v_revision.shipment_id then
+      raise exception 'Packing-list shipment does not match its revision';
+    end if;
+  exception when invalid_text_representation then
+    raise exception 'Packing-list shipment does not match its revision';
+  end;
 
   perform public.dm_assert_used_packing_scopes_preserved(p_revision_id);
   select * into v_shipment from public.shipments

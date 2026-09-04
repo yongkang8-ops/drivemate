@@ -52,7 +52,7 @@ begin
 
   payload_v3:=jsonb_build_object(
     'schemaVersion',3,
-    'shipmentId',shipment_v3,
+    'shipmentId',upper(shipment_v3::text),
     'physicalPalletCount',4,
     'cartons',jsonb_build_array(
       jsonb_build_object(
