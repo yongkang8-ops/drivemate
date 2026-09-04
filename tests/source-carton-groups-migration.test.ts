@@ -25,6 +25,8 @@ describe("source carton group database projection", () => {
     const sql = readFileSync(migrationPath, "utf8").replace(/\s+/g, " ");
 
     expect(sql).toContain("rename to dm_confirm_packing_list_revision_v21");
+    expect(sql).toContain("rename to dm_assert_warehouse_receipt_scope_v21");
+    expect(sql).toContain("perform public.dm_assert_warehouse_receipt_scope_v21(p_shipment_id,v_canonical_scope)");
     expect(sql).toContain("if v_schema_version in (1,2) then");
     expect(sql).toContain("return public.dm_confirm_packing_list_revision_v21(p_revision_id,p_actor_id)");
     expect(sql).toContain("if v_schema_version<>3 then");

@@ -59,6 +59,7 @@ Task 3A 已补齐 schema v3 Packing List 的数据库确认与投影断点。核
 - 网络：`--network none`。
 - 从空数据库执行 initial 至 v22：全部通过。
 - v21 收货范围顺序回归套件在更新后的UUID语义校验下继续通过。
+- 升级路径按“原版v21已应用、随后只执行v22”验证；UUID收货兼容修复完全位于v22，未改写v21迁移历史。
 - `tests/sql/source-carton-groups-v3-projection.sql`：通过并回滚全部夹具。
 - 权限：公共 v22 wrapper 的 `service_role EXECUTE=true`；v20/v21内部实现为 false；`anon`、`authenticated` 无成员表读取权限。
 - 未连接 Production，未使用或输出任何密钥。

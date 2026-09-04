@@ -57,6 +57,34 @@ create index if not exists shipment_carton_members_carton_idx
 alter table public.shipment_carton_members enable row level security;
 revoke all on public.shipment_carton_members from public,anon,authenticated;
 
+-- Upgrade already-migrated v21 environments without rewriting migration history.
+alter function public.dm_assert_warehouse_receipt_scope(uuid,jsonb)
+  rename to dm_assert_warehouse_receipt_scope_v21;
+
+create function public.dm_assert_warehouse_receipt_scope(
+  p_shipment_id uuid,p_scope_snapshot jsonb
+) returns void language plpgsql security definer set search_path=public
+as $$
+declare v_canonical_scope jsonb;
+begin
+  if jsonb_typeof(p_scope_snapshot)<>'object'
+    or jsonb_typeof(p_scope_snapshot->'shipmentId')<>'string' then
+    raise exception 'Warehouse receipt scope is invalid';
+  end if;
+  begin
+    if (p_scope_snapshot->>'shipmentId')::uuid is distinct from p_shipment_id then
+      raise exception 'Warehouse receipt scope is invalid';
+    end if;
+  exception when invalid_text_representation or null_value_not_allowed then
+    raise exception 'Warehouse receipt scope is invalid';
+  end;
+  v_canonical_scope:=jsonb_set(
+    p_scope_snapshot,'{shipmentId}',to_jsonb(p_shipment_id::text),false
+  );
+  perform public.dm_assert_warehouse_receipt_scope_v21(p_shipment_id,v_canonical_scope);
+end;
+$$;
+
 alter function public.dm_confirm_packing_list_revision(uuid,uuid)
   rename to dm_confirm_packing_list_revision_v21;
 
@@ -334,6 +362,10 @@ end;
 $$;
 
 revoke all on function public.dm_confirm_packing_list_revision_v21(uuid,uuid)
+  from public,anon,authenticated,service_role;
+revoke all on function public.dm_assert_warehouse_receipt_scope_v21(uuid,jsonb)
+  from public,anon,authenticated,service_role;
+revoke all on function public.dm_assert_warehouse_receipt_scope(uuid,jsonb)
   from public,anon,authenticated,service_role;
 revoke all on function public.dm_confirm_packing_list_revision(uuid,uuid)
   from public,anon,authenticated;

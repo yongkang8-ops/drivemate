@@ -78,6 +78,12 @@ begin
     shipment_id,version,status,payload_snapshot,created_by
   ) values(shipment_v3,1,'draft',payload_v3,actor) returning id into revision_v3;
   perform public.dm_confirm_packing_list_revision(revision_v3,actor);
+  perform public.dm_assert_warehouse_receipt_scope(shipment_v3,jsonb_build_object(
+    'shipmentId',upper(shipment_v3::text),'cartonNumbers',jsonb_build_array('BATCH-A'),
+    'lines',jsonb_build_array(jsonb_build_object(
+      'sku','LOCAL-V22-A','expectedQuantity',10,'productBarcode','LOCALV22A'
+    ))
+  ));
 
   if (select count(*) from public.shipment_cartons where shipment_id=shipment_v3)<>3 then
     raise exception 'Expected 3 stable source scopes';
