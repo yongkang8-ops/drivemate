@@ -4,6 +4,46 @@ test.beforeEach(async ({ request }) => {
   await request.post("/api/test/reset");
 });
 
+test("print job remains readable from mobile through narrow desktop", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.print = () => undefined;
+  });
+  await page.goto("/warehouse");
+
+  await page.getByLabel("Pallet P001").check();
+  await page.getByRole("button", { name: "Preview labels" }).click();
+  await page.getByRole("button", { name: "Print labels" }).click();
+  await expect(page.getByText("Awaiting physical confirmation")).toBeVisible();
+
+  const printJob = page.locator(".inbound-job-row");
+  const reference = printJob.locator("strong").nth(0);
+  const status = printJob.locator("strong").nth(1);
+
+  for (const viewport of [
+    { width: 1040, height: 900 },
+    { width: 880, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expect(reference).toBeVisible();
+    await expect(status).toBeVisible();
+
+    const documentWidth = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+    expect(documentWidth.scrollWidth).toBeLessThanOrEqual(documentWidth.clientWidth);
+
+    const maxTextHeight = viewport.width > 700 ? 48 : 72;
+    const referenceBox = await reference.boundingBox();
+    const statusBox = await status.boundingBox();
+    expect(referenceBox).not.toBeNull();
+    expect(statusBox).not.toBeNull();
+    expect(referenceBox!.height).toBeLessThanOrEqual(maxTextHeight);
+    expect(statusBox!.height).toBeLessThanOrEqual(maxTextHeight);
+  }
+});
+
 test("an operator prints the selected pallet labels and unlocks receipt only after confirming the physical outcome", async ({ page }) => {
   await page.goto("/warehouse");
 
