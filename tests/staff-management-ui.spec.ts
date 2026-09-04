@@ -66,6 +66,33 @@ async function mockStaffApi(page: Page, canManage = true) {
   });
 }
 
+test("authenticated Staff uses only the private operations shell", async ({ page }) => {
+  await mockAdminSession(page);
+  await mockStaffApi(page);
+  await page.goto("/admin/staff");
+
+  await expect(page.getByRole("heading", { name: "Staff management" })).toBeVisible();
+  await expect(page.locator(".site-header")).toBeHidden();
+  await expect(page.locator(".site-footer")).toBeHidden();
+  await expect(page.getByLabel("Account session")).toBeHidden();
+});
+
+test.describe("unauthenticated Staff SSR shell", () => {
+  // The local dev server explicitly enables demo bypass. Disabling JavaScript
+  // verifies the CSS/SSR signed-out boundary; Production 401 behavior is covered by auth tests.
+  test.use({ javaScriptEnabled: false });
+
+  test("unauthenticated Staff retains the public access shell", async ({ page }) => {
+    await page.goto("/admin/staff");
+
+    await expect(page.locator(".site-header")).toBeVisible();
+    await expect(page.getByLabel("Account session")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Workspace access required" })).toBeVisible();
+    await expect(page.locator(".site-footer")).toBeVisible();
+    await expect(page.locator(".staff-operations-app")).toHaveCount(0);
+  });
+});
+
 test("opens account details in a drawer and protects the system administrator", async ({ page }) => {
   await mockAdminSession(page);
   await mockStaffApi(page);
@@ -179,9 +206,7 @@ test("uses a right-side desktop drawer and returns focus after closing", async (
   await mockAdminSession(page);
   await mockStaffApi(page);
   await page.goto("/admin/staff");
-  const authPanelBox = await page.getByLabel("Account session").boundingBox();
-  expect(authPanelBox).not.toBeNull();
-  expect(authPanelBox!.height).toBeLessThanOrEqual(90);
+  await expect(page.getByLabel("Account session")).toBeHidden();
   const tableFontSize = await page.locator(".staff-table td").first().evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
   expect(tableFontSize).toBeGreaterThanOrEqual(10);
   const trigger = page.getByRole("button", { name: /Warehouse Operator 01/ });

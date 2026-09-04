@@ -4,6 +4,31 @@ test.beforeEach(async ({ request }) => {
   await request.post("/api/test/reset");
 });
 
+test("authenticated Inventory uses only the private operations shell", async ({ page }) => {
+  await page.goto("/inventory");
+
+  await expect(page.getByRole("heading", { name: "Location management" })).toBeVisible();
+  await expect(page.locator(".site-header")).toBeHidden();
+  await expect(page.locator(".site-footer")).toBeHidden();
+  await expect(page.getByLabel("Account session")).toBeHidden();
+});
+
+test.describe("unauthenticated Inventory SSR shell", () => {
+  // The local dev server explicitly enables demo bypass. Disabling JavaScript
+  // verifies the CSS/SSR signed-out boundary; Production 401 behavior is covered by auth tests.
+  test.use({ javaScriptEnabled: false });
+
+  test("unauthenticated Inventory retains the public access shell", async ({ page }) => {
+    await page.goto("/inventory");
+
+    await expect(page.locator(".site-header")).toBeVisible();
+    await expect(page.getByLabel("Account session")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Workspace access required" })).toBeVisible();
+    await expect(page.locator(".site-footer")).toBeVisible();
+    await expect(page.locator(".inventory-location-app")).toHaveCount(0);
+  });
+});
+
 async function createTwoPhysicalLocations(page: Page) {
   await page.goto("/inventory");
   await expect(page.getByRole("heading", { name: "Location management" })).toBeVisible();
