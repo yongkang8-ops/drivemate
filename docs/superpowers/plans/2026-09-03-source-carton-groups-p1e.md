@@ -90,7 +90,7 @@
 - [x] Add v22 tables, constraints and transaction support for schema v3 without supplier, freight-provider or file-format coupling.
 - [x] Execute initial through v22 on a disposable local Supabase PostgreSQL runtime.
 - [x] Verify generic identifiers, physical-carton totals, optional pallet mapping, rollback safety, no stock side effects and v1/v2 compatibility.
-- [ ] Run full local QA, independent review and commit only Task 3A files.
+- [x] Run full local QA, independent review and commit only Task 3A files.
 
 ### Deferred Task 3B: Append-only per-carton detail evidence
 

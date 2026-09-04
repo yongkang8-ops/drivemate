@@ -69,3 +69,7 @@ Production 执行 v22 前必须先做一次只读预检：检查现有 `shipment
 ## 延后范围
 
 Task 3B（逐箱 `packing_allocation | observed_contents`、只追加版本、审计 API 与右侧抽屉）已明确延后。触发条件是取得真实逐箱分配资料、出现箱损/箱丢追溯需求，或仓库需要按未拆实体箱查询内容。
+
+## 独立复审
+
+最终复审结论：Critical 0、Important 0、Minor 0。复审确认历史 v21 文件无净改动；v22 能从原版 v21 升级并为 Packing List 与 receipt scope 提供 UUID 语义兼容，同时保留既有 v21 校验和内部权限边界。
