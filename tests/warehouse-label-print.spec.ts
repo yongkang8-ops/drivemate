@@ -17,6 +17,8 @@ test("print job remains readable from mobile through narrow desktop", async ({ p
 
   const printJob = page.locator(".inbound-job-row");
   const workPanel = page.locator(".inbound-work-panel").filter({ has: printJob });
+  const referenceBlock = printJob.locator(":scope > div").nth(0);
+  const statusBlock = printJob.locator(":scope > div").nth(1);
   const reference = printJob.locator("strong").nth(0);
   const status = printJob.locator("strong").nth(1);
   const actions = printJob.locator(".inbound-job-actions");
@@ -32,8 +34,12 @@ test("print job remains readable from mobile through narrow desktop", async ({ p
   };
 
   for (const viewport of [
+    { width: 1600, height: 900 },
+    { width: 1440, height: 900 },
     { width: 1040, height: 900 },
     { width: 880, height: 900 },
+    { width: 768, height: 900 },
+    { width: 701, height: 900 },
     { width: 390, height: 844 },
   ]) {
     await page.setViewportSize(viewport);
@@ -47,15 +53,19 @@ test("print job remains readable from mobile through narrow desktop", async ({ p
     expect(documentWidth.scrollWidth).toBeLessThanOrEqual(documentWidth.clientWidth);
 
     const maxTextHeight = viewport.width > 700 ? 48 : 72;
-    const [panelBox, printJobBox, referenceBox, statusBox, actionsBox] = await Promise.all([
+    const [panelBox, printJobBox, referenceBlockBox, statusBlockBox, referenceBox, statusBox, actionsBox] = await Promise.all([
       workPanel.boundingBox(),
       printJob.boundingBox(),
+      referenceBlock.boundingBox(),
+      statusBlock.boundingBox(),
       reference.boundingBox(),
       status.boundingBox(),
       actions.boundingBox(),
     ]);
     expect(panelBox).not.toBeNull();
     expect(printJobBox).not.toBeNull();
+    expect(referenceBlockBox).not.toBeNull();
+    expect(statusBlockBox).not.toBeNull();
     expect(referenceBox).not.toBeNull();
     expect(statusBox).not.toBeNull();
     expect(actionsBox).not.toBeNull();
@@ -66,18 +76,31 @@ test("print job remains readable from mobile through narrow desktop", async ({ p
     expect(referenceBox!.height).toBeLessThanOrEqual(maxTextHeight);
     expect(statusBox!.height).toBeLessThanOrEqual(maxTextHeight);
 
-    if (viewport.width === 390) {
+    if (viewport.width >= 1440) {
+      const gridColumns = await printJob.evaluate((element) =>
+        getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean),
+      );
+      expect(gridColumns).toHaveLength(3);
+      expect(referenceBlockBox!.y).toBeLessThan(actionsBox!.y + actionsBox!.height);
+      expect(actionsBox!.y).toBeLessThan(referenceBlockBox!.y + referenceBlockBox!.height);
+      expect(statusBlockBox!.y).toBeLessThan(actionsBox!.y + actionsBox!.height);
+      expect(actionsBox!.y).toBeLessThan(statusBlockBox!.y + statusBlockBox!.height);
+    }
+
+    if ([768, 701, 390].includes(viewport.width)) {
       const [cancelBox, confirmBox] = await Promise.all([
         cancelButton.boundingBox(),
         confirmButton.boundingBox(),
       ]);
       expect(cancelBox).not.toBeNull();
       expect(confirmBox).not.toBeNull();
-      expect(Math.abs(cancelBox!.width - confirmBox!.width)).toBeLessThanOrEqual(1);
       expectHorizontallyContained(cancelBox!, actionsBox!);
       expectHorizontallyContained(confirmBox!, actionsBox!);
       expectHorizontallyContained(cancelBox!, printJobBox!);
       expectHorizontallyContained(confirmBox!, printJobBox!);
+      if (viewport.width === 390) {
+        expect(Math.abs(cancelBox!.width - confirmBox!.width)).toBeLessThanOrEqual(1);
+      }
     }
   }
 });

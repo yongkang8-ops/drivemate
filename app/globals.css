@@ -492,9 +492,14 @@ body:has(.inbound-app) .site-shell { min-height: 100vh; }
   .inbound-job-actions { grid-column: 1 / -1; justify-self: start; }
 }
 
-@container (max-width: 760px) {
+@media (min-width: 1101px) {
+  #label-print.inbound-workgrid { grid-template-columns: minmax(0, 3fr) minmax(260px, .8fr); }
+}
+
+@container (max-width: 780px) {
   .inbound-job-row { grid-template-columns: minmax(0, 1fr); }
-  .inbound-job-actions { grid-column: 1 / -1; justify-self: start; }
+  .inbound-job-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-column: 1 / -1; justify-self: stretch; }
+  .inbound-job-actions .button { width: 100%; min-width: 0; }
 }
 .inbound-summary-panel > .inbound-section-label:first-of-type { margin-top: 30px; }
 .warehouse-label-print-sheet { display: grid; justify-content: center; margin: 30px 0 0; }
@@ -783,6 +788,7 @@ body:has(.partner-dashboard-app) .site-shell { min-height: 100vh; }
   .prearrival-member-editor > div { grid-template-columns: minmax(0, 1fr); }
   .prearrival-version-row { align-items: stretch; flex-direction: column; gap: 12px; }
   .prearrival-version-row .secondary-button { width: 100%; justify-content: center; }
+  #label-print.inbound-workgrid { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 700px) {
