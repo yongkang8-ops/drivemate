@@ -10,6 +10,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "preflight:local": "node scripts/preflight-local.mjs",
+    "generate:product-barcodes": "node scripts/product-barcode-backfill.ts",
     "seed:users": "node scripts/create-staging-users.mjs",
     "smoke:tokens": "node scripts/create-smoke-tokens.mjs",
     "verify:supabase": "node scripts/verify-supabase-setup.mjs",
