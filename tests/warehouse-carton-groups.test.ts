@@ -108,6 +108,87 @@ describe("source carton groups downstream", () => {
     expect(await repository.createWarehouseReceiptSession({ ...request, lines: [{ ...request.lines[0], actualQuantity: 8 }] })).toMatchObject({ ok: false });
   });
 
+  it("rejects direct receipt sessions that no longer match the confirmed packing scope", async () => {
+    const request = await prepare(["7#8#9#"], "canonical-scope");
+    const invalidScopes = [
+      { ...request.scope, cartonNumbers: ["8#"] },
+      { ...request.scope, cartonNumbers: ["404#"] },
+      { ...request.scope, lines: [{ ...request.scope.lines[0], expectedQuantity: 11 }] },
+      { ...request.scope, lines: [{ ...request.scope.lines[0], sku: "DM-GWM-AF-002" }] },
+      { ...request.scope, lines: [{ ...request.scope.lines[0], productBarcode: "DMPGWMAF002" }] },
+    ];
+
+    for (const [index, scope] of invalidScopes.entries()) {
+      await expect(repository.createWarehouseReceiptSession({
+        ...request,
+        idempotencyKey: `invalid-direct-${index}`,
+        scope,
+      })).resolves.toMatchObject({ ok: false });
+    }
+  });
+
+  it("cannot mark a pending unit-product job printed after its source scope changes", async () => {
+    const shipment = await repository.getPrearrivalShipment(input.shipmentId);
+    if (!shipment.ok) throw new Error(shipment.message);
+    const selected = filterWarehouseExpectedReceipt(shipment.shipment, {
+      shipmentId: input.shipmentId,
+      cartonNumbers: ["7#8#9#"],
+    });
+    const scope = buildWarehouseReceiptScope(selected, shipment.shipment.productBarcodes);
+    const pending = await repository.createWarehouseLabelPrintJobWithItems({
+      templateId: "unit_product",
+      payloadSnapshot: scope,
+      requestedQuantity: 10,
+      itemPayloadSnapshots: Array.from({ length: 10 }, () => ({ sku: "DM-GWM-OF-001" })),
+    });
+    if (!pending.ok) throw new Error(pending.message);
+
+    const renamed = validatePackingListRevision({
+      ...input,
+      cartons: [{ ...input.cartons[0], sourceCartonNumber: "RENAMED" }, input.cartons[1]],
+    });
+    if (!renamed.ok) throw new Error(renamed.message);
+    const saved = await repository.createPackingListRevision(renamed.revision);
+    if (!saved.ok) throw new Error(saved.message);
+    expect(await repository.confirmPackingListRevision(saved.revision.id)).toMatchObject({ ok: true });
+
+    expect(await repository.recordWarehouseLabelPrintOutcome(pending.job.id, "printed")).toMatchObject({ ok: false });
+    expect(await repository.getWarehouseLabelPrintJob(pending.job.id)).toMatchObject({
+      ok: true,
+      job: { status: "pending" },
+    });
+  });
+
+  it("serializes printing and a conflicting packing revision so only one can succeed", async () => {
+    const shipment = await repository.getPrearrivalShipment(input.shipmentId);
+    if (!shipment.ok) throw new Error(shipment.message);
+    const selected = filterWarehouseExpectedReceipt(shipment.shipment, {
+      shipmentId: input.shipmentId,
+      cartonNumbers: ["7#8#9#"],
+    });
+    const scope = buildWarehouseReceiptScope(selected, shipment.shipment.productBarcodes);
+    const pending = await repository.createWarehouseLabelPrintJobWithItems({
+      templateId: "unit_product",
+      payloadSnapshot: scope,
+      requestedQuantity: 10,
+      itemPayloadSnapshots: Array.from({ length: 10 }, () => ({ sku: "DM-GWM-OF-001" })),
+    });
+    if (!pending.ok) throw new Error(pending.message);
+    const renamed = validatePackingListRevision({
+      ...input,
+      cartons: [{ ...input.cartons[0], sourceCartonNumber: "RENAMED" }, input.cartons[1]],
+    });
+    if (!renamed.ok) throw new Error(renamed.message);
+    const saved = await repository.createPackingListRevision(renamed.revision);
+    if (!saved.ok) throw new Error(saved.message);
+
+    const [printResult, packingResult] = await Promise.all([
+      repository.recordWarehouseLabelPrintOutcome(pending.job.id, "printed"),
+      repository.confirmPackingListRevision(saved.revision.id),
+    ]);
+    expect([printResult.ok, packingResult.ok].filter(Boolean)).toHaveLength(1);
+  });
+
   it("prevents re-receiving through a renamed or split used scope, while allowing pallet metadata updates", async () => {
     const request = await prepare(["7#8#9#"], "used-scope");
     const created = await repository.createWarehouseReceiptSession(request);

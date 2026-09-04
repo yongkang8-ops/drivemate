@@ -95,8 +95,8 @@ import type {
   SetInventoryLocationStatusResult,
   RepositoryTestResetOptions,
 } from "./repository";
-import { filterWarehouseExpectedReceipt, type WarehouseExpectedReceipt, type WarehouseInboundSelection, type WarehouseLabelPrintScope } from "./warehouseLabels";
-import { RECEIVING_STAGING_LOCATION, assertReceiptScopeAvailable, receiptRequestFingerprint, type WarehouseReceiptScope } from "./warehouseReceiving";
+import { buildWarehouseReceiptScope, filterWarehouseExpectedReceipt, type WarehouseExpectedReceipt, type WarehouseInboundSelection, type WarehouseLabelPrintScope } from "./warehouseLabels";
+import { RECEIVING_STAGING_LOCATION, assertReceiptScopeAvailable, receiptRequestFingerprint, warehouseReceiptScopesMatch, type WarehouseReceiptScope } from "./warehouseReceiving";
 import { type WarehouseHistoryEvent } from "./warehouseHistory";
 import {
   mapReceiptProductBarcodes,
@@ -148,6 +148,22 @@ let warehouseLabelPrintJobs: WarehouseLabelPrintJob[] = [];
 let warehouseLabelPrintItems: WarehouseLabelPrintItem[] = [];
 let warehouseReceiptSessionSequence = 0;
 let warehouseReceiptSessions: WarehouseReceiptSession[] = [];
+const memoryOperationLocks = new Map<string, Promise<void>>();
+
+async function withMemoryOperationLock<T>(key: string, operation: () => Promise<T>): Promise<T> {
+  const prior = memoryOperationLocks.get(key) ?? Promise.resolve();
+  let release = () => {};
+  const current = new Promise<void>((resolve) => { release = resolve; });
+  const queue = prior.then(() => current);
+  memoryOperationLocks.set(key, queue);
+  await prior;
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (memoryOperationLocks.get(key) === queue) memoryOperationLocks.delete(key);
+  }
+}
 let warehousePutawaySequence = 0;
 let warehousePutaways: Array<{
   id: string;
@@ -455,8 +471,64 @@ function productMasterSkusFor(shipmentId: string): string[] {
   return (prearrivalAllowedSkusByShipment[shipmentId] ?? []).filter((sku) => existingSkus.has(sku));
 }
 
+function validateWarehouseReceiptScopeAgainstExpected(
+  scope: WarehouseReceiptScope,
+  receipt: WarehouseExpectedReceipt,
+  productBarcodes: Record<string, string>,
+): { ok: true } | { ok: false; message: string } {
+  if (
+    !scope
+    || typeof scope.shipmentId !== "string"
+    || !Array.isArray(scope.cartonNumbers)
+    || !Array.isArray(scope.lines)
+  ) {
+    return { ok: false, message: "Warehouse receipt scope is invalid." };
+  }
+  try {
+    const expected = buildWarehouseReceiptScope(receipt, productBarcodes);
+    return warehouseReceiptScopesMatch(scope, expected)
+      ? { ok: true }
+      : { ok: false, message: "Warehouse receipt scope does not match the current confirmed Packing List." };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error
+        ? error.message
+        : "Warehouse receipt scope does not match the current confirmed Packing List.",
+    };
+  }
+}
+
 export class MemoryRepository implements DrivemateRepository {
   mode = "memory" as const;
+
+  private async validateCurrentWarehouseReceiptScope(
+    scope: WarehouseReceiptScope,
+  ): Promise<{ ok: true } | { ok: false; message: string }> {
+    try {
+      const [expected, shipment] = await Promise.all([
+        this.getWarehouseExpectedReceipt({
+          shipmentId: scope.shipmentId,
+          cartonNumbers: scope.cartonNumbers,
+        }),
+        this.getPrearrivalShipment(scope.shipmentId),
+      ]);
+      if (!expected.ok) return expected;
+      if (!shipment.ok) return shipment;
+      return validateWarehouseReceiptScopeAgainstExpected(
+        scope,
+        expected.receipt,
+        shipment.shipment.productBarcodes,
+      );
+    } catch (error) {
+      return {
+        ok: false,
+        message: error instanceof Error
+          ? error.message
+          : "Warehouse receipt scope does not match the current confirmed Packing List.",
+      };
+    }
+  }
 
   async getAdminState(): Promise<AdminState> {
     const state = getInventoryState();
@@ -867,29 +939,35 @@ export class MemoryRepository implements DrivemateRepository {
     if (!idempotencyKey) return { ok: false, message: "Idempotency key is required." };
     if (!input.lines.length) return { ok: false, message: "At least one receipt line is required." };
 
-    const existing = warehouseReceiptSessions.find((session) => session.idempotencyKey === idempotencyKey);
-    if (existing) {
-      if (receiptRequestFingerprint(input) !== receiptRequestFingerprint({
-        scope: existing.scopeSnapshot, mode: existing.mode, lines: existing.lines,
-      })) return { ok: false, message: "Idempotency key was already used for a different receipt request." };
-      return { ok: true, session: cloneWarehouseReceiptSession(existing) };
-    }
-    const availability = assertReceiptScopeAvailable(input.scope, warehouseReceiptSessions);
-    if (!availability.ok) return availability;
+    return withMemoryOperationLock(`receipt-key:${idempotencyKey}`, () =>
+      withMemoryOperationLock(`shipment:${input.scope.shipmentId}`, async () => {
+        const existing = warehouseReceiptSessions.find((session) => session.idempotencyKey === idempotencyKey);
+        if (existing) {
+          if (receiptRequestFingerprint(input) !== receiptRequestFingerprint({
+            scope: existing.scopeSnapshot, mode: existing.mode, lines: existing.lines,
+          })) return { ok: false, message: "Idempotency key was already used for a different receipt request." };
+          return { ok: true, session: cloneWarehouseReceiptSession(existing) };
+        }
+        const currentScope = await this.validateCurrentWarehouseReceiptScope(input.scope);
+        if (!currentScope.ok) return currentScope;
+        const availability = assertReceiptScopeAvailable(input.scope, warehouseReceiptSessions);
+        if (!availability.ok) return availability;
 
-    const session: WarehouseReceiptSession = {
-      id: `memory-receipt-session-${++warehouseReceiptSessionSequence}`,
-      shipmentId: input.scope.shipmentId,
-      scopeSnapshot: structuredClone(input.scope),
-      mode: input.mode,
-      status: "in_progress",
-      idempotencyKey,
-      createdBy: context.actorId,
-      createdAt: new Date().toISOString(),
-      lines: structuredClone(input.lines),
-    };
-    warehouseReceiptSessions.push(session);
-    return { ok: true, session: cloneWarehouseReceiptSession(session) };
+        const session: WarehouseReceiptSession = {
+          id: `memory-receipt-session-${++warehouseReceiptSessionSequence}`,
+          shipmentId: input.scope.shipmentId,
+          scopeSnapshot: structuredClone(input.scope),
+          mode: input.mode,
+          status: "in_progress",
+          idempotencyKey,
+          createdBy: context.actorId,
+          createdAt: new Date().toISOString(),
+          lines: structuredClone(input.lines),
+        };
+        warehouseReceiptSessions.push(session);
+        return { ok: true, session: cloneWarehouseReceiptSession(session) };
+      }),
+    );
   }
 
   async confirmWarehouseReceipt(
@@ -1205,32 +1283,34 @@ export class MemoryRepository implements DrivemateRepository {
   ): Promise<PackingListRevisionResult> {
     const revision = packingListRevisions.find((candidate) => candidate.id === revisionId);
     if (!revision) return { ok: false, message: "Packing-list revision was not found." };
-    if (revision.status !== "draft") {
-      return { ok: false, message: "Only a draft packing-list revision can be confirmed." };
-    }
-
-    const previous = latestConfirmedPackingListRevision(revision.shipmentId);
-    const usedScopes = [
-      ...warehouseReceiptSessions.filter(session => session.shipmentId === revision.shipmentId && session.status !== "cancelled")
-        .flatMap(session => session.scopeSnapshot.cartonNumbers),
-      ...warehouseLabelPrintJobs.filter(job => job.status === "printed" && job.templateId === "unit_product"
-        && job.payloadSnapshot.shipmentId === revision.shipmentId)
-        .flatMap(job => Array.isArray(job.payloadSnapshot.cartonNumbers) ? job.payloadSnapshot.cartonNumbers.filter((value): value is string => typeof value === "string") : []),
-    ];
-    if (previous && !preservesUsedPackingScopes(previous.payloadSnapshot, revision.payloadSnapshot, usedScopes)) {
-      return { ok: false, message: "A used source scope cannot be renamed, split or have its expected contents changed. Add traceability details without changing the receipt scope." };
-    }
-
-    const timestamp = new Date().toISOString();
-    for (const prior of packingListRevisions) {
-      if (prior.shipmentId === revision.shipmentId && prior.status === "confirmed") {
-        prior.status = "superseded";
+    return withMemoryOperationLock(`shipment:${revision.shipmentId}`, async () => {
+      if (revision.status !== "draft") {
+        return { ok: false, message: "Only a draft packing-list revision can be confirmed." };
       }
-    }
-    revision.status = "confirmed";
-    revision.confirmedBy = context.actorId;
-    revision.confirmedAt = timestamp;
-    return { ok: true, revision: clonePackingListRevision(revision) };
+
+      const previous = latestConfirmedPackingListRevision(revision.shipmentId);
+      const usedScopes = [
+        ...warehouseReceiptSessions.filter(session => session.shipmentId === revision.shipmentId && session.status !== "cancelled")
+          .flatMap(session => session.scopeSnapshot.cartonNumbers),
+        ...warehouseLabelPrintJobs.filter(job => job.status === "printed" && job.templateId === "unit_product"
+          && job.payloadSnapshot.shipmentId === revision.shipmentId)
+          .flatMap(job => Array.isArray(job.payloadSnapshot.cartonNumbers) ? job.payloadSnapshot.cartonNumbers.filter((value): value is string => typeof value === "string") : []),
+      ];
+      if (previous && !preservesUsedPackingScopes(previous.payloadSnapshot, revision.payloadSnapshot, usedScopes)) {
+        return { ok: false, message: "A used source scope cannot be renamed, split or have its expected contents changed. Add traceability details without changing the receipt scope." };
+      }
+
+      const timestamp = new Date().toISOString();
+      for (const prior of packingListRevisions) {
+        if (prior.shipmentId === revision.shipmentId && prior.status === "confirmed") {
+          prior.status = "superseded";
+        }
+      }
+      revision.status = "confirmed";
+      revision.confirmedBy = context.actorId;
+      revision.confirmedAt = timestamp;
+      return { ok: true, revision: clonePackingListRevision(revision) };
+    });
   }
 
   async createWarehouseLabelPrintJob(
@@ -1391,18 +1471,40 @@ export class MemoryRepository implements DrivemateRepository {
     jobId: string,
     outcome: Exclude<WarehouseLabelPrintJobStatus, "pending">,
   ): Promise<WarehouseLabelPrintJobResult> {
-    const job = warehouseLabelPrintJobs.find((candidate) => candidate.id === jobId);
-    if (!job) return { ok: false, message: "Warehouse label print job was not found." };
-    if (job.status !== "pending") return { ok: false, message: "Warehouse label print job outcome was already recorded." };
-    if (itemsForWarehouseLabelPrintJob(job.id).length !== job.requestedQuantity) {
-      return { ok: false, message: "Warehouse label print job is incomplete and cannot record an outcome." };
-    }
+    const initial = warehouseLabelPrintJobs.find((candidate) => candidate.id === jobId);
+    if (!initial) return { ok: false, message: "Warehouse label print job was not found." };
+    const operation = async (): Promise<WarehouseLabelPrintJobResult> => {
+      const job = warehouseLabelPrintJobs.find((candidate) => candidate.id === jobId);
+      if (!job) return { ok: false, message: "Warehouse label print job was not found." };
+      if (job.status !== "pending") return { ok: false, message: "Warehouse label print job outcome was already recorded." };
+      if (itemsForWarehouseLabelPrintJob(job.id).length !== job.requestedQuantity) {
+        return { ok: false, message: "Warehouse label print job is incomplete and cannot record an outcome." };
+      }
+      if (outcome === "printed" && job.templateId === "unit_product") {
+        const currentScope = await this.validateCurrentWarehouseReceiptScope(
+          job.payloadSnapshot as WarehouseReceiptScope,
+        );
+        if (!currentScope.ok) {
+          return {
+            ok: false,
+            message: "This label job no longer matches the current confirmed Packing List. Create a new print job from the current source scope.",
+          };
+        }
+      }
 
-    const timestamp = new Date().toISOString();
-    job.status = outcome;
-    if (outcome === "printed") job.printedAt = timestamp;
-    if (outcome === "cancelled") job.cancelledAt = timestamp;
-    return { ok: true, job: cloneWarehouseLabelPrintJob(job) };
+      const timestamp = new Date().toISOString();
+      job.status = outcome;
+      if (outcome === "printed") job.printedAt = timestamp;
+      if (outcome === "cancelled") job.cancelledAt = timestamp;
+      return { ok: true, job: cloneWarehouseLabelPrintJob(job) };
+    };
+    const shipmentId = outcome === "printed" && initial.templateId === "unit_product"
+      && typeof initial.payloadSnapshot.shipmentId === "string"
+      ? initial.payloadSnapshot.shipmentId
+      : undefined;
+    return shipmentId
+      ? withMemoryOperationLock(`shipment:${shipmentId}`, operation)
+      : operation();
   }
 
   async createWarehouseLabelReprint(
@@ -1532,6 +1634,7 @@ export class MemoryRepository implements DrivemateRepository {
     warehouseLabelPrintItems = [];
     warehouseReceiptSessionSequence = 0;
     warehouseReceiptSessions = [];
+    memoryOperationLocks.clear();
     warehousePutawaySequence = 0;
     warehousePutaways = [];
     resetInventoryLocationMaster();

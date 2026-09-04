@@ -156,6 +156,39 @@ begin
 end;
 $$;
 
+alter function public.dm_record_warehouse_label_print_outcome(uuid,text)
+  rename to dm_record_warehouse_label_print_outcome_v18;
+
+create function public.dm_record_warehouse_label_print_outcome(p_job_id uuid,p_outcome text)
+returns uuid language plpgsql security definer set search_path=public
+as $$
+declare
+  v_job public.warehouse_label_print_jobs%rowtype;
+  v_shipment_id uuid;
+begin
+  if p_outcome='printed' then
+    select * into v_job from public.warehouse_label_print_jobs where id=p_job_id;
+    if not found or v_job.status<>'pending' then return null; end if;
+    if v_job.template_id='unit_product' then
+      begin
+        v_shipment_id:=nullif(v_job.payload_snapshot->>'shipmentId','')::uuid;
+      exception when invalid_text_representation then
+        raise exception 'Unit Product label job has an invalid shipment scope';
+      end;
+      if v_shipment_id is null then
+        raise exception 'Unit Product label job has an invalid shipment scope';
+      end if;
+      -- Serialize against Packing List confirmation for the same shipment.
+      perform pg_advisory_xact_lock(hashtextextended(v_shipment_id::text,617));
+      select * into v_job from public.warehouse_label_print_jobs where id=p_job_id;
+      if not found or v_job.status<>'pending' then return null; end if;
+      perform public.dm_assert_warehouse_receipt_scope(v_shipment_id,v_job.payload_snapshot);
+    end if;
+  end if;
+  return public.dm_record_warehouse_label_print_outcome_v18(p_job_id,p_outcome);
+end;
+$$;
+
 alter function public.dm_create_warehouse_receipt_session(uuid,jsonb,text,jsonb,text,uuid)
   rename to dm_create_warehouse_receipt_session_v15;
 alter function public.dm_confirm_warehouse_receipt_session(uuid,uuid)
@@ -250,14 +283,17 @@ revoke all on function public.dm_warehouse_receipt_request_fingerprint(jsonb,tex
 revoke all on function public.dm_assert_warehouse_receipt_scope(uuid,jsonb) from public,anon,authenticated,service_role;
 revoke all on function public.dm_packing_carton_contract(jsonb,text) from public,anon,authenticated,service_role;
 revoke all on function public.dm_assert_used_packing_scopes_preserved(uuid) from public,anon,authenticated,service_role;
+revoke all on function public.dm_record_warehouse_label_print_outcome_v18(uuid,text) from public,anon,authenticated,service_role;
 revoke all on function public.dm_create_warehouse_receipt_session_v15(uuid,jsonb,text,jsonb,text,uuid) from public,anon,authenticated,service_role;
 revoke all on function public.dm_confirm_warehouse_receipt_session_v15(uuid,uuid) from public,anon,authenticated,service_role;
 revoke all on function public.dm_confirm_packing_list_revision_v20(uuid,uuid) from public,anon,authenticated,service_role;
 revoke all on function public.dm_create_warehouse_receipt_session(uuid,jsonb,text,jsonb,text,uuid) from public,anon,authenticated;
 revoke all on function public.dm_confirm_warehouse_receipt_session(uuid,uuid) from public,anon,authenticated;
 revoke all on function public.dm_confirm_packing_list_revision(uuid,uuid) from public,anon,authenticated;
+revoke all on function public.dm_record_warehouse_label_print_outcome(uuid,text) from public,anon,authenticated;
 grant execute on function public.dm_create_warehouse_receipt_session(uuid,jsonb,text,jsonb,text,uuid) to service_role;
 grant execute on function public.dm_confirm_warehouse_receipt_session(uuid,uuid) to service_role;
 grant execute on function public.dm_confirm_packing_list_revision(uuid,uuid) to service_role;
+grant execute on function public.dm_record_warehouse_label_print_outcome(uuid,text) to service_role;
 
 commit;

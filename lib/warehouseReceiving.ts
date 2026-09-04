@@ -27,6 +27,31 @@ export type WarehouseReceiptScope = {
   }>;
 };
 
+function normalizedReceiptScope(scope: WarehouseReceiptScope) {
+  const normalize = (value: string) => value.trim().toUpperCase().replace(/\s+/g, " ");
+  return {
+    shipmentId: normalize(scope.shipmentId),
+    cartonNumbers: scope.cartonNumbers.map(normalize).sort(),
+    lines: scope.lines.map((line) => [
+      normalize(line.sku),
+      normalizeBarcode(line.productBarcode),
+      line.expectedQuantity,
+    ] as const).sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right))),
+  };
+}
+
+/** Compares an audited receipt/print snapshot with the current canonical Packing List scope. */
+export function warehouseReceiptScopesMatch(
+  actual: WarehouseReceiptScope,
+  expected: WarehouseReceiptScope,
+): boolean {
+  try {
+    return JSON.stringify(normalizedReceiptScope(actual)) === JSON.stringify(normalizedReceiptScope(expected));
+  } catch {
+    return false;
+  }
+}
+
 /** The operational unit is a whole source scope, even when its SKU also occurs in another scope. */
 export function assertReceiptScopeAvailable(
   scope: WarehouseReceiptScope,

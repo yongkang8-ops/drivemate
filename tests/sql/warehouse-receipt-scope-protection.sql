@@ -6,6 +6,7 @@ declare
   first_session uuid; second_session uuid; other_session uuid;
   scope jsonb; full_scope jsonb; other_scope jsonb; lines jsonb; received integer;
   rejected boolean; payload jsonb; actor uuid := gen_random_uuid(); preserved_revision uuid; changed_revision uuid;
+  pending_job uuid; stale_revision uuid;
 begin
   insert into auth.users(id) values(actor);
   insert into public.suppliers(legal_name) values('LOCAL QA supplier '||gen_random_uuid()::text) returning id into supplier;
@@ -21,6 +22,10 @@ begin
     values(po,'LOCAL-QA-V1-'||gen_random_uuid()::text) returning id into shipment_v1;
   insert into public.products(sku,brand,part_name,category,barcode)
     values('LOCAL-QA-OVERLAP','QA','Disposable overlap fixture','QA','LOCALQAOVERLAP') returning id into product;
+  insert into public.purchase_order_lines(
+    purchase_order_id,product_id,source_row_number,supplier_part_number,quantity,unit,
+    unit_price_incl_vat_minor,original_amount_minor,allocated_discount_minor,cash_purchase_cost_minor
+  ) values(po,product,1,'LOCAL-QA-OVERLAP',20,'each',0,0,0,0);
   payload := jsonb_build_object('schemaVersion',3,'shipmentId',shipment,'cartons',jsonb_build_array(
     jsonb_build_object('sourceCartonNumber','7#8#9#','kind','carton_group','physicalCartonCount',3,'memberCartonNumbers',jsonb_build_array('7#','8#','9#'),'lines',jsonb_build_array(jsonb_build_object('sku','LOCAL-QA-OVERLAP','expectedQuantity',10))),
     jsonb_build_object('sourceCartonNumber','10#11#','kind','carton_group','physicalCartonCount',2,'memberCartonNumbers',jsonb_build_array('10#','11#'),'lines',jsonb_build_array(jsonb_build_object('sku','LOCAL-QA-OVERLAP','expectedQuantity',10)))
@@ -38,6 +43,25 @@ begin
     'lines',jsonb_build_array(jsonb_build_object('sku','LOCAL-QA-OVERLAP','expectedQuantity',1,'productBarcode','LOCALQAOVERLAP'))));
   perform public.dm_assert_warehouse_receipt_scope(shipment_v1,jsonb_build_object('shipmentId',shipment_v1,'cartonNumbers',jsonb_build_array('V1-C1'),
     'lines',jsonb_build_array(jsonb_build_object('sku','LOCAL-QA-OVERLAP','expectedQuantity',1,'productBarcode','LOCALQAOVERLAP'))));
+  pending_job:=public.dm_create_warehouse_label_print_job_with_items(
+    'unit_product',jsonb_build_object('shipmentId',shipment_v2,'cartonNumbers',jsonb_build_array('V2-C1'),
+      'lines',jsonb_build_array(jsonb_build_object('sku','LOCAL-QA-OVERLAP','expectedQuantity',1,'productBarcode','LOCALQAOVERLAP'))),
+    1,jsonb_build_array(jsonb_build_object('sku','LOCAL-QA-OVERLAP')),actor
+  );
+  insert into public.shipment_packing_list_versions(shipment_id,version,status,payload_snapshot)
+    values(shipment_v2,2,'draft',jsonb_build_object('schemaVersion',2,'shipmentId',shipment_v2,'cartons',jsonb_build_array(
+      jsonb_build_object('sourceCartonNumber','V2-C2','lines',jsonb_build_array(jsonb_build_object('sku','LOCAL-QA-OVERLAP','expectedQuantity',1))))))
+    returning id into stale_revision;
+  perform public.dm_confirm_packing_list_revision(stale_revision,actor);
+  rejected:=false;
+  begin perform public.dm_record_warehouse_label_print_outcome(pending_job,'printed');
+  exception when others then
+    if sqlerrm not like '%source scope%' then raise; end if;
+    rejected:=true;
+  end;
+  if not rejected then raise exception 'Stale pending label job was marked printed'; end if;
+  if (select status from public.warehouse_label_print_jobs where id=pending_job)<>'pending' then
+    raise exception 'Rejected stale label job did not remain pending'; end if;
   scope:=jsonb_build_object('shipmentId',shipment,'cartonNumbers',jsonb_build_array('7#8#9#'),
     'lines',jsonb_build_array(jsonb_build_object('sku','LOCAL-QA-OVERLAP','expectedQuantity',10,'productBarcode','LOCALQAOVERLAP')));
   lines:=jsonb_build_array(jsonb_build_object('sku','LOCAL-QA-OVERLAP','expectedQuantity',10,'actualQuantity',10,'productBarcode','LOCALQAOVERLAP'));
@@ -97,6 +121,6 @@ begin
   if received<>20 then raise exception 'Expected two disjoint groups = 20 units, got %',received; end if;
   select count(*) into received from public.stock_movements where product_id=product and movement_type='inbound';
   if received<>2 then raise exception 'Expected exactly two inbound movements, got %',received; end if;
-  raise notice 'PASS: group selection, overlap, idempotency, disjoint receipts, exact stock and movement totals';
+  raise notice 'PASS: group selection, stale print guard, overlap, idempotency, disjoint receipts, exact stock and movement totals';
 end $$;
 rollback;
