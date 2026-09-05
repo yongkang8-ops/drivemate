@@ -12,6 +12,7 @@ const historyQuerySchema = z.object({
   shipmentId: z.string().trim().min(1).max(120).optional(),
   palletNumber: z.string().trim().min(1).max(80).optional(),
   cartonNumber: z.string().trim().min(1).max(80).optional(),
+  sourceScopes: z.array(z.string().trim().min(1).max(120)).default([]),
   sku: z.string().trim().min(1).max(120).optional(),
   actor: z.string().trim().min(1).max(120).optional(),
   action: z.enum([
@@ -36,6 +37,7 @@ export async function GET(request: Request) {
     shipmentId: params.get("shipmentId") ?? undefined,
     palletNumber: params.get("palletNumber") ?? undefined,
     cartonNumber: params.get("cartonNumber") ?? undefined,
+    sourceScopes: params.getAll("sourceScope"),
     sku: params.get("sku") ?? undefined,
     actor: params.get("actor") ?? undefined,
     action: params.get("action") ?? undefined,
@@ -46,10 +48,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, message: "Date from must be before or equal to date to." }, { status: 400 });
   }
 
-  const { timeZone, ...query } = parsed.data;
+  const { timeZone, sourceScopes, ...query } = parsed.data;
+  if (sourceScopes.length && (!query.shipmentId || (query.cartonNumber && !sourceScopes.includes(query.cartonNumber)))) {
+    return NextResponse.json({ ok: false, message: "Choose a source scope within the selected shipment context." }, { status: 400 });
+  }
   const history = await getRepository().listWarehouseHistory(query as WarehouseHistoryQuery);
+  if (!history.ok) return NextResponse.json(history, { status: 200 });
+  const events = sourceScopes.length
+    ? history.events.filter(event => event.cartonNumbers?.some(scope => sourceScopes.includes(scope)))
+    : history.events;
   return NextResponse.json({
     ...history,
-    ...(history.ok ? buildWarehouseHistory({ events: history.events, timeZone }) : {}),
+    events,
+    ...buildWarehouseHistory({ events, timeZone }),
   }, { status: 200 });
 }
