@@ -3660,16 +3660,24 @@ export class SupabaseRepository implements DrivemateRepository {
       .maybeSingle();
     if (jobError) throw jobError;
     if (!job) return { ok: false, message: "Warehouse label print job was not found." };
-    const { data: items, error: itemsError } = await supabase
-      .from("warehouse_label_print_items")
-      .select("id, job_id, source_item_id, sequence, payload_snapshot, created_at")
-      .eq("job_id", jobId)
-      .order("sequence");
-    if (itemsError) throw itemsError;
+    const items: WarehouseLabelPrintItemRecord[] = [];
+    // PostgREST may cap each response. Follow the persisted item count, not
+    // the requested page size, so a lower service cap cannot truncate a job.
+    while (items.length < job.requested_quantity) {
+      const { data: page, error: itemsError } = await supabase
+        .from("warehouse_label_print_items")
+        .select("id, job_id, source_item_id, sequence, payload_snapshot, created_at")
+        .eq("job_id", jobId)
+        .order("sequence")
+        .range(items.length, Math.min(items.length + 499, job.requested_quantity - 1));
+      if (itemsError) throw itemsError;
+      if (!page?.length) break;
+      items.push(...page as WarehouseLabelPrintItemRecord[]);
+    }
     return {
       ok: true,
       job: toWarehouseLabelPrintJob(job as WarehouseLabelPrintJobRecord),
-      items: ((items ?? []) as WarehouseLabelPrintItemRecord[]).map(toWarehouseLabelPrintItem),
+      items: items.map(toWarehouseLabelPrintItem),
     };
   }
 
