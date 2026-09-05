@@ -136,18 +136,16 @@ test("the real local API can read cancelled jobs across scopes without changing 
   await expect(page.getByText(ids[1], { exact: true })).toBeVisible();
   await expect(page.locator(".inbound-history-scope-summary")).toContainText("1 source scope");
   const layoutResults = [];
-  for (const width of [1440, 768, 375]) {
+  for (const width of [1440, 1024, 880, 768, 701, 375]) {
     await page.setViewportSize({ width, height: 900 });
     await page.getByLabel("Source scope", { exact: true }).scrollIntoViewIfNeeded();
     const layout = await page.evaluate(() => ({ client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
     layoutResults.push({ width, ...layout });
-    // Existing six-column CSS overflows on tablets with actual audit rows.
-    // Track it as a separate UI follow-up; this filter-only patch does not change CSS.
-    if (width !== 768) expect(layout.scroll).toBeLessThanOrEqual(layout.client);
+    // The release combines the filter patch with the independently tested layout fix.
+    expect(layout.scroll, `History overflow at ${width}px`).toBeLessThanOrEqual(layout.client);
     await page.locator("#receipt-history").screenshot({ path: testInfo.outputPath(`history-${width}.png`) });
   }
   await testInfo.attach("layout-observations", { body: JSON.stringify(layoutResults, null, 2), contentType: "application/json" });
-  testInfo.annotations.push({ type: "known-layout-follow-up", description: "Existing tablet history grid overflow is not fixed or accepted by this filter hotfix." });
   for (const id of ids) {
     const audit = await request.get(`/api/warehouse/labels/${id}`, { headers: { "x-drivemate-role": "partner" } });
     expect((await audit.json()).job.status).toBe("cancelled");
