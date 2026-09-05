@@ -1,6 +1,6 @@
 # P1F Operations UX Hotfix Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Correct scope wording, stabilise the print-job card, unify authenticated private operations chrome, and remove clipped mobile navigation without changing warehouse behavior or data.
 
@@ -31,7 +31,7 @@
 - Modify: `components/PartnerInboundWorkspace.tsx:730-740`
 - Modify: `tests/prearrival-shipments.spec.ts`
 
-- [ ] **Step 1: Write the failing unit tests**
+- [x] **Step 1: Write the failing unit tests**
 
 Create `tests/warehouse-scope-presentation.test.ts`:
 
@@ -60,7 +60,7 @@ describe("describeUnmappedPalletSelection", () => {
 });
 ```
 
-- [ ] **Step 2: Run the unit test and verify RED**
+- [x] **Step 2: Run the unit test and verify RED**
 
 Run:
 
@@ -70,7 +70,7 @@ npm.cmd test -- tests/warehouse-scope-presentation.test.ts
 
 Expected: FAIL because `lib/warehouseScopePresentation.ts` does not exist.
 
-- [ ] **Step 3: Add the minimal formatter**
+- [x] **Step 3: Add the minimal formatter**
 
 Create `lib/warehouseScopePresentation.ts`:
 
@@ -94,7 +94,7 @@ Import it in `components/PartnerInboundWorkspace.tsx` and replace the fixed fall
 </span>
 ```
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run:
 
@@ -104,7 +104,7 @@ npm.cmd test -- tests/warehouse-scope-presentation.test.ts
 
 Expected: 3 tests pass.
 
-- [ ] **Step 5: Add browser behavior assertions**
+- [x] **Step 5: Add browser behavior assertions**
 
 Extend `Partner confirms cartons without pallet mapping and Warehouse uses the full shipment` in `tests/prearrival-shipments.spec.ts`. Before confirming its Packing List, add a second source scope with these exact values:
 
@@ -144,7 +144,7 @@ await expect(page.getByText(
 await expect(page.locator(".inbound-scope-bar p")).toContainText("18 expected units");
 ```
 
-- [ ] **Step 6: Run focused browser verification**
+- [x] **Step 6: Run focused browser verification**
 
 Run:
 
@@ -154,7 +154,7 @@ npx.cmd playwright test tests/prearrival-shipments.spec.ts --grep "without palle
 
 Expected: the updated scope wording test passes.
 
-- [ ] **Step 7: Commit Task 1**
+- [x] **Step 7: Commit Task 1**
 
 ```powershell
 git add -- lib/warehouseScopePresentation.ts tests/warehouse-scope-presentation.test.ts components/PartnerInboundWorkspace.tsx tests/prearrival-shipments.spec.ts
@@ -168,7 +168,7 @@ git commit -m "fix: describe active inbound scope accurately"
 - Modify: `app/globals.css` responsive sections near 717 and 777
 - Modify: `tests/warehouse-label-print.spec.ts`
 
-- [ ] **Step 1: Write the failing geometry test**
+- [x] **Step 1: Write the failing geometry test**
 
 Add a new test named `print job remains readable from mobile through narrow desktop`. Reuse the file's existing `/api/test/reset` fixture, stub `window.print` with `page.addInitScript`, navigate to `/warehouse`, select `Pallet P001`, preview labels, and click `Print labels`. After `Awaiting physical confirmation` appears, test widths 1040, 880, and 390:
 
@@ -193,7 +193,7 @@ for (const width of [1040, 880, 390]) {
 }
 ```
 
-- [ ] **Step 2: Run the geometry test and verify RED**
+- [x] **Step 2: Run the geometry test and verify RED**
 
 Run:
 
@@ -203,7 +203,7 @@ npx.cmd playwright test tests/warehouse-label-print.spec.ts --grep "print job re
 
 Expected: FAIL at 880px or 1040px because the equal-width grid fragments the UUID or long status.
 
-- [ ] **Step 3: Implement the minimal responsive CSS**
+- [x] **Step 3: Implement the minimal responsive CSS**
 
 Replace the desktop rule with:
 
@@ -233,7 +233,7 @@ Add an intermediate breakpoint before the existing 700px rule:
 
 Keep the existing mobile single-column rule and equal-width action grid.
 
-- [ ] **Step 4: Verify GREEN**
+- [x] **Step 4: Verify GREEN**
 
 Run:
 
@@ -243,7 +243,7 @@ npx.cmd playwright test tests/warehouse-label-print.spec.ts --grep "print job re
 
 Expected: pass at 1040, 880, and 390px with no document overflow.
 
-- [ ] **Step 5: Commit Task 2**
+- [x] **Step 5: Commit Task 2**
 
 ```powershell
 git add -- app/globals.css tests/warehouse-label-print.spec.ts
@@ -257,7 +257,7 @@ git commit -m "fix: keep print job status readable"
 - Modify: `tests/inventory-locations.spec.ts`
 - Modify: `tests/staff-management-ui.spec.ts`
 
-- [ ] **Step 1: Write failing authenticated-shell tests**
+- [x] **Step 1: Write failing authenticated-shell tests**
 
 Add to `tests/inventory-locations.spec.ts`:
 
@@ -285,7 +285,7 @@ test("authenticated Staff uses only the private operations shell", async ({ page
 });
 ```
 
-- [ ] **Step 2: Write unauthenticated preservation tests**
+- [x] **Step 2: Write unauthenticated preservation tests**
 
 For each route, intercept `/api/auth/session` before navigation:
 
@@ -303,7 +303,7 @@ await expect(page.locator(".site-footer")).toBeVisible();
 
 Repeat for `/admin/staff`.
 
-- [ ] **Step 3: Run tests and verify RED**
+- [x] **Step 3: Run tests and verify RED**
 
 Run:
 
@@ -313,7 +313,7 @@ npx.cmd playwright test tests/inventory-locations.spec.ts tests/staff-management
 
 Expected: authenticated tests fail because public chrome and `AuthPanel` remain visible; unauthenticated tests pass.
 
-- [ ] **Step 4: Implement the missing authenticated selectors**
+- [x] **Step 4: Implement the missing authenticated selectors**
 
 Add beside the existing Dashboard, Pre-arrival, and Warehouse selectors:
 
@@ -338,11 +338,11 @@ body:has(.staff-operations-app) .staff-operations-app {
 
 Change only `.inventory-location-app` from `min-height: 100vh` to `min-height: 100dvh`. The new authenticated `.staff-operations-app` override above already supplies `min-height: 100dvh` for Staff.
 
-- [ ] **Step 5: Verify GREEN**
+- [x] **Step 5: Verify GREEN**
 
 Run the same focused command. Expected: all authenticated and unauthenticated shell tests pass.
 
-- [ ] **Step 6: Update the older Staff desktop assertion**
+- [x] **Step 6: Update the older Staff desktop assertion**
 
 Replace the existing authenticated `Account session` height assertion in `uses a right-side desktop drawer and returns focus after closing` with:
 
@@ -352,7 +352,7 @@ await expect(page.getByLabel("Account session")).toBeHidden();
 
 Retain all drawer geometry and focus-return assertions.
 
-- [ ] **Step 7: Commit Task 3**
+- [x] **Step 7: Commit Task 3**
 
 ```powershell
 git add -- app/globals.css tests/inventory-locations.spec.ts tests/staff-management-ui.spec.ts
@@ -368,7 +368,7 @@ git commit -m "fix: unify private operations chrome"
 - Modify: `tests/inventory-locations.spec.ts`
 - Modify: `tests/staff-management-ui.spec.ts`
 
-- [ ] **Step 1: Add one named browser assertion to each affected spec**
+- [x] **Step 1: Add one named browser assertion to each affected spec**
 
 Add these exact tests:
 
@@ -396,7 +396,7 @@ expect(navLayout.scrollWidth).toBeLessThanOrEqual(navLayout.clientWidth);
 
 Repeat with `.prearrival-nav`, `.inventory-location-nav`, and `.staff-operations-sidebar nav`. Warehouse already uses `.inbound-nav` as the working reference and should remain a two-column grid.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -406,7 +406,7 @@ npx.cmd playwright test tests/partner-dashboard.spec.ts tests/prearrival-shipmen
 
 Expected: Dashboard, Pre-arrival, Inventory, and Staff fail because their navigation uses a scrolling flex row.
 
-- [ ] **Step 3: Implement one mobile navigation rule family**
+- [x] **Step 3: Implement one mobile navigation rule family**
 
 Within `@media (max-width: 700px)`, replace the four flex-scroller rules with:
 
@@ -440,11 +440,11 @@ Within `@media (max-width: 700px)`, replace the four flex-scroller rules with:
 
 Keep each component's existing active border and color rules. Keep section-label elements hidden on mobile.
 
-- [ ] **Step 4: Verify GREEN at the breakpoint matrix**
+- [x] **Step 4: Verify GREEN at the breakpoint matrix**
 
 Run the same focused navigation command. Expected: all four named tests pass at 390, 701, 768, 880, 1040, and 1440px; the 390px navigation is a two-column grid and no tested width has page-level or navigation-level horizontal overflow.
 
-- [ ] **Step 5: Commit Task 4**
+- [x] **Step 5: Commit Task 4**
 
 ```powershell
 git add -- app/globals.css tests/partner-dashboard.spec.ts tests/prearrival-shipments.spec.ts tests/inventory-locations.spec.ts tests/staff-management-ui.spec.ts
@@ -456,7 +456,7 @@ git commit -m "fix: expose all mobile operations navigation"
 **Files:**
 - Modify: `docs/qa/2026-09-04-production-full-chain-machine-qa.md`
 
-- [ ] **Step 1: Run focused P1F tests**
+- [x] **Step 1: Run focused P1F tests**
 
 ```powershell
 npm.cmd test -- tests/warehouse-scope-presentation.test.ts
@@ -465,7 +465,7 @@ npx.cmd playwright test tests/warehouse-label-print.spec.ts tests/partner-dashbo
 
 Expected: all focused unit and browser checks pass.
 
-- [ ] **Step 2: Run the complete regression suite**
+- [x] **Step 2: Run the complete regression suite**
 
 ```powershell
 npm.cmd test
@@ -476,7 +476,7 @@ git diff --check
 
 Expected: full Vitest suite, TypeScript, and production build pass with no whitespace errors.
 
-- [ ] **Step 3: Perform responsive browser review**
+- [x] **Step 3: Perform responsive browser review**
 
 Run the local application and inspect Dashboard, Pre-arrival, Warehouse, Inventory, and Staff at 390, 701, 768, 880, 1040, and desktop widths. Record:
 
@@ -487,18 +487,18 @@ Run the local application and inspect Dashboard, Pre-arrival, Warehouse, Invento
 - correct full, single, and multiple source-scope wording
 - empty, loading, error, and authenticated states unchanged outside P1F scope
 
-- [ ] **Step 4: Append local QA evidence**
+- [x] **Step 4: Append local QA evidence**
 
 Add a `P1F local hotfix verification` section to `docs/qa/2026-09-04-production-full-chain-machine-qa.md` containing exact test totals and viewport results. Do not describe Production as updated.
 
-- [ ] **Step 5: Commit QA closeout**
+- [x] **Step 5: Commit QA closeout**
 
 ```powershell
 git add -- docs/qa/2026-09-04-production-full-chain-machine-qa.md
 git commit -m "test: record P1F operations UX QA"
 ```
 
-- [ ] **Step 6: Verify final branch scope**
+- [x] **Step 6: Verify final branch scope**
 
 ```powershell
 git status --short
@@ -511,3 +511,16 @@ Expected: only the approved P1F spec, plan, presentation helper, focused compone
 ## Production boundary
 
 Stop after local QA. Do not push the branch, create a Vercel deployment, change Supabase, or write any Production business record without a separate explicit authorisation.
+
+## Execution closeout — 2026-09-05
+
+All five tasks are complete locally. Code HEAD: `ed51387`; final independent code review approved. QA evidence and limitations are recorded in `docs/qa/2026-09-04-production-full-chain-machine-qa.md`.
+
+Evidence-driven implementation adjustments:
+
+- Task 2 added container-aware layout and label-print-only panel adjustments after review exposed 880px containment, 701/768px button overflow and unreachable desktop three-column layout. Browser coverage expanded through 1600px; all tested layouts passed.
+- Task 3 signed-out tests use JavaScript-disabled SSR contexts because the default Playwright development server enables demo access. AuthPanel and authentication configuration were not changed. Signed-out spacing was restored and covered after review.
+- Task 4 adds a narrow Dashboard form/input shrink rule after reproducing a 2px overflow at 701px; all-width link visibility assertions were strengthened using a temporary mutation that was removed.
+- Final QA retains the non-blocking 2.3px label-preview panel-edge overflow and test/CSS maintainability observations. No Production acceptance is claimed.
+
+Release choice: retain the local branch and worktree pending separate push/deployment authorisation.
