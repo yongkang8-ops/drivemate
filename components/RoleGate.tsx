@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useState } from "react";
+import { createContext, type ReactNode, useContext, useState } from "react";
 import { type AuthenticatedRole } from "../lib/clientAuth";
 import { AuthPanel } from "./AuthPanel";
 import { MfaStepUpProvider } from "./MfaStepUpProvider";
@@ -10,14 +10,24 @@ type RoleGateProps = {
   children: ReactNode;
 };
 
+// Presentation only: server permission checks remain authoritative.
+const WorkspaceRoleContext = createContext<string | null>(null);
+export function useWorkspaceRole() {
+  return useContext(WorkspaceRoleContext);
+}
+
 export function RoleGate({ expectedRole, children }: RoleGateProps) {
   const [hasAccess, setHasAccess] = useState(false);
+  const [viewerRole, setViewerRole] = useState<string | null>(null);
 
   return (
     <MfaStepUpProvider role={expectedRole}>
-      <AuthPanel expectedRole={expectedRole} onAccessChange={setHasAccess} />
+      <AuthPanel expectedRole={expectedRole} onAccessChange={(allowed, role) => {
+        setHasAccess(allowed);
+        setViewerRole(allowed ? role ?? null : null);
+      }} />
       {hasAccess ? (
-        children
+        <WorkspaceRoleContext.Provider value={viewerRole}>{children}</WorkspaceRoleContext.Provider>
       ) : (
         <section className="panel">
           <h2>Workspace access required</h2>

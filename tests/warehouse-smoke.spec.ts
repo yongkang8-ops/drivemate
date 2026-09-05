@@ -10,5 +10,7 @@ test("warehouse opens the scoped label-first inbound desk", async ({ page }) => 
   await expect(page.getByRole("link", { name: "Label print" })).toHaveClass(/is-active/);
   await expect(page.getByText("Physical print confirmation required")).toBeVisible();
   await expect(page.getByText("DM-GWM-OF-001", { exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Receive stock" })).toHaveAttribute("aria-disabled", "true");
+  await page.getByRole("link", { name: "Receive stock", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Receive stock", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Confirm receipt", exact: true })).toHaveCount(0);
 });

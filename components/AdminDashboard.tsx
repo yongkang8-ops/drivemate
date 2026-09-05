@@ -212,6 +212,15 @@ export function AdminDashboard() {
     "sku,make,model,yearFrom,yearTo,engine,confidence\nDM-GWM-NEW-099,GWM,Cannon Alpha,2024,,GW4D24,confirm_vin",
   );
   const masterInitialized = useRef(false);
+  const masterEditorRef = useRef<HTMLDivElement>(null);
+  const masterBarcodeRef = useRef<HTMLInputElement>(null);
+  const [masterEditRequest, setMasterEditRequest] = useState(0);
+
+  useEffect(() => {
+    if (!masterEditRequest) return;
+    masterBarcodeRef.current?.focus({ preventScroll: true });
+    masterEditorRef.current?.scrollIntoView({ block: "start", behavior: "instant" });
+  }, [masterEditRequest]);
 
   function loadProductMaster(row: AdminState["catalogue"][number]) {
     setMasterSku(row.sku);
@@ -809,7 +818,7 @@ export function AdminDashboard() {
                   <td>{row.reorderPoint}</td>
                   <td>{row.reorderQuantity}</td>
                   <td>
-                    <button className="secondary-button" onClick={() => loadProductMaster(row)} type="button">
+                    <button className="secondary-button" onClick={() => { loadProductMaster(row); setMasterEditRequest((current) => current + 1); }} type="button">
                       Edit
                     </button>
                   </td>
@@ -818,7 +827,7 @@ export function AdminDashboard() {
             </tbody>
           </table>
         </div>
-        <div className="panel" style={{ gridColumn: "1 / -1" }}>
+        <div className="panel" id="sku-master-editor" ref={masterEditorRef} style={{ gridColumn: "1 / -1" }}>
           <h2>SKU master data</h2>
           <p>Maintain scanner fields used by receiving, putaway, dispatch and adjustment workflows.</p>
           <div className="form-grid">
@@ -840,7 +849,7 @@ export function AdminDashboard() {
             </label>
             <label>
               Barcode
-              <input value={masterBarcode} onChange={(event) => setMasterBarcode(event.target.value)} />
+              <input ref={masterBarcodeRef} value={masterBarcode} onChange={(event) => setMasterBarcode(event.target.value)} />
             </label>
             <label>
               OEM part number
@@ -1107,7 +1116,7 @@ export function AdminDashboard() {
         </div>
       </section>
 
-      <section className="two-column" style={{ marginTop: 18 }}>
+      <section className="two-column" id="pricing" style={{ marginTop: 18 }}>
         <div className="table-shell">
           <table>
             <thead>
@@ -1212,7 +1221,7 @@ export function AdminDashboard() {
         </table>
       </section>
 
-      <section className="table-shell" style={{ marginTop: 18 }}>
+      <section className="table-shell" id="accounts" style={{ marginTop: 18 }}>
         <table>
           <thead>
             <tr>
@@ -1350,7 +1359,7 @@ export function AdminDashboard() {
         </table>
       </section>
 
-      <section className="two-column" style={{ marginTop: 18 }}>
+      <section className="two-column" id="orders" style={{ marginTop: 18 }}>
         <div className="table-shell">
           <table>
             <thead>

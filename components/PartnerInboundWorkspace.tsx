@@ -19,9 +19,52 @@ import type { ReceiptDiscrepancyType, WarehouseReceiptScope } from "../lib/wareh
 import { describeUnmappedPalletSelection } from "../lib/warehouseScopePresentation";
 import { WarehousePutawayPanel } from "./WarehousePutawayPanel";
 import { ReceiptHistoryPanel } from "./ReceiptHistoryPanel";
+import { useWorkspaceRole } from "./RoleGate";
 
 type WorkspaceView = "label_print" | "receive_stock" | "put_away" | "receipt_history";
 type PrintPanelState = "select" | "preview" | "awaiting_outcome" | "confirmed" | "cancelled";
+
+const workspaceViews: Array<{ value: WorkspaceView; label: string }> = [
+  { value: "label_print", label: "Label print" },
+  { value: "receive_stock", label: "Receive stock" },
+  { value: "put_away", label: "Put away" },
+  { value: "receipt_history", label: "Receipt history" },
+];
+
+function viewFromLocation(): WorkspaceView {
+  const value = new URLSearchParams(window.location.search).get("view")
+    ?? window.location.hash.slice(1).replaceAll("-", "_");
+  return workspaceViews.find((item) => item.value === value)?.value ?? "label_print";
+}
+
+function WarehouseNavigation({ view, shipmentId, onViewChange }: {
+  view: WorkspaceView; shipmentId: string; onViewChange: (view: WorkspaceView) => void;
+}) {
+  const viewerRole = useWorkspaceRole();
+  const canOpenPartnerWorkspaces = viewerRole === "admin" || viewerRole === "partner";
+  return <>
+    <nav className="inbound-nav inbound-workspace-nav" aria-label="Workspace navigation">
+      <span>Workspace</span>
+      {canOpenPartnerWorkspaces ? <><Link href="/partner">Dashboard</Link>
+      <Link href={`/prearrival?shipmentId=${encodeURIComponent(shipmentId)}`}>Pre-arrival shipments</Link>
+      <Link href="/inventory">Inventory &amp; locations</Link>
+      <Link href="/admin/staff">Staff management</Link></> : null}
+      <Link href="/">Public website</Link>
+    </nav>
+    <nav className="inbound-nav" aria-label="Inbound operations navigation">
+      <span>Current work</span>
+      {workspaceViews.map((item) => <a key={item.value}
+        className={view === item.value ? "is-active" : ""}
+        aria-current={view === item.value ? "page" : undefined}
+        href={`/warehouse?shipmentId=${encodeURIComponent(shipmentId)}&view=${item.value}`}
+        onClick={(event) => {
+          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
+          onViewChange(item.value);
+        }}>{item.label}</a>)}
+    </nav>
+  </>;
+}
 
 type ScopePreview = {
   shipment: {
@@ -108,12 +151,15 @@ function WarehousePackingListGate({
   shipments,
   shipmentId,
   onShipmentChange,
+  view,
+  setView,
 }: {
   shipments: PrearrivalShipmentSummary[];
   shipmentId: string;
   onShipmentChange: (shipmentId: string) => void;
+  view: WorkspaceView;
+  setView: (view: WorkspaceView) => void;
 }) {
-  const [view, setView] = useState<WorkspaceView>("label_print");
   const selectedShipment = shipments.find((shipment) => shipment.shipmentId === shipmentId);
   const statusCopy = selectedShipment?.packingListStatus === "draft"
     ? `Draft v${selectedShipment.latestPackingListVersion ?? 1} exists, but it has not been confirmed.`
@@ -140,13 +186,7 @@ function WarehousePackingListGate({
           <span>Internal operations</span>
         </div>
         <div className="inbound-section-title">Inbound operations</div>
-        <nav className="inbound-nav" aria-label="Inbound operations navigation">
-          <span>Current work</span>
-          <a className={view === "label_print" ? "is-active" : ""} href="#label-print" onClick={(event) => { event.preventDefault(); setView("label_print"); }}>Label print</a>
-          <a className={view === "receive_stock" ? "is-active" : ""} href="#receive-stock" onClick={(event) => { event.preventDefault(); setView("receive_stock"); }}>Receive stock</a>
-          <a className={view === "put_away" ? "is-active" : ""} href="#put-away" onClick={(event) => { event.preventDefault(); setView("put_away"); }}>Put away</a>
-          <a className={view === "receipt_history" ? "is-active" : ""} href="#receipt-history" onClick={(event) => { event.preventDefault(); setView("receipt_history"); }}>Receipt history</a>
-        </nav>
+        <WarehouseNavigation view={view} shipmentId={shipmentId} onViewChange={setView} />
         <div className="inbound-rules">
           <span>{isHistoryView ? "Audit rule" : "Required operational record"}</span>
           {isHistoryView ? <><p>Read-only records</p><p>Timezone display choice</p><p>Filters never change stock</p></> : <><p>Module remains accessible</p><p>Write controls need source data</p><p>Server validation remains active</p></>}
@@ -219,7 +259,7 @@ export function PartnerInboundWorkspace() {
   const [scopeLoading, setScopeLoading] = useState(false);
   const [scopeError, setScopeError] = useState(false);
   const [preview, setPreview] = useState<ScopePreview | null>(null);
-  const [view, setView] = useState<WorkspaceView>("label_print");
+  const [view, setViewState] = useState<WorkspaceView>("label_print");
   const [putawayReady, setPutawayReady] = useState(false);
   const [printState, setPrintState] = useState<PrintPanelState>("select");
   const [printJob, setPrintJob] = useState<WarehouseLabelPrintJob | null>(null);
@@ -237,6 +277,59 @@ export function PartnerInboundWorkspace() {
   const [putawayResult, setPutawayResult] = useState<{ quantity: number; destinationLocation: string } | null>(null);
   const [reprintReason, setReprintReason] = useState("");
   const scopeRequestToken = useRef(0);
+  const requestedViewFocus = useRef<WorkspaceView | null>(null);
+  const [viewNavigationCount, setViewNavigationCount] = useState(0);
+
+  function setView(nextView: WorkspaceView) {
+    requestedViewFocus.current = nextView;
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", nextView);
+    if (shipmentId) url.searchParams.set("shipmentId", shipmentId);
+    url.hash = "";
+    if (url.href !== window.location.href) window.history.pushState(null, "", url);
+    setViewState(nextView);
+    setViewNavigationCount((current) => current + 1);
+  }
+
+  useEffect(() => {
+    const initialView = viewFromLocation();
+    if (new URLSearchParams(window.location.search).has("view") || window.location.hash) requestedViewFocus.current = initialView;
+    setViewState(initialView);
+    const restoreView = () => {
+      requestedViewFocus.current = null;
+      setViewState(viewFromLocation());
+    };
+    window.addEventListener("popstate", restoreView);
+    window.addEventListener("hashchange", restoreView);
+    return () => {
+      window.removeEventListener("popstate", restoreView);
+      window.removeEventListener("hashchange", restoreView);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (requestedViewFocus.current !== view) return;
+    const panel = document.getElementById(view.replaceAll("_", "-"));
+    if (!panel) return;
+    const heading = panel.querySelector<HTMLElement>("h2");
+    if (heading) {
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+    }
+    panel.scrollIntoView({ block: "start", behavior: "instant" });
+    requestedViewFocus.current = null;
+  }, [view, preview, shipmentId, viewNavigationCount]);
+
+  useEffect(() => {
+    const restoreShipment = () => {
+      const requested = new URLSearchParams(window.location.search).get("shipmentId");
+      if (requested && requested !== shipmentId && shipments.some((item) => item.shipmentId === requested)) {
+        switchShipment(requested, false);
+      }
+    };
+    window.addEventListener("popstate", restoreShipment);
+    return () => window.removeEventListener("popstate", restoreShipment);
+  }, [shipments, shipmentId]);
 
   const receiptUnlocked = !scopeLoading && !scopeError && preview?.printGate.ok === true;
   const expectedUnits = preview ? quantityFor(preview.scope) : 0;
@@ -368,7 +461,12 @@ export function PartnerInboundWorkspace() {
     void loadWorkspace();
   }, []);
 
-  function switchShipment(nextShipmentId: string) {
+  function switchShipment(nextShipmentId: string, updateUrl = true) {
+    if (updateUrl) {
+      const url = new URL(window.location.href);
+      url.searchParams.set("shipmentId", nextShipmentId);
+      window.history.replaceState(null, "", url);
+    }
     setShipmentId(nextShipmentId);
     setPrintJob(null);
     setPrintState("select");
@@ -676,7 +774,7 @@ export function PartnerInboundWorkspace() {
 
   const selectedShipment = shipments.find((item) => item.shipmentId === shipmentId);
   if (!preview && selectedShipment && selectedShipment.packingListStatus !== "confirmed") {
-    return <WarehousePackingListGate shipments={shipments} shipmentId={shipmentId} onShipmentChange={switchShipment} />;
+    return <WarehousePackingListGate shipments={shipments} shipmentId={shipmentId} onShipmentChange={switchShipment} view={view} setView={setView} />;
   }
 
   if (!preview) {
@@ -685,12 +783,12 @@ export function PartnerInboundWorkspace() {
 
   const sampleLine = preview.scope.lines[0];
   const receiptDifference = totalActual - expectedUnits;
-  const activeGateReady = view === "put_away" ? putawayReady : receiptUnlocked;
+  const activeGateReady = view === "put_away" ? putawayReady || Boolean(putawayResult) : receiptUnlocked;
   const activeGateTitle = view === "put_away"
-    ? putawayReady ? "Receipt confirmed" : "Confirmed receipt required"
+    ? putawayReady ? "Receipt confirmed" : putawayResult ? "Putaway recorded" : "No stock awaiting put away"
     : receiptUnlocked ? "Label print confirmed" : "Physical print confirmation required";
   const activeGateCopy = view === "put_away"
-    ? putawayReady ? "Put away is unlocked. The source location is resolved by the system." : "Complete receipt confirmation before putaway begins."
+    ? putawayReady ? "Put away is unlocked. The source location is resolved by the system." : "No confirmed staging stock remains in this scope. Review receipt history before recording another operation."
     : receiptUnlocked ? "Receipt is unlocked for the selected scope." : "Send product labels to the Windows print dialog, then confirm the physical result.";
   const isHistoryView = view === "receipt_history";
   const showPutawayResult = view === "put_away" && putawayResult;
@@ -707,13 +805,7 @@ export function PartnerInboundWorkspace() {
           <span>Internal operations</span>
         </div>
         <div className="inbound-section-title">Inbound operations</div>
-        <nav className="inbound-nav">
-          <span>Current work</span>
-          <a className={view === "label_print" ? "is-active" : ""} href="#label-print" onClick={(event) => { event.preventDefault(); setView("label_print"); }}>Label print</a>
-          <a className={view === "receive_stock" ? "is-active" : ""} aria-disabled={!receiptUnlocked} href="#receive-stock" onClick={(event) => { event.preventDefault(); if (receiptUnlocked) setView("receive_stock"); }}>Receive stock</a>
-          <a className={view === "put_away" ? "is-active" : ""} aria-disabled={!putawayReady} href="#put-away" onClick={(event) => { event.preventDefault(); if (putawayReady) setView("put_away"); }}>Put away</a>
-          <a className={view === "receipt_history" ? "is-active" : ""} href="#receipt-history" onClick={(event) => { event.preventDefault(); setView("receipt_history"); }}>Receipt history</a>
-        </nav>
+        <WarehouseNavigation view={view} shipmentId={shipmentId} onViewChange={setView} />
         <div className="inbound-rules">
           <span>{view === "label_print" ? "Print rule" : view === "receive_stock" ? "Receipt mode" : view === "put_away" ? "Putaway rule" : "Audit rule"}</span>
           {view === "label_print" ? <><p>Receipt stays locked</p><p className="is-amber">Reprint needs a reason</p></> : view === "receive_stock" ? <><p>Product barcode required</p><p className="is-amber">Difference reason required</p></> : view === "put_away" ? <><p>Product barcode required</p><p>DMLOC destination required</p><p>Source is system-only</p></> : <><p>Print outcome retained</p><p>Receipt reason retained</p><p>Movement reference retained</p></>}
@@ -779,6 +871,12 @@ export function PartnerInboundWorkspace() {
               </section>
               <aside className="inbound-summary-panel"><h2>Product label preview</h2><p>70 × 50 mm product label</p>{sampleLine ? <div className="warehouse-label-print-sheet"><ProductLabel sku={sampleLine.sku} barcode={sampleLine.productBarcode} /></div> : null}<span className="inbound-section-label">Reprint control</span><div className="inbound-reprint-note"><strong>Need another copy?</strong><p>Select labels and record a reprint reason.</p></div><label className="inbound-reprint-input">Reprint reason<input aria-label="Reprint reason" value={reprintReason} onChange={(event) => setReprintReason(event.target.value)} placeholder="Reason is required" /></label>{printJob?.status === "printed" ? <button className="button button-secondary" type="button" disabled={busy} onClick={() => void createReprint()}>Reprint labels</button> : null}</aside>
             </div>
+          ) : (view === "receive_stock" && !receiptUnlocked) || (view === "put_away" && !putawayReady && !putawayResult) ? (
+            <section className="inbound-work-panel" id={view === "receive_stock" ? "receive-stock" : "put-away"}>
+              <div className="inbound-work-heading"><div><h2>{view === "receive_stock" ? "Receive stock" : "Put away"}</h2><p>This workspace is available. Complete the prerequisite before recording stock.</p></div></div>
+              <section className="inbound-awaiting-line"><strong>{view === "receive_stock" ? "Physical label confirmation required" : "Confirmed staging stock required"}</strong><p>{scopeLoading ? "Checking the selected scope." : scopeError ? "The selected scope could not be verified. Select the scope again to retry." : view === "receive_stock" ? "Print the selected product labels and confirm the physical result before receiving." : "There are no units awaiting put away in this scope. Review its receipt and movement history; completed stock must not be received again."}</p></section>
+              <button className="button button-secondary" type="button" onClick={() => setView(view === "receive_stock" ? "label_print" : "receipt_history")}>{view === "receive_stock" ? "Open label print" : "Open receipt history"}</button>
+            </section>
           ) : view === "receive_stock" ? (
             <div className="inbound-workgrid" id="receive-stock">
               <section className="inbound-work-panel">

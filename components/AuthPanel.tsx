@@ -15,7 +15,7 @@ type Profile = {
 };
 type AuthPanelProps = {
   expectedRole: AuthenticatedRole;
-  onAccessChange?: (hasAccess: boolean) => void;
+  onAccessChange?: (hasAccess: boolean, role?: string) => void;
 };
 type AuthNoticeTone = "info" | "success" | "warning" | "error";
 type AuthNotice = {
@@ -78,7 +78,7 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
             tone: "info",
             text: "Demo workspace active for local testing.",
           });
-          onAccessChange?.(true);
+          onAccessChange?.(true, expectedRole);
           return;
         }
 
@@ -111,7 +111,7 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
       const nextProfile = body.profile;
       const hasAccess = roleCanAccess(nextProfile.role, expectedRole);
       setProfile(nextProfile);
-      onAccessChange?.(hasAccess);
+      onAccessChange?.(hasAccess, nextProfile.role);
       setNotice({
         tone: hasAccess ? "success" : "error",
         text: hasAccess
@@ -122,7 +122,7 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
       setConfigured(false);
       setProfile(null);
       const demoWorkspaceEnabled = process.env.NODE_ENV !== "production";
-      onAccessChange?.(demoWorkspaceEnabled);
+      onAccessChange?.(demoWorkspaceEnabled, demoWorkspaceEnabled ? expectedRole : undefined);
       setNotice({
         tone: demoWorkspaceEnabled ? "info" : "error",
         text: demoWorkspaceEnabled

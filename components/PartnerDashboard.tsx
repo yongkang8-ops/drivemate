@@ -148,7 +148,8 @@ export function PartnerDashboard() {
           <Link className="is-active" href="/partner">Dashboard</Link>
           <Link href="/prearrival">Pre-arrival shipments</Link>
           <Link href="/warehouse">Inbound operations</Link>
-          <Link href="/warehouse">Put away &amp; history</Link>
+          <Link href="/warehouse?view=put_away">Put away</Link>
+          <Link href="/warehouse?view=receipt_history">Receipt history</Link>
           <Link href="/inventory">Inventory &amp; locations</Link>
           <Link href="/admin/staff">Staff management</Link>
         </nav>
@@ -279,7 +280,7 @@ export function PartnerDashboard() {
                   <span>Immutable warehouse audit</span>
                   <h2>Confirmed activity</h2>
                 </div>
-                <Link href="/warehouse">Open receipt history <CaretRight size={15} weight="bold" /></Link>
+                <Link href="/warehouse?view=receipt_history">Open receipt history <CaretRight size={15} weight="bold" /></Link>
               </div>
               {isLoading ? <p className="partner-dashboard-empty">Loading saved activity…</p> : null}
               {!isLoading && !dashboard?.activities.length ? <p className="partner-dashboard-empty">No saved activity yet.</p> : null}

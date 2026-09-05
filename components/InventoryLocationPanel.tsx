@@ -96,6 +96,10 @@ export function InventoryLocationPanel() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [labelPreview, setLabelPreview] = useState<Array<{ locationCode: string; barcode: string }>>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const editorRef = useRef<HTMLElement>(null);
+  const descriptionRef = useRef<HTMLInputElement>(null);
+  const editTrigger = useRef<HTMLButtonElement | null>(null);
+  const [editRequest, setEditRequest] = useState(0);
   const [description, setDescription] = useState("");
   const [notes, setNotes] = useState("");
   const [activePrint, setActivePrint] = useState<ActivePrintJob | null>(null);
@@ -188,10 +192,24 @@ export function InventoryLocationPanel() {
     }
   }
 
-  function startEdit(location: LocationRecord) {
+  useEffect(() => {
+    if (!editRequest || !editingId) return;
+    descriptionRef.current?.focus({ preventScroll: true });
+    editorRef.current?.scrollIntoView({ block: "start", behavior: "instant" });
+  }, [editRequest, editingId]);
+
+  function startEdit(location: LocationRecord, trigger: HTMLButtonElement) {
+    editTrigger.current = trigger;
     setEditingId(location.id);
     setDescription(location.physicalDescription ?? "");
     setNotes(location.notes ?? "");
+    setEditRequest((current) => current + 1);
+  }
+
+  function closeEditor() {
+    setEditingId(null);
+    editTrigger.current?.focus({ preventScroll: true });
+    editTrigger.current?.scrollIntoView({ block: "center", behavior: "instant" });
   }
 
   async function saveNotes() {
@@ -371,6 +389,7 @@ export function InventoryLocationPanel() {
           <Link href="/prearrival">Pre-arrival shipments</Link>
           <Link href="/warehouse">Inbound operations</Link>
           <Link className="is-active" href="/inventory">Inventory &amp; locations</Link>
+          <Link href="/admin/staff">Staff management</Link>
         </nav>
         <div className="inventory-location-boundary">
           <span>Location boundary</span>
@@ -455,7 +474,7 @@ export function InventoryLocationPanel() {
                         <td data-label="Balance"><span>{location.currentBalance}</span></td>
                         <td data-label="Label state">{isSystemSource ? <span className="inventory-location-label-state is-muted">System source only</span> : location.latestLabelJob ? <span className={`inventory-location-label-state is-${location.latestLabelJob.status}`}>{location.latestLabelJob.status === "printed" ? "Printed" : location.latestLabelJob.status === "pending" ? "Awaiting confirmation" : "Cancelled"}</span> : selectable ? <span className="inventory-location-label-state">Not printed</span> : <span className="inventory-location-label-state is-muted">Not printable</span>}</td>
                         <td data-label="Actions"><div className="inventory-location-row-actions">
-                          {!isSystemSource ? <button type="button" onClick={() => startEdit(location)}>Edit {location.locationCode}</button> : null}
+                          {!isSystemSource ? <button type="button" onClick={(event) => startEdit(location, event.currentTarget)}>Edit {location.locationCode}</button> : null}
                           {!isSystemSource && location.status === "active" ? <><button type="button" disabled={busy} onClick={() => void updateStatus(location, "disabled")}>Disable when empty</button><button type="button" disabled={busy} onClick={() => void updateStatus(location, "archived")}>Archive when empty</button></> : null}
                           {!isSystemSource && location.status !== "active" ? <button type="button" disabled={busy} onClick={() => void updateStatus(location, "active")}>Reactivate</button> : null}
                         </div></td>
@@ -473,11 +492,11 @@ export function InventoryLocationPanel() {
             </div>
           </section>
 
-          {editingLocation ? <section className="inventory-location-editor" aria-labelledby="location-editor-heading">
+          {editingLocation ? <section ref={editorRef} className="inventory-location-editor" aria-labelledby="location-editor-heading">
             <div><span>Notes-only editor</span><h2 id="location-editor-heading">Edit {editingLocation.locationCode}</h2><p>Location code and barcode stay immutable.</p></div>
-            <label>Physical description for {editingLocation.locationCode}<input aria-label={`Physical description for ${editingLocation.locationCode}`} value={description} onChange={(event) => setDescription(event.target.value)} /></label>
+            <label>Physical description for {editingLocation.locationCode}<input ref={descriptionRef} aria-label={`Physical description for ${editingLocation.locationCode}`} value={description} onChange={(event) => setDescription(event.target.value)} /></label>
             <label>Notes for {editingLocation.locationCode}<textarea aria-label={`Notes for ${editingLocation.locationCode}`} value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
-            <div><button className="button button-secondary" type="button" onClick={() => setEditingId(null)}>Close editor</button><button className="button button-primary" type="button" disabled={busy} onClick={() => void saveNotes()}>Save location notes</button></div>
+            <div><button className="button button-secondary" type="button" onClick={closeEditor}>Close editor</button><button className="button button-primary" type="button" disabled={busy} onClick={() => void saveNotes()}>Save location notes</button></div>
           </section> : null}
 
           {labelPreview.length ? <section className="inventory-location-print-preview" aria-labelledby="location-label-preview-heading">

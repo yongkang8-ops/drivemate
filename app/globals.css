@@ -386,6 +386,7 @@ body:has(.inbound-app) .site-shell { min-height: 100vh; }
 .inbound-brand span { color: #b6cfcc; font-size: 12px; }
 .inbound-section-title { margin: 0 2px 27px; padding: 12px 16px; border-radius: 7px; background: #075c5d; color: #fff; font-size: 15px; font-weight: 720; }
 .inbound-nav { display: grid; gap: 6px; }
+.inbound-workspace-nav { margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid #365759; }
 .inbound-nav > span, .inbound-rules > span, .inbound-phase-note > span, .inbound-section-label, .inbound-scope-bar span, .inbound-receipt-check > span, .inbound-job-row span, .inbound-bottom-note span { color: #678187; font-size: 11px; letter-spacing: .03em; text-transform: uppercase; }
 .inbound-nav > span { padding: 0 12px 9px; color: #a8c2bf; }
 .inbound-nav a { display: flex; min-height: 47px; align-items: center; padding: 0 13px; border-left: 4px solid transparent; border-radius: 0 6px 6px 0; color: #b8ceca; font-size: 16px; font-weight: 660; }
@@ -592,7 +593,7 @@ body:has(.inbound-app) .site-shell { min-height: 100vh; }
 .inbound-putaway-ready { display: flex; align-items: center; gap: 9px; margin-top: 28px; padding: 19px; border-radius: 8px; background: #eff5f4; color: #547379; }
 .inbound-putaway-ready.is-ready { background: #e4f4ed; color: #007276; }
 .inbound-putaway-result { margin: 16px 0 0; color: #29705f; font-size: 13px; font-weight: 650; }
-.inbound-history-panel { min-width: 0; padding: 26px 28px; border: 1px solid #d6e5e3; border-radius: 11px; background: #fff; }
+.inbound-history-panel { container: receipt-history / inline-size; min-width: 0; padding: 26px 28px; border: 1px solid #d6e5e3; border-radius: 11px; background: #fff; }
 .inbound-history-filters { display: grid; grid-template-columns: 1.15fr 1fr 1fr 1fr 1.2fr auto; gap: 12px; align-items: end; margin-top: 28px; }
 .inbound-history-filters label { display: grid; gap: 7px; color: #678187; font-size: 10px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
 .inbound-history-filters select, .inbound-history-filters input { min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid #bfd5d2; border-radius: 7px; background: #fbfdfd; color: #264a4f; font-weight: 650; text-transform: none; }
@@ -605,9 +606,23 @@ body:has(.inbound-app) .site-shell { min-height: 100vh; }
 .inbound-history-table strong { color: #29454a; font-size: 13px; }
 .inbound-history-table code { overflow-wrap: anywhere; color: #21444a; font: 650 12px var(--font-geist-mono), Consolas, monospace; }
 .inbound-history-table > div > span { color: #55747a; font-size: 12px; line-height: 1.45; }
+.inbound-history-table > div > * { min-width: 0; overflow-wrap: anywhere; }
 .inbound-history-empty { display: grid; justify-items: start; gap: 12px; min-height: 210px; margin-top: 24px; padding: 30px; border: 1px dashed #bdd1ce; border-radius: 9px; color: #557278; }
 .inbound-history-empty svg { color: #087173; }
 .inbound-history-empty strong { color: #315156; }
+
+/* Use the available panel width, including when a tablet retains its sidebar. */
+@container receipt-history (max-width: 850px) {
+  .inbound-history-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .inbound-history-filters label { min-width: 0; }
+  .inbound-history-filters input, .inbound-history-filters select { width: 100%; }
+  .inbound-history-filters .button { grid-column: 1 / -1; }
+  .inbound-history-table > div { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; padding: 16px 0; }
+  .inbound-history-table > div:first-child { display: none; }
+  .inbound-history-table > div > *::before { display: block; margin-bottom: 4px; color: #678187; content: attr(data-label); font-size: 10px; letter-spacing: .03em; text-transform: uppercase; }
+}
+
+.inventory-location-editor, #sku-master-editor, #packing-list-history, .internal-page :is(#overview, #purchasing, #products, #orders, #accounts, #compliance, #pricing, #reports) { scroll-margin-top: 96px; }
 
 body:has(.partner-dashboard-app) { background: #edf3f2; }
 body:has(.partner-dashboard-app) .site-header,
@@ -883,6 +898,7 @@ body:has(.staff-operations-app) .staff-management-route { padding: 0; }
   .inbound-section-title, .inbound-rules, .inbound-phase-note { display: none; }
   .inbound-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-top: 8px; }
   .inbound-nav > span { display: none; }
+  .inbound-nav > span, .prearrival-nav > span { display: block; grid-column: 1 / -1; padding: 8px 10px 4px; }
   .inbound-nav a { min-width: 0; min-height: 38px; padding: 0 10px; border-left: 0; border-bottom: 3px solid transparent; border-radius: 4px; font-size: 12px; }
   .inbound-nav a.is-active { border-left: 0; border-bottom-color: #49d2ca; }
   .inbound-topbar { min-height: 65px; padding: 0 16px; }

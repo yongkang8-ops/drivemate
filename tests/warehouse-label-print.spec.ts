@@ -133,7 +133,9 @@ test("a cancelled print task leaves receipt locked for the selected scope", asyn
   await page.getByRole("button", { name: "Cancel print" }).click();
 
   await expect(page.getByText("Receipt locked")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Receive stock" })).toHaveAttribute("aria-disabled", "true");
+  await page.getByRole("link", { name: "Receive stock", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Receive stock", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Confirm receipt", exact: true })).toHaveCount(0);
 });
 
 test("a confirmed print unlocks counted-quantity receipt into the system staging location", async ({ page }) => {

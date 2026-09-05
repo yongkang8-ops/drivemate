@@ -86,7 +86,9 @@ async function createActiveDestination(request: APIRequestContext) {
 test("confirmed receipt unlocks scan-led putaway from the system staging location", async ({ page, request }) => {
   await createActiveDestination(request);
   await page.goto("/warehouse");
-  await expect(page.getByRole("link", { name: "Put away" })).toHaveAttribute("aria-disabled", "true");
+  await page.getByRole("link", { name: "Put away", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Put away", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Confirm put away", exact: true })).toHaveCount(0);
 
   await confirmReceipt(page);
 

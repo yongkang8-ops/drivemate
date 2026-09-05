@@ -19,6 +19,7 @@ import { StaffDrawer } from "./StaffDrawer";
 import { StaffPasswordHandoff } from "./StaffPasswordHandoff";
 import { StaffSummaryMetrics } from "./StaffSummaryMetrics";
 import { useSensitiveFetch } from "../MfaStepUpProvider";
+import { useWorkspaceRole } from "../RoleGate";
 
 type CollectionState = "loading" | "ready" | "error";
 type StaffCollectionResponse = {
@@ -47,6 +48,7 @@ type DrawerMode =
 const emptyFilters: StaffFilters = { search: "", role: "all", status: "all" };
 
 export function StaffManagementPage() {
+  const navigationRole = useWorkspaceRole();
   const sensitiveFetch = useSensitiveFetch();
   const [accounts, setAccounts] = useState<StaffCollectionAccount[]>([]);
   const [viewerRole, setViewerRole] = useState<StaffViewerRole>("partner");
@@ -200,12 +202,12 @@ export function StaffManagementPage() {
         <nav aria-label="Operations modules">
           <span>Workspace</span>
           <a href="/partner">Dashboard</a>
-          <a href="/prearrival">Inbound</a>
-          <a href="/warehouse">Labels and receiving</a>
-          <a href="/inventory">Inventory</a>
+          <a href="/prearrival">Pre-arrival shipments</a>
+          <a href="/warehouse">Inbound operations</a>
+          <a href="/inventory">Inventory &amp; locations</a>
           <span>Administration</span>
-          <a aria-current="page" className="is-active" href="/admin/staff">Staff</a>
-          <a href="/admin">Administration</a>
+          <a aria-current="page" className="is-active" href="/admin/staff">Staff management</a>
+          {navigationRole === "admin" ? <a href="/admin">Administration</a> : null}
         </nav>
         <p>Private Staff module<br />Administrator and Partner accounts only</p>
       </aside>

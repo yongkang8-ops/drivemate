@@ -690,11 +690,15 @@ export function PrearrivalShipmentPanel() {
         </div>
         <nav className="prearrival-nav">
           <span>Workspace</span>
-          <a href="#shipment-overview">Dashboard</a>
+          <Link href="/partner">Dashboard</Link>
           <a className="is-active" href="#prearrival-workspace">Pre-arrival shipments</a>
-          <Link href="/warehouse">Inbound operations</Link>
-          <a href="#shipment-contents">Inventory</a>
-          <a href="#packing-list-history">History and audit</a>
+          <Link href={`/warehouse?shipmentId=${encodeURIComponent(shipment.shipmentId)}`}>Inbound operations</Link>
+          <Link href="/inventory">Inventory &amp; locations</Link>
+          <Link href="/admin/staff">Staff management</Link>
+          <span>This shipment</span>
+          <a href="#shipment-overview">Shipment overview</a>
+          <a href="#shipment-contents">Packing List contents</a>
+          <a href="#packing-list-history">Packing List revisions</a>
         </nav>
         <div className="prearrival-access-note">
           <span>Partner access</span>
