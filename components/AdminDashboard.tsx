@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { buildApiHeaders } from "../lib/clientAuth";
 import { useSensitiveFetch } from "./MfaStepUpProvider";
+import type { ProductLabelProfile } from "../lib/productLabelProfile";
+import { ProductLabelProfileFields } from "./ProductLabelProfileFields";
 
 type AdminState = {
   metrics: {
@@ -13,6 +15,7 @@ type AdminState = {
     openTasks: number;
   };
   catalogue: Array<{
+    labelProfile?: ProductLabelProfile | null;
     sku: string;
     barcode?: string;
     oemPartNumber?: string;
@@ -212,6 +215,7 @@ export function AdminDashboard() {
     "sku,make,model,yearFrom,yearTo,engine,confidence\nDM-GWM-NEW-099,GWM,Cannon Alpha,2024,,GW4D24,confirm_vin",
   );
   const masterInitialized = useRef(false);
+  const [masterLabelProfile, setMasterLabelProfile] = useState<ProductLabelProfile | null>(null);
   const masterEditorRef = useRef<HTMLDivElement>(null);
   const masterBarcodeRef = useRef<HTMLInputElement>(null);
   const [masterEditRequest, setMasterEditRequest] = useState(0);
@@ -223,6 +227,7 @@ export function AdminDashboard() {
   }, [masterEditRequest]);
 
   function loadProductMaster(row: AdminState["catalogue"][number]) {
+    setMasterLabelProfile(row.labelProfile ?? null);
     setMasterSku(row.sku);
     setMasterBarcode(row.barcode ?? "");
     setMasterOemPartNumber(row.oemPartNumber ?? "");
@@ -338,6 +343,7 @@ export function AdminDashboard() {
       headers: await buildApiHeaders("admin", { "Content-Type": "application/json" }),
       body: JSON.stringify({
         barcode: masterBarcode,
+        labelProfile: masterLabelProfile,
         oemPartNumber: masterOemPartNumber,
         reorderPoint: Number.parseInt(masterReorderPoint, 10),
         reorderQuantity: Number.parseInt(masterReorderQuantity, 10),
@@ -885,6 +891,7 @@ export function AdminDashboard() {
               </select>
             </label>
           </div>
+          <ProductLabelProfileFields value={masterLabelProfile} onChange={setMasterLabelProfile} sku={masterSku} barcode={masterBarcode} />
           <p>
             <button className="primary-button" onClick={() => void saveProductMaster()} type="button">
               Save SKU master

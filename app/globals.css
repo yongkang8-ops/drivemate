@@ -494,7 +494,7 @@ body:has(.inbound-app) .site-shell { min-height: 100vh; }
 }
 
 @media (min-width: 1101px) {
-  #label-print.inbound-workgrid { grid-template-columns: minmax(0, 3fr) minmax(260px, .8fr); }
+  #label-print.inbound-workgrid { grid-template-columns: minmax(0, 1.8fr) minmax(324px, 1fr); }
 }
 
 @container (max-width: 780px) {
@@ -736,6 +736,30 @@ body:has(.staff-operations-app) .staff-management-route { padding: 0; }
 .partner-posture-note svg { flex: 0 0 auto; color: #087173; }
 
 .warehouse-product-print-batch { display: none; }
+.product-label-v4 { box-sizing: border-box; width: 70mm; height: 50mm; padding: 2mm 3mm; display: flex; flex-direction: column; gap: .35mm; flex-shrink: 0; background: #fff; color: #000; font: 8pt/1.1 Arial, sans-serif; text-align: left; border: 0; border-radius: 0; }
+.product-label-v4 > * { margin: 0; flex-shrink: 0; }
+.product-label-supplier { font-size: 7pt; }
+.product-label-makes { font: bold 8pt/1.1 Consolas, monospace; }
+.product-label-name { padding: .7mm 1.5mm; background: #000; color: #fff; font: bold 10.5pt/1.05 Consolas, monospace; overflow-wrap: normal; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.product-label-position, .product-label-ref, .product-label-sku { font: 8pt/1.1 Consolas, monospace; }
+.product-label-v4 svg { display: block; width: 64mm; height: 9mm; max-width: none; }
+.product-label-code { font: bold 8pt/1 Consolas, monospace; text-align: center; }
+.product-label-footer { padding-top: .7mm; border-top: .2mm solid #000; font: 6.5pt/1.15 Arial, sans-serif; }
+.label-profile-fields { min-width: 0; margin: 20px 0 0; padding: 20px; border: 1px solid var(--line); }
+.label-profile-fields legend { font-weight: 700; padding: 0 8px; }
+.label-profile-fields small { font-weight: normal; color: var(--muted); }
+.label-profile-readiness, .label-readiness-alert { padding: 12px 14px; background: #edf6f4; border-left: 3px solid #076b67; color: #24463f; overflow-wrap: anywhere; }
+.label-profile-readiness.is-warning, .label-readiness-alert { background: #fff8e9; border-color: #ad751b; color: #64480d; }
+.label-readiness-alert ul { margin: 8px 0; padding-left: 18px; }
+.scope-lookup-feedback { padding: 10px 12px; background: #edf6f4; border-left: 3px solid #076b67; color: #24463f !important; font-size: 14px !important; }
+.scope-lookup-feedback.is-error { background: #fff1ee; border-color: #ae3424; color: #8b281c !important; }
+#warehouse-scope-lookup[aria-invalid="true"] { border-color: #ae3424; }
+.warehouse-label-print-sheet { max-width: 100%; overflow-x: auto; justify-content: safe center; }
+@media (max-width: 1100px) { #label-print.inbound-workgrid { grid-template-columns: minmax(0, 1fr); } }
+@media print {
+  .warehouse-product-print-batch .product-label-v4 { page: dm-unit-product; break-after: page; break-inside: avoid; margin: 0; }
+  .warehouse-product-print-batch .product-label-v4:last-child { break-after: auto; }
+}
 @media print {
   @page dm-unit-product { size: 70mm 50mm; margin: 0; }
   body:has(> .warehouse-product-print-batch) { margin: 0 !important; padding: 0 !important; background: #fff; }
@@ -1101,6 +1125,16 @@ body:has(.staff-operations-app) .staff-management-route { padding: 0; }
 .inventory-location-label > code { align-self: start; color: #073f43; font: 750 24px var(--font-geist-mono), Consolas, monospace; letter-spacing: -.06em; }
 .inventory-location-label svg { width: 100%; max-width: 315px; grid-column: 1 / -1; align-self: end; }
 .inventory-location-label small { grid-column: 1 / -1; justify-self: center; color: #25484d; font: 650 10px var(--font-geist-mono), Consolas, monospace; }
+.inventory-location-label.location-label-v2 { display: flex; flex-direction: column; gap: 1.4mm; width: 100mm; height: 50mm; min-height: 50mm; padding: 3mm 4mm; border: 0; color: #000; font-family: Arial, sans-serif; }
+.location-label-v2 .location-label-heading { display: flex; justify-content: space-between; align-items: center; }
+.location-label-v2 .location-label-heading strong { font: bold 10pt/1.1 Arial, sans-serif; }
+.location-label-v2 .location-label-heading span { color: #000; font: 7pt/1.1 Arial, sans-serif; }
+.inventory-location-label.location-label-v2 > code { color: #000; font: bold 17pt/1.05 Consolas, monospace; letter-spacing: 0; overflow-wrap: anywhere; }
+.inventory-location-label.location-label-v2 svg { width: 92mm; max-width: none; height: 12mm; flex-shrink: 0; }
+.inventory-location-label.location-label-v2 small { align-self: center; color: #000; font: 8pt/1 Consolas, monospace; }
+.location-label-v2 .location-label-purpose { font: 7pt/1.1 Arial, sans-serif; color: #000; }
+.inventory-location-print-sheet:has(.location-label-v2) { width: max-content; min-width: 0; max-width: 100%; overflow-x: auto; }
+@media print { .inventory-location-print-sheet:has(.location-label-v2) { overflow: visible; } }
 .inventory-location-audit-panel { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .inventory-location-audit-panel code { display: block; margin-top: 8px; }
 .inventory-location-reprint { display: grid; width: min(510px, 100%); gap: 10px; padding: 16px; border: 1px solid #d6e7e4; border-radius: 7px; background: #f6fbfa; }
@@ -1169,7 +1203,7 @@ body:has(.staff-operations-app) .staff-management-route { padding: 0; }
   .inventory-location-editor > div:last-child { justify-content: stretch; }
   .inventory-location-editor > div:last-child .button { flex: 1; justify-content: center; }
   .inventory-location-print-preview > .inventory-location-panel-heading p { text-align: left; }
-  .inventory-location-print-sheets { display: grid; gap: 12px; }
+  .inventory-location-print-sheets { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .inventory-location-print-sheet { width: 100%; }
   .inventory-location-label { min-height: 176px; }
   .inventory-location-label > code { font-size: 20px; }

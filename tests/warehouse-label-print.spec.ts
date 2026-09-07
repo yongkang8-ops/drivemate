@@ -34,6 +34,7 @@ test("print job remains readable from mobile through narrow desktop", async ({ p
   };
 
   for (const viewport of [
+    { width: 1920, height: 1080 },
     { width: 1600, height: 900 },
     { width: 1440, height: 900 },
     { width: 1040, height: 900 },
@@ -76,7 +77,8 @@ test("print job remains readable from mobile through narrow desktop", async ({ p
     expect(referenceBox!.height).toBeLessThanOrEqual(maxTextHeight);
     expect(statusBox!.height).toBeLessThanOrEqual(maxTextHeight);
 
-    if (viewport.width >= 1440) {
+    const contentWidth = await workPanel.evaluate(element => element.clientWidth - parseFloat(getComputedStyle(element).paddingLeft) - parseFloat(getComputedStyle(element).paddingRight));
+    if (viewport.width > 1100 && contentWidth > 780) {
       const gridColumns = await printJob.evaluate((element) =>
         getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean),
       );

@@ -1,6 +1,8 @@
 import { availableStock, type InventoryRow } from "./inventory";
+import { cloneProductLabelProfile, optionalProductLabelProfileSchema, type ProductLabelProfile } from "./productLabelProfile";
 
 export type Product = {
+  labelProfile?: ProductLabelProfile | null;
   sku: string;
   barcode: string;
   oemPartNumber?: string;
@@ -38,6 +40,8 @@ export type CreateFitmentRuleInput = {
 const defaultProducts: Product[] = [
   {
     sku: "DM-GWM-OF-001",
+    // Memory/demo fixture only; never used to backfill Production product records.
+    labelProfile: { schemaVersion: 1, displayName: "OIL FILTER", vehicleMakes: ["GWM"], partReference: "QA-OF-001", position: { status: "not_applicable" } },
     barcode: "DMPGWMOF001",
     oemPartNumber: "GWM-OEM-OF-001",
     aliases: ["GWM-ALPHA-OIL-FILTER", "OF-GWM-001"],
@@ -52,6 +56,7 @@ const defaultProducts: Product[] = [
   },
   {
     sku: "DM-GWM-AF-002",
+    labelProfile: { schemaVersion: 1, displayName: "AIR FILTER", vehicleMakes: ["GWM"], partReference: "QA-AF-002", position: { status: "not_applicable" } },
     barcode: "DMPGWMAF002",
     oemPartNumber: "GWM-OEM-AF-002",
     aliases: ["GWM-ALPHA-AIR-FILTER", "AF-GWM-002"],
@@ -66,6 +71,7 @@ const defaultProducts: Product[] = [
   },
   {
     sku: "DM-GWM-CF-003",
+    labelProfile: { schemaVersion: 1, displayName: "CABIN FILTER", vehicleMakes: ["GWM"], partReference: "QA-CF-003", position: { status: "not_applicable" } },
     barcode: "DMPGWMCF003",
     oemPartNumber: "GWM-OEM-CF-003",
     aliases: ["GWM-ALPHA-CABIN-FILTER", "CF-GWM-003"],
@@ -80,6 +86,7 @@ const defaultProducts: Product[] = [
   },
   {
     sku: "DM-GWM-FF-004",
+    labelProfile: { schemaVersion: 1, displayName: "FUEL FILTER", vehicleMakes: ["GWM"], partReference: "QA-FF-004", position: { status: "not_applicable" } },
     barcode: "DMPGWMFF004",
     oemPartNumber: "GWM-OEM-FF-004",
     aliases: ["GWM-ALPHA-FUEL-FILTER", "FF-GWM-004"],
@@ -94,6 +101,7 @@ const defaultProducts: Product[] = [
   },
   {
     sku: "DM-BYD-CF-007",
+    labelProfile: { schemaVersion: 1, displayName: "CABIN FILTER", vehicleMakes: ["BYD"], partReference: "QA-CF-007", position: { status: "not_applicable" } },
     barcode: "DMPBYDCF007",
     oemPartNumber: "BYD-OEM-CF-007",
     aliases: ["BYD-CABIN-FILTER", "CF-BYD-007"],
@@ -108,6 +116,7 @@ const defaultProducts: Product[] = [
   },
   {
     sku: "DM-MG-CF-008",
+    labelProfile: { schemaVersion: 1, displayName: "CABIN FILTER", vehicleMakes: ["MG"], partReference: "QA-CF-008", position: { status: "not_applicable" } },
     barcode: "DMPMGCF008",
     oemPartNumber: "MG-OEM-CF-008",
     aliases: ["MG-CABIN-FILTER", "CF-MG-008"],
@@ -123,6 +132,7 @@ const defaultProducts: Product[] = [
 ];
 
 export type UpdateProductMasterInput = {
+  labelProfile?: ProductLabelProfile | null;
   sku: string;
   barcode?: string;
   oemPartNumber?: string;
@@ -135,6 +145,7 @@ export type UpdateProductMasterInput = {
 };
 
 export type CreateProductMasterInput = {
+  labelProfile?: ProductLabelProfile | null;
   sku: string;
   barcode: string;
   oemPartNumber?: string;
@@ -149,7 +160,7 @@ export type CreateProductMasterInput = {
 };
 
 function cloneProduct(product: Product): Product {
-  return { ...product, aliases: product.aliases ? [...product.aliases] : undefined };
+  return { ...product, aliases: product.aliases ? [...product.aliases] : undefined, labelProfile: cloneProductLabelProfile(product.labelProfile) };
 }
 
 export const products: Product[] = defaultProducts.map(cloneProduct);
@@ -246,6 +257,8 @@ export function resolveSkuIdentifier(identifier: string): string | undefined {
 export function updateProductMasterData(input: UpdateProductMasterInput) {
   const product = products.find((candidate) => candidate.sku === input.sku);
   if (!product) return { ok: false as const, message: "SKU was not found." };
+  const profile = optionalProductLabelProfileSchema.safeParse(input.labelProfile);
+  if (!profile.success) return { ok: false as const, message: "Product label fields are invalid." };
 
   if (input.barcode !== undefined) {
     const barcode = input.barcode.trim();
@@ -285,11 +298,14 @@ export function updateProductMasterData(input: UpdateProductMasterInput) {
     product.reorderQuantity = input.reorderQuantity;
   }
   if (input.status !== undefined) product.status = input.status;
+  if (input.labelProfile !== undefined) product.labelProfile = cloneProductLabelProfile(profile.data);
 
   return { ok: true as const, product: cloneProduct(product) };
 }
 
 export function createProductMasterData(input: CreateProductMasterInput) {
+  const profile = optionalProductLabelProfileSchema.safeParse(input.labelProfile);
+  if (!profile.success) return { ok: false as const, message: "Product label fields are invalid." };
   const sku = input.sku.trim().toUpperCase();
   const barcode = input.barcode.trim();
   const oemPartNumber = input.oemPartNumber?.trim();
@@ -301,6 +317,7 @@ export function createProductMasterData(input: CreateProductMasterInput) {
   }
 
   const product: Product = {
+    labelProfile: cloneProductLabelProfile(profile.data),
     sku,
     barcode,
     oemPartNumber: oemPartNumber || undefined,
@@ -365,7 +382,7 @@ export function getCatalogueWithAvailability(
   return products.filter((product) => options.includeInactive || product.status === "active").map((product) => {
     const balance = rows.find((row) => row.sku === product.sku);
     return {
-      ...product,
+      ...cloneProduct(product),
       onHand: balance?.onHand ?? 0,
       reserved: balance?.reserved ?? 0,
       quarantine: balance?.quarantine ?? 0,

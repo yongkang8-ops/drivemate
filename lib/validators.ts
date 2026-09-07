@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { optionalProductLabelProfileSchema } from "./productLabelProfile";
 
 export const vehicleLookupSchema = z.object({
   rego: z.string().trim().optional(),
@@ -80,6 +81,7 @@ export const tradeAccountStatusUpdateSchema = z.object({
 });
 
 export const productMasterUpdateSchema = z.object({
+  labelProfile: optionalProductLabelProfileSchema,
   barcode: z.string().trim().min(1).optional(),
   oemPartNumber: z.string().trim().optional(),
   brand: z.enum(["GWM", "BYD", "MG"]).optional(),
@@ -91,6 +93,7 @@ export const productMasterUpdateSchema = z.object({
 });
 
 export const productMasterCreateSchema = z.object({
+  labelProfile: optionalProductLabelProfileSchema,
   sku: z.string().trim().min(3),
   barcode: z.string().trim().min(1),
   oemPartNumber: z.string().trim().optional(),

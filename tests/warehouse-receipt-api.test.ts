@@ -3,6 +3,7 @@ import { POST as submitLabelJob } from "../app/api/warehouse/labels/route";
 import { POST as submitReceipt } from "../app/api/warehouse/receipts/route";
 import { MemoryRepository } from "../lib/memoryRepository";
 import { validatePackingListRevision } from "../lib/prearrivalShipment";
+import { updateProductMasterData } from "../lib/catalogue";
 
 const shipmentId = "11111111-1111-4111-8111-111111111111";
 const idempotencyKey = "22222222-2222-4222-8222-222222222222";
@@ -42,6 +43,7 @@ beforeEach(async () => {
   vi.stubEnv("DRIVEMATE_ENABLE_DEMO_AUTH", "true");
   repository = new ReceiptApiRepository();
   await repository.resetForTests();
+  for (const sku of ["DM-GWM-OF-001", "DM-GWM-AF-002"]) updateProductMasterData({ sku, labelProfile: { schemaVersion: 1, displayName: "LOCAL QA FILTER", vehicleMakes: ["GWM"], partReference: "QA-FILTER", position: { status: "not_applicable" } } });
   globalThis.__drivemateRepository = repository;
 });
 

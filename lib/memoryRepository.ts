@@ -530,6 +530,13 @@ export class MemoryRepository implements DrivemateRepository {
     }
   }
 
+  async getWarehouseLabelProducts(skus: string[]) {
+    const wanted = new Set(skus);
+    return products.filter(product => wanted.has(product.sku)).map(product => ({
+      sku: product.sku, barcode: product.barcode, labelProfile: structuredClone(product.labelProfile ?? null),
+    }));
+  }
+
   async getAdminState(): Promise<AdminState> {
     const state = getInventoryState();
     const catalogue = getCatalogueWithAvailability(state.inventory, {

@@ -46,7 +46,7 @@ test("History deep link works before the first Packing List and Warehouse has gl
   await expect(page).toHaveURL(/\/partner$/);
 });
 
-test("warehouse employee navigation does not offer privileged workspaces", async ({ page }) => {
+test("warehouse employee navigation does not offer privileged workspaces", async ({ page, baseURL }) => {
   await page.route("**/api/auth/session", route => route.fulfill({ json: { authenticated: true, profile: { role: "warehouse_staff", displayName: "QA Operator" } } }));
   await page.goto("/warehouse");
   const nav = page.getByRole("navigation", { name: "Workspace navigation", exact: true });
@@ -55,7 +55,7 @@ test("warehouse employee navigation does not offer privileged workspaces", async
     await expect(nav.getByRole("link", { name, exact: true })).toHaveCount(0);
   }
   await nav.getByRole("link", { name: "Public website", exact: true }).click();
-  await expect(page).toHaveURL("http://127.0.0.1:3100/");
+  await expect(page).toHaveURL(new URL("/", baseURL).href);
 });
 
 test("partner Staff navigation does not advertise administrator-only access", async ({ page }) => {

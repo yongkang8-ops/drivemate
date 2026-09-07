@@ -350,6 +350,7 @@ export type StockMovement = {
 };
 
 export type AdminCatalogueRow = {
+  labelProfile?: Product["labelProfile"];
   sku: string;
   barcode?: string;
   oemPartNumber?: string;
@@ -554,6 +555,7 @@ export type CreateFitmentRuleResult =
 export interface DrivemateRepository {
   mode: "memory" | "supabase";
   getAdminState(): Promise<AdminState>;
+  getWarehouseLabelProducts(skus: string[]): Promise<import("./warehouseLabelContent").WarehouseLabelProduct[]>;
   getTradeAccountState(tradeAccountId: string): Promise<TradeAccountState>;
   getAccountDocumentAccess(
     documentId: string,

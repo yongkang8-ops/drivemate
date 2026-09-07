@@ -2,7 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import JsBarcode from "jsbarcode";
+import { WarehouseProductLabel } from "./WarehouseProductLabel";
+import { describeProductLabelIssues, type ProductLabelReadiness } from "../lib/warehouseLabelContent";
+import { resolveWarehouseScopeLookup } from "../lib/warehouseScopeLookup";
 import {
   ArrowRight,
   Barcode,
@@ -70,7 +72,9 @@ function WarehouseNavigation({ view, shipmentId, onViewChange }: {
 }
 
 type ScopePreview = {
+  labelProducts?: ProductLabelReadiness[];
   shipment: {
+    productIdentifiers?: string[];
     shipmentId: string;
     shipmentReference?: string;
     pallets: Array<{ sourcePalletNumber: string }>;
@@ -112,31 +116,6 @@ function quantityFor(scope: WarehouseReceiptScope) {
 
 function defaultDiscrepancyType(actual: number, expected: number): ReceiptDiscrepancyType {
   return actual < expected ? "short_pack" : "over_received";
-}
-
-function ProductLabel({ sku, barcode }: { sku: string; barcode: string }) {
-  const barcodeRef = useRef<SVGSVGElement>(null);
-
-  useEffect(() => {
-    if (!barcodeRef.current || !barcode) return;
-    JsBarcode(barcodeRef.current, barcode, {
-      format: "CODE128",
-      displayValue: false,
-      height: 38,
-      margin: 0,
-      width: 1.15,
-    });
-  }, [barcode]);
-
-  return (
-    <article className="inbound-product-label" aria-label={`Unit product label for ${sku}`}>
-      <strong>DriveMate Parts</strong>
-      <span>Unit product label</span>
-      <code>SKU {sku}</code>
-      <svg ref={barcodeRef} aria-label={`Code 128 barcode ${barcode}`} role="img" />
-      <code>{barcode}</code>
-    </article>
-  );
 }
 
 function makeScopeUrl(
@@ -259,6 +238,7 @@ export function PartnerInboundWorkspace() {
   const [availableCartons, setAvailableCartons] = useState<ScopePreview["shipment"]["cartons"]>([]);
   const [scopeLookup, setScopeLookup] = useState("");
   const [scopeLookupMessage, setScopeLookupMessage] = useState("");
+  const [scopeLookupInvalid, setScopeLookupInvalid] = useState(false);
   const [scopeLoading, setScopeLoading] = useState(false);
   const [scopeError, setScopeError] = useState(false);
   const [preview, setPreview] = useState<ScopePreview | null>(null);
@@ -567,6 +547,7 @@ export function PartnerInboundWorkspace() {
   }
 
   function selectFullShipment() {
+    setScopeLookupInvalid(false);
     setSelectedPallets([]);
     setSelectedCartons([]);
     setScopeLookupMessage("Full shipment selected.");
@@ -575,25 +556,20 @@ export function PartnerInboundWorkspace() {
   }
 
   function resolveScopeLookup() {
-    const identifier = normalizeBarcode(scopeLookup);
-    if (!identifier) {
-      setScopeLookupMessage("Enter a source scope or member carton number.");
+    const result = resolveWarehouseScopeLookup(scopeLookup, availableCartons, preview?.shipment.productIdentifiers ?? []);
+    setScopeLookupInvalid(result.status !== "matched");
+    if (result.status !== "matched") {
+      setScopeLookupMessage(result.status === "empty" ? "Enter a carton or source-group number from the list below."
+        : result.status === "wrong_kind" ? "This is a product SKU or barcode. Find scope searches carton and source-group numbers only. Choose a source scope below."
+        : `No carton or source group matches ${scopeLookup.trim()}. Check the carton number or choose from the list below. Your selection has not changed.`);
       return;
     }
-    const sourceScope = availableCartons.find((carton) => (
-      normalizeBarcode(carton.sourceCartonNumber) === identifier
-      || carton.memberCartonNumbers?.some((member) => normalizeBarcode(member) === identifier)
-    ));
-    if (!sourceScope) {
-      setScopeLookupMessage(`${scopeLookup.trim()} is not part of this confirmed Packing List.`);
-      return;
-    }
-
+    const sourceScope = result.carton;
     setSelectedPallets([]);
     setSelectedCartons([sourceScope.sourceCartonNumber]);
     setScopeLookup("");
     resetOperationState();
-    const isMember = normalizeBarcode(sourceScope.sourceCartonNumber) !== identifier;
+    const isMember = result.isMember;
     setScopeLookupMessage(isMember
       ? `Member carton ${scopeLookup.trim()} resolved to source group ${sourceScope.sourceCartonNumber}.`
       : `Source scope ${sourceScope.sourceCartonNumber} selected.`);
@@ -818,6 +794,8 @@ export function PartnerInboundWorkspace() {
   }
 
   const sampleLine = preview.scope.lines[0];
+  const labelProblems = preview.scope.lines.filter(line => !preview.labelProducts?.find(product => product.sku === line.sku)?.content);
+  const sampleContent = preview.labelProducts?.find(product => product.sku === sampleLine?.sku)?.content;
   const receiptDifference = totalActual - expectedUnits;
   const activeGateReady = view === "put_away" ? putawayReady || Boolean(putawayResult) : receiptUnlocked;
   const activeGateTitle = view === "put_away"
@@ -875,8 +853,8 @@ export function PartnerInboundWorkspace() {
             </div>
             <form className="inbound-scope-lookup" onSubmit={(event) => { event.preventDefault(); resolveScopeLookup(); }}>
               <label htmlFor="warehouse-scope-lookup">Find source scope or member carton</label>
-              <div><input id="warehouse-scope-lookup" disabled={scopeLoading || busy} value={scopeLookup} onChange={(event) => setScopeLookup(event.target.value)} placeholder="Scan or enter a carton number" /><button className="button button-secondary" disabled={scopeLoading || busy} type="submit">Find scope</button></div>
-              <p role="status">{scopeLookupMessage || "Member carton numbers are lookup aliases only; operations use the canonical source scope."}</p>
+              <div><input id="warehouse-scope-lookup" aria-invalid={scopeLookupInvalid} aria-describedby="warehouse-scope-feedback" disabled={scopeLoading || busy} value={scopeLookup} onChange={(event) => { setScopeLookup(event.target.value); setScopeLookupInvalid(false); setScopeLookupMessage(""); }} placeholder={`Carton number, e.g. ${availableCartons[0]?.sourceCartonNumber ?? "1#"}`} /><button className="button button-secondary" disabled={scopeLoading || busy} type="submit">{scopeLoading ? "Loading scope…" : "Find scope"}</button></div>
+              <p id="warehouse-scope-feedback" className={`scope-lookup-feedback${scopeLookupInvalid ? " is-error" : ""}`} role={scopeLookupInvalid ? "alert" : "status"}>{scopeLoading ? "Loading the selected source scope…" : scopeLookupMessage || "Enter a carton or group number, not a product SKU. A member carton selects its complete parent group."}</p>
             </form>
             <div className="inbound-source-scope-grid">
               {availableCartons.map((carton) => {
@@ -901,12 +879,13 @@ export function PartnerInboundWorkspace() {
                 <span className="inbound-section-label">Print range</span>
                 <div className="inbound-range-row"><strong>{activePalletLabel}</strong><span>Selected</span><strong>{preview.scope.cartonNumbers.join(", ")}</strong><span>{expectedUnits} labels</span></div>
                 <span className="inbound-section-label">Product label queue</span>
-                <div className="inbound-queue" role="table"><div className="inbound-queue-head" role="row"><span>SKU</span><span>Expected</span><span>Labels</span><span>Status</span></div>{preview.scope.lines.map((line) => <div className="inbound-queue-row" role="row" key={line.sku}><code>{line.sku}</code><strong>{line.expectedQuantity}</strong><strong>{line.expectedQuantity}</strong><b>Ready</b></div>)}</div>
-                <div className="inbound-actions"><button className="button button-secondary" type="button" disabled={scopeLoading || scopeError || busy || printState === "awaiting_outcome"} onClick={() => setPrintState("preview")}>Preview labels</button><button className="button button-primary" type="button" disabled={scopeLoading || scopeError || busy || printState === "awaiting_outcome"} onClick={() => void createPrintJob()}><Printer size={18} />Print labels</button></div>
+                <div className="inbound-queue" role="table"><div className="inbound-queue-head" role="row"><span>SKU</span><span>Expected</span><span>Labels</span><span>Status</span></div>{preview.scope.lines.map((line) => <div className="inbound-queue-row" role="row" key={line.sku}><code>{line.sku}</code><strong>{line.expectedQuantity}</strong><strong>{line.expectedQuantity}</strong><b>{labelProblems.some(product => product.sku === line.sku) ? "Details needed" : "Ready"}</b></div>)}</div>
+                {labelProblems.length ? <div className="label-readiness-alert" role="alert"><strong>Complete label details for {labelProblems.length} selected products</strong><ul>{labelProblems.map(line => <li key={line.sku}>{line.sku}: {describeProductLabelIssues(preview.labelProducts?.find(product => product.sku === line.sku)?.issues ?? ["labelProfile"])}</li>)}</ul><p>An authorised product editor can complete these details in the SKU master. Existing receipt records and saved print jobs are unchanged.</p></div> : null}
+                <div className="inbound-actions"><button className="button button-secondary" type="button" disabled={scopeLoading || scopeError || busy || labelProblems.length > 0 || printState === "awaiting_outcome"} onClick={() => setPrintState("preview")}>Preview labels</button><button className="button button-primary" type="button" disabled={scopeLoading || scopeError || busy || labelProblems.length > 0 || printState === "awaiting_outcome"} onClick={() => void createPrintJob()}><Printer size={18} />Print labels</button></div>
                 {printState === "preview" ? <p className="inbound-message" role="status">Preview ready. The queue contains {expectedUnits} fixed-size Unit Product labels.</p> : null}
                 {printJob ? <section className="inbound-job-row"><div><span>Print job</span><strong>{printJob.id}</strong></div><div><span>Status</span><strong>{printState === "awaiting_outcome" ? "Awaiting physical confirmation" : printJob.status === "printed" ? "Printed confirmation recorded" : "Cancelled"}</strong></div>{printState === "awaiting_outcome" ? <div className="inbound-job-actions"><button className="button button-secondary" type="button" disabled={busy} onClick={() => void recordPrintOutcome("cancelled")}>Cancel print</button><button className="button button-primary" type="button" disabled={busy || openedPrintJobId !== printJob.id} onClick={() => void recordPrintOutcome("printed")}>Confirm printed</button></div> : null}</section> : null}
               </section>
-              <aside className="inbound-summary-panel"><h2>Product label preview</h2><p>70 × 50 mm · first SKU sample only</p><p>Print labels outputs every saved item, one label per page. Set Copies to 1 and scale to 100%.</p>{sampleLine ? <div className="warehouse-label-print-sheet"><ProductLabel sku={sampleLine.sku} barcode={sampleLine.productBarcode} /></div> : null}<span className="inbound-section-label">Reprint control</span><div className="inbound-reprint-note"><strong>Need another copy?</strong><p>Reprint the complete original job and record a reason.</p></div><label className="inbound-reprint-input">Reprint reason<input aria-label="Reprint reason" value={reprintReason} onChange={(event) => setReprintReason(event.target.value)} placeholder="Reason is required" /></label>{printJob?.status === "printed" ? <button className="button button-secondary" type="button" disabled={busy} onClick={() => void createReprint()}>Reprint labels</button> : null}</aside>
+              <aside className="inbound-summary-panel"><h2>Product label preview</h2><p>70 × 50 mm · first SKU sample only</p><p>Print labels outputs every saved item, one label per page. Set Copies to 1 and scale to 100%. Enable background graphics for the black title band.</p>{sampleLine && sampleContent ? <div className="warehouse-label-print-sheet"><WarehouseProductLabel label={{ itemId: "preview", sequence: 1, sku: sampleLine.sku, barcode: sampleLine.productBarcode, labelContent: sampleContent }} /></div> : <p className="label-readiness-alert">The first product's label details need completion before preview.</p>}<span className="inbound-section-label">Reprint control</span><div className="inbound-reprint-note"><strong>Need another copy?</strong><p>Reprints retain the original saved artwork, including legacy labels. Record a reason.</p></div><label className="inbound-reprint-input">Reprint reason<input aria-label="Reprint reason" value={reprintReason} onChange={(event) => setReprintReason(event.target.value)} placeholder="Reason is required" /></label>{printJob?.status === "printed" ? <button className="button button-secondary" type="button" disabled={busy} onClick={() => void createReprint()}>Reprint labels</button> : null}</aside>
             </div>
           ) : (view === "receive_stock" && !receiptUnlocked) || (view === "put_away" && !putawayReady && !putawayResult) ? (
             <section className="inbound-work-panel" id={view === "receive_stock" ? "receive-stock" : "put-away"}>

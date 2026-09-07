@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import type { Page, TestInfo } from "@playwright/test";
+import { buildProductLabelContent } from "../lib/warehouseLabelContent";
 
 async function verifyPdf(page: Page, testInfo: TestInfo, count: number, name: string) {
   await page.emulateMedia({ media: "print" });
@@ -29,7 +30,7 @@ test.beforeEach(async ({ request, page }) => {
     window.print = () => {
       const root = document.querySelector(".warehouse-product-print-batch")
         ?? document.querySelector(".warehouse-label-print-sheet");
-      (window as any).printOutputs.push(Array.from(root?.querySelectorAll(".inbound-product-label") ?? []).map(label => ({
+      (window as any).printOutputs.push(Array.from(root?.querySelectorAll(".inbound-product-label, .product-label-v4") ?? []).map(label => ({
         text: label.textContent,
         barcode: label.querySelector("svg")?.getAttribute("aria-label"),
         ready: Boolean(label.querySelector("svg rect")),
@@ -144,13 +145,17 @@ test("the full 119 SKU shipment outputs exactly 706 nonblank label pages, includ
   });
   // External boundary fixture only: no Production calls and no live job is created.
   const scope = { shipmentId: "shipment-test-1", cartonNumbers: cartons.map(c => c.sourceCartonNumber), lines };
-  const job = { id: "local-706-job", templateId: "unit_product", payloadSnapshot: scope, requestedQuantity: 706, status: "pending", createdAt: "2026-09-05T00:00:00Z" };
+  // Explicit synthetic artwork. These names are not approved real product master data.
+  const labelProducts = lines.map(line => buildProductLabelContent({ sku: line.sku, barcode: line.productBarcode!, labelProfile: {
+    schemaVersion: 1, displayName: "LOCAL QA PRODUCT", vehicleMakes: ["GWM"], partReference: "LOCAL-QA-REFERENCE", position: { status: "specified", value: "Rear / Left (LH)" },
+  } }));
+  const job = { id: "local-706-job", templateId: "unit_product", payloadSnapshot: { ...scope, labelVersion: "unit-product-v4" }, requestedQuantity: 706, status: "pending", createdAt: "2026-09-05T00:00:00Z" };
   let sequence = 0;
   const items = lines.flatMap(line => Array.from({ length: line.expectedQuantity }, (_, copy) => ({
     id: `local-item-${++sequence}`, jobId: job.id, sequence, createdAt: job.createdAt,
-    payloadSnapshot: { shipmentId: scope.shipmentId, sku: line.sku, productBarcode: line.productBarcode, copy: copy + 1 },
+    payloadSnapshot: { shipmentId: scope.shipmentId, sku: line.sku, productBarcode: line.productBarcode, copy: copy + 1, labelContent: labelProducts.find(product => product.sku === line.sku)!.content },
   })));
-  await page.route("**/api/warehouse/labels?*", route => route.fulfill({ json: { ok: true, shipment: { shipmentId: scope.shipmentId, pallets: [], cartons }, scope, printGate: { ok: false } } }));
+  await page.route("**/api/warehouse/labels?*", route => route.fulfill({ json: { ok: true, shipment: { shipmentId: scope.shipmentId, pallets: [], cartons }, scope, labelProducts, printGate: { ok: false } } }));
   await page.route("**/api/warehouse/labels", route => route.fulfill({ status: 201, json: { ok: true, job, items } }));
   await page.goto("/warehouse");
   await expect(page.getByText("706 labels", { exact: true })).toBeVisible();

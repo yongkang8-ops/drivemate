@@ -146,7 +146,7 @@ test("resolves a member carton to its canonical source group for Warehouse opera
   await page.goto("/warehouse");
   await page.getByLabel("Find source scope or member carton").fill("UNKNOWN-99");
   await page.getByLabel("Find source scope or member carton").press("Enter");
-  await expect(page.getByText("UNKNOWN-99 is not part of this confirmed Packing List.", { exact: true })).toBeVisible();
+  await expect(page.locator("#warehouse-scope-feedback")).toContainText("No carton or source group matches UNKNOWN-99.");
 
   await page.getByLabel("Find source scope or member carton").fill("8#");
   const canonicalRequest = page.waitForRequest((candidate) => {

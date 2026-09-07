@@ -47,6 +47,8 @@ export type WarehouseReceiptScopeInput = {
 };
 
 type WarehouseLabelVisibleField =
+  | "compatible_makes" | "position" | "part_reference" | "company_contact"
+  | "source_scope" | "physical_carton_id" | "expected_quantity" | "ship_to" | "package_sequence"
   | "brand"
   | "part_name"
   | "part_number"
@@ -65,6 +67,8 @@ type WarehouseLabelVisibleField =
   | "barcode";
 
 export type WarehouseLabelTemplate = {
+  availability: "operational" | "definition_only";
+  purpose: string;
   dimensionsMm: { width: number; height: number };
   barcodeSymbology: "CODE128";
   visibleFields: readonly WarehouseLabelVisibleField[];
@@ -72,24 +76,28 @@ export type WarehouseLabelTemplate = {
 
 export const WAREHOUSE_LABEL_TEMPLATES: Record<WarehouseLabelTemplateId, WarehouseLabelTemplate> = {
   unit_product: {
+    availability: "operational", purpose: "Supplementary product identity retained on supplier packaging.",
     dimensionsMm: { width: 70, height: 50 },
     barcodeSymbology: "CODE128",
-    visibleFields: ["brand", "part_name", "part_number", "oem_part_number", "batch_lot", "quantity", "origin", "barcode"],
+    visibleFields: ["compatible_makes", "part_name", "position", "part_reference", "part_number", "barcode", "company_contact"],
   },
   receiving_carton: {
+    availability: "definition_only", purpose: "Inbound source identification; expected contents do not confirm receipt.",
     dimensionsMm: { width: 100, height: 80 },
     barcodeSymbology: "CODE128",
-    visibleFields: ["receipt_number", "purchase_order", "part_number", "batch_lot", "quantity", "received_date", "status", "barcode"],
+    visibleFields: ["shipment_id", "source_scope", "physical_carton_id", "expected_quantity", "barcode"],
   },
   bin_location: {
+    availability: "operational", purpose: "Fixed storage-location identity, independent of stock or shipment.",
     dimensionsMm: { width: 100, height: 50 },
     barcodeSymbology: "CODE128",
     visibleFields: ["location_code", "barcode"],
   },
   dispatch_shipping: {
+    availability: "definition_only", purpose: "Delivery identification; internal shipment IDs are not carrier tracking numbers.",
     dimensionsMm: { width: 100, height: 150 },
     barcodeSymbology: "CODE128",
-    visibleFields: ["shipment_id", "order_number", "carton_count", "barcode"],
+    visibleFields: ["shipment_id", "order_number", "ship_to", "package_sequence", "carton_count", "barcode"],
   },
 };
 

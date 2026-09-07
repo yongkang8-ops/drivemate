@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import JsBarcode from "jsbarcode";
+import { WarehouseLocationLabel as LocationLabel } from "./WarehouseLocationLabel";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildApiHeaders } from "../lib/clientAuth";
 import { useSensitiveFetch } from "./MfaStepUpProvider";
@@ -51,33 +51,6 @@ function snapshotLocations(items: WarehouseLabelPrintItem[]) {
   return items.flatMap((item) => isLocationItemSnapshot(item.payloadSnapshot)
     ? [{ locationCode: item.payloadSnapshot.locationCode, barcode: item.payloadSnapshot.barcode }]
     : []);
-}
-
-function LocationLabel({ locationCode, barcode }: { locationCode: string; barcode: string }) {
-  const barcodeRef = useRef<SVGSVGElement>(null);
-
-  useEffect(() => {
-    if (!barcodeRef.current) return;
-    JsBarcode(barcodeRef.current, barcode, {
-      format: "CODE128",
-      displayValue: false,
-      height: 38,
-      margin: 0,
-      width: 1.15,
-    });
-  }, [barcode]);
-
-  return (
-    <article className="inventory-location-label" aria-label={`Location label for ${locationCode}`}>
-      <div>
-        <strong>DriveMate Parts</strong>
-        <span>Bin location label</span>
-      </div>
-      <code>{locationCode}</code>
-      <svg ref={barcodeRef} aria-label={`Code 128 barcode ${barcode}`} role="img" />
-      <small>{barcode}</small>
-    </article>
-  );
 }
 
 function statusLabel(status: InventoryLocationStatus) {

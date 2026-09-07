@@ -1,0 +1,18 @@
+{
+  "projectRef": "gajrgqiwvgjrrbildwme",
+  "access": "Supabase SQL Editor through existing authenticated browser session; SELECT only",
+  "queryUrl": "https://supabase.com/dashboard/project/gajrgqiwvgjrrbildwme/sql/39cadc15-aa11-4039-aee7-affd6dd2a802",
+  "product_count": 119,
+  "unique_skus": 119,
+  "unique_barcodes": 119,
+  "empty_barcodes": 0,
+  "identity_md5": "e3986b5139763f10e53cff3349d4c345",
+  "local_identity_md5": "e3986b5139763f10e53cff3349d4c345",
+  "populated_label_profiles": 0,
+  "label_profile_column_exists": false,
+  "registered_v23": 0,
+  "outside_barcode_collisions": 0,
+  "checked_at": "2026-09-07 13:09:10.104465+00",
+  "businessDataWrites": 0,
+  "limitation": "Point-in-time fingerprint comparison, not a full Production backup. SQL Editor may retain its query history. No auth.users, costs, orders, customers or employee data were queried. Recheck identities immediately before authorized backfill."
+}

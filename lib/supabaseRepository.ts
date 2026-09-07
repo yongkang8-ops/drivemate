@@ -119,8 +119,10 @@ import type {
   RepositoryTestResetOptions,
 } from "./repository";
 import { createServiceSupabaseClient } from "./supabaseClient";
+import { optionalProductLabelProfileSchema, type ProductLabelProfile } from "./productLabelProfile";
 
 type ProductRecord = {
+  label_profile?: ProductLabelProfile | null;
   id: string;
   sku: string;
   brand: string;
@@ -616,6 +618,7 @@ function toCatalogueRows(
 
     return {
       barcode: product.barcode ?? undefined,
+      labelProfile: product.label_profile ?? null,
       oemPartNumber: product.oem_part_number ?? undefined,
       brand: product.brand,
       name: product.part_name,
@@ -1446,6 +1449,17 @@ export class SupabaseRepository implements DrivemateRepository {
     if (error) throw error;
   }
 
+  async getWarehouseLabelProducts(skus: string[]) {
+    const rows: import("./warehouseLabelContent").WarehouseLabelProduct[] = [];
+    for (const chunk of chunkShipmentProductIds([...new Set(skus)])) {
+      const { data, error } = await this.client().from("products").select("sku, barcode, label_profile").in("sku", chunk);
+      if (error) throw error;
+      rows.push(...(data ?? []).map(row => ({ sku: row.sku as string, barcode: row.barcode as string,
+        labelProfile: row.label_profile as ProductLabelProfile | null })));
+    }
+    return rows;
+  }
+
   async getAdminState(): Promise<AdminState> {
     const supabase = this.client();
     const [
@@ -1455,7 +1469,7 @@ export class SupabaseRepository implements DrivemateRepository {
       supabase
         .from("products")
         .select(
-          "id, sku, brand, part_name, category, barcode, oem_part_number, reorder_point, reorder_quantity, status",
+          "id, sku, brand, part_name, category, barcode, oem_part_number, reorder_point, reorder_quantity, status, label_profile",
         ),
       supabase
         .from("inventory_balances")
@@ -2764,6 +2778,8 @@ export class SupabaseRepository implements DrivemateRepository {
   async createProductMaster(
     input: CreateProductMasterInput,
   ): Promise<CreateProductMasterResult> {
+    const profile = optionalProductLabelProfileSchema.safeParse(input.labelProfile);
+    if (!profile.success) return { ok: false, message: "Product label fields are invalid." };
     const supabase = this.client();
     const sku = input.sku.trim().toUpperCase();
 
@@ -2772,6 +2788,7 @@ export class SupabaseRepository implements DrivemateRepository {
       .insert({
         sku,
         barcode: input.barcode.trim(),
+        ...(profile.data !== undefined ? { label_profile: profile.data } : {}),
         oem_part_number: input.oemPartNumber?.trim() || null,
         brand: input.brand,
         part_name: input.name.trim(),
@@ -2805,8 +2822,11 @@ export class SupabaseRepository implements DrivemateRepository {
   async updateProductMaster(
     input: UpdateProductMasterInput,
   ): Promise<UpdateProductMasterResult> {
+    const profile = optionalProductLabelProfileSchema.safeParse(input.labelProfile);
+    if (!profile.success) return { ok: false, message: "Product label fields are invalid." };
     const supabase = this.client();
-    const update: Record<string, string | number | null> = {};
+    const update: Record<string, unknown> = {};
+    if (input.labelProfile !== undefined) update.label_profile = profile.data;
 
     if (input.barcode !== undefined)
       update.barcode = input.barcode.trim() || null;

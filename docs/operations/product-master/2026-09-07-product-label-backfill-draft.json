@@ -1,0 +1,5572 @@
+{
+  "version": "label-backfill-draft-20260907",
+  "projectRef": "gajrgqiwvgjrrbildwme",
+  "shipmentId": "c49dad78-2ffc-406a-ac50-3c1e4ffec434",
+  "productionWriteAuthorized": false,
+  "needsMigration": "v23_product_label_profiles",
+  "allowedProductColumns": [
+    "label_profile"
+  ],
+  "preserved": [
+    "id",
+    "sku",
+    "barcode",
+    "oem_part_number",
+    "inventory",
+    "packing_list_revisions",
+    "print_job_snapshots"
+  ],
+  "referenceRelationsStorage": "Review artifact only; no alias search feature or fitment-table writes are implied.",
+  "sourceFiles": [
+    {
+      "key": "pi",
+      "file": "附件一_GWM首批汽配_Final_PI_20260820.xlsx",
+      "sha256": "F7C6F6BB4576CCCA62221E50D27E2FCCF3CAB3C46F9889404F87C0B59E9ABB4C"
+    },
+    {
+      "key": "pl",
+      "file": "客户装箱清单PL&INV_GWM首批汽配_材质价格版_20260822.xls",
+      "sha256": "7ADBE3D31F5D318D9D3E59A480D919A2BF2A588CCD79C4CAD1F24AF9BD5DEE47"
+    },
+    {
+      "key": "detail",
+      "file": "GWM首批汽配采购详细目录0902.xlsx",
+      "sha256": "A5E0FA625143D5A1C1F58A4CB2D66195ABBF9592468BD7F54B7B5BEAF1BDB161"
+    },
+    {
+      "key": "supplier",
+      "file": "GWM首批汽配采购合同附件_供应商确认版.xlsx",
+      "sha256": "93461B0C6235169D3F3E7EFE4373855A152CFF9FCDB4B8F644313CC99D645182"
+    },
+    {
+      "key": "order",
+      "file": "final_order_data_20260820.json",
+      "sha256": "98CB621C202CA5675BEF0D24E329685215F2C993575B5C9EEB86C960D0A514A1"
+    },
+    {
+      "key": "scope",
+      "file": "2026-09-03-gwm-706-unit-inbound-master-data-v3-lines.csv",
+      "sha256": "D867DADDC90D987FB7E6CD91628C9A67A2E5C74B536EDAAE36A1D3C808184182"
+    },
+    {
+      "key": "barcode",
+      "file": "2026-09-04-gwm-product-barcode-backfill.csv",
+      "sha256": "9F2998FA43B5BA5A0AD7E14C0EEB7FB3EE18194401ADED3FA6BA097C2007998A"
+    },
+    {
+      "key": "proof",
+      "file": "content-verification-v4.json",
+      "sha256": "2332C89887AA59DB808C8480620D745919722A4A7D3A39F9C88D99E91D7CD9A3"
+    }
+  ],
+  "rows": [
+    {
+      "sku": "DM-GWM-0001",
+      "expectedBarcode": "DMPGWM0001",
+      "expectedOriginalPn": "1117100XKW09A",
+      "expectedQuantity": 4,
+      "sourceScope": "19#",
+      "sourceNameCn": "燃油滤芯",
+      "sourceRow0902": 5,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1117100XKW09A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "FUEL FILTER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL",
+          "TANK"
+        ],
+        "partReference": "1117100XKW09A",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "FUEL FILTER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL",
+            "TANK"
+          ],
+          "partReference": "1117100XKW09A",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0002",
+      "expectedBarcode": "DMPGWM0002",
+      "expectedOriginalPn": "8104400XKZ96A",
+      "expectedQuantity": 10,
+      "sourceScope": "26#",
+      "sourceNameCn": "空调滤芯",
+      "sourceRow0902": 6,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "8104400XKZ96A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "CABIN AIR FILTER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "8104400XKZ96A",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "CABIN AIR FILTER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "8104400XKZ96A",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0003",
+      "expectedBarcode": "DMPGWM0003",
+      "expectedOriginalPn": "1111402XED96",
+      "expectedQuantity": 10,
+      "sourceScope": "19#",
+      "sourceNameCn": "燃油滤芯",
+      "sourceRow0902": 7,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1111402XED96"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "FUEL FILTER",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "1111402XED96",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "FUEL FILTER",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "1111402XED96",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0004",
+      "expectedBarcode": "DMPGWM0004",
+      "expectedOriginalPn": "1017110XEN01",
+      "expectedQuantity": 20,
+      "sourceScope": "19#",
+      "sourceNameCn": "机油滤芯",
+      "sourceRow0902": 8,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1017110XEN01"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "OIL FILTER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL",
+          "TANK"
+        ],
+        "partReference": "1017110XEN01",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "OIL FILTER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL",
+            "TANK"
+          ],
+          "partReference": "1017110XEN01",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0005",
+      "expectedBarcode": "DMPGWM0005",
+      "expectedOriginalPn": "1109103XKM01A",
+      "expectedQuantity": 4,
+      "sourceScope": "26#",
+      "sourceNameCn": "空气滤芯",
+      "sourceRow0902": 9,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1109103XKM01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE AIR FILTER",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "1109103XKM01A",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE AIR FILTER",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "1109103XKM01A",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0006",
+      "expectedBarcode": "DMPGWM0006",
+      "expectedOriginalPn": "3701200XED61",
+      "expectedQuantity": 4,
+      "sourceScope": "2#",
+      "sourceNameCn": "皮带张紧器",
+      "sourceRow0902": 10,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "3701200XED61"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "DRIVE BELT TENSIONER",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "3701200XED61",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "DRIVE BELT TENSIONER",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "3701200XED61",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0007",
+      "expectedBarcode": "DMPGWM0007",
+      "expectedOriginalPn": "1025100XEC06",
+      "expectedQuantity": 4,
+      "sourceScope": "2#",
+      "sourceNameCn": "皮带张紧器",
+      "sourceRow0902": 11,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1025100XEC06"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "DRIVE BELT TENSIONER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL",
+          "TANK"
+        ],
+        "partReference": "1025100XEC06",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "DRIVE BELT TENSIONER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL",
+            "TANK"
+          ],
+          "partReference": "1025100XEC06",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0008",
+      "expectedBarcode": "DMPGWM0008",
+      "expectedOriginalPn": "3701011XEG71",
+      "expectedQuantity": 6,
+      "sourceScope": "20#",
+      "sourceNameCn": "皮带",
+      "sourceRow0902": 12,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "3701011XEG71"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "DRIVE BELT",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "3701011XEG71",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "DRIVE BELT",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "3701011XEG71",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0009",
+      "expectedBarcode": "DMPGWM0009",
+      "expectedOriginalPn": "1017100EG01",
+      "expectedQuantity": 20,
+      "sourceScope": "19#",
+      "sourceNameCn": "机油滤芯",
+      "sourceRow0902": 13,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "same_part_spelling_alias",
+        "references": [
+          "1017100EG01",
+          "1017100-EG01"
+        ],
+        "canonicalDisplayPn": "1017100-EG01",
+        "evidence": "Chris reply relayed by owner, 2026-09-07"
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "OIL FILTER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "1017100-EG01",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "OIL FILTER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "1017100-EG01",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0010",
+      "expectedBarcode": "DMPGWM0010",
+      "expectedOriginalPn": "1109104XGW02A",
+      "expectedQuantity": 10,
+      "sourceScope": "26#",
+      "sourceNameCn": "空气滤芯",
+      "sourceRow0902": 14,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1109104XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE AIR FILTER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "1109104XGW02A",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE AIR FILTER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "1109104XGW02A",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0011",
+      "expectedBarcode": "DMPGWM0011",
+      "expectedOriginalPn": "3701011XED95",
+      "expectedQuantity": 4,
+      "sourceScope": "20#",
+      "sourceNameCn": "皮带",
+      "sourceRow0902": 15,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "3701011XED95"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "DRIVE BELT",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "3701011XED95",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "DRIVE BELT",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "3701011XED95",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0012",
+      "expectedBarcode": "DMPGWM0012",
+      "expectedOriginalPn": "8104300XKR02A",
+      "expectedQuantity": 4,
+      "sourceScope": "26#",
+      "sourceNameCn": "空调滤芯",
+      "sourceRow0902": 16,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "8104300XKR02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "CABIN AIR FILTER",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "8104300XKR02A",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "CABIN AIR FILTER",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "8104300XKR02A",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0013",
+      "expectedBarcode": "DMPGWM0013",
+      "expectedOriginalPn": "8100422XNZ01A",
+      "expectedQuantity": 4,
+      "sourceScope": "26#",
+      "sourceNameCn": "空调滤芯",
+      "sourceRow0902": 17,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "8100422XNZ01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "CABIN AIR FILTER",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "8100422XNZ01A",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "CABIN AIR FILTER",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "8100422XNZ01A",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0014",
+      "expectedBarcode": "DMPGWM0014",
+      "expectedOriginalPn": "1025011XEN01",
+      "expectedQuantity": 6,
+      "sourceScope": "20#",
+      "sourceNameCn": "皮带",
+      "sourceRow0902": 18,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1025011XEN01"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "DRIVE BELT",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "1025011XEN01",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "DRIVE BELT",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "1025011XEN01",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0015",
+      "expectedBarcode": "DMPGWM0015",
+      "expectedOriginalPn": "1025200XEB55",
+      "expectedQuantity": 4,
+      "sourceScope": "31#",
+      "sourceNameCn": "皮带张紧器",
+      "sourceRow0902": 19,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1025200XEB55"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "DRIVE BELT TENSIONER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "1025200XEB55",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "DRIVE BELT TENSIONER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "1025200XEB55",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0016",
+      "expectedBarcode": "DMPGWM0016",
+      "expectedOriginalPn": "1017100XEB02",
+      "expectedQuantity": 20,
+      "sourceScope": "27#",
+      "sourceNameCn": "机油滤芯",
+      "sourceRow0902": 20,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1017100XEB02"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "OIL FILTER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "1017100XEB02",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "OIL FILTER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "1017100XEB02",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0017",
+      "expectedBarcode": "DMPGWM0017",
+      "expectedOriginalPn": "1025011XEB55",
+      "expectedQuantity": 6,
+      "sourceScope": "31#",
+      "sourceNameCn": "皮带",
+      "sourceRow0902": 21,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1025011XEB55"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "DRIVE BELT",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "1025011XEB55",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "DRIVE BELT",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "1025011XEB55",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0018",
+      "expectedBarcode": "DMPGWM0018",
+      "expectedOriginalPn": "1109101AGW01A",
+      "expectedQuantity": 10,
+      "sourceScope": "26#",
+      "sourceNameCn": "空气滤芯",
+      "sourceRow0902": 22,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1109101AGW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE AIR FILTER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "1109101AGW01A",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE AIR FILTER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "1109101AGW01A",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0019",
+      "expectedBarcode": "DMPGWM0019",
+      "expectedOriginalPn": "1021013XED61",
+      "expectedQuantity": 2,
+      "sourceScope": "20#",
+      "sourceNameCn": "正时皮带",
+      "sourceRow0902": 23,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1021013XED61"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "TIMING BELT",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "1021013XED61",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "TIMING BELT",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "1021013XED61",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0020",
+      "expectedBarcode": "DMPGWM0020",
+      "expectedOriginalPn": "1021801XED10",
+      "expectedQuantity": 2,
+      "sourceScope": "20#",
+      "sourceNameCn": "正时皮带",
+      "sourceRow0902": 25,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1021801XED10"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "TIMING BELT",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "1021801XED10",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "TIMING BELT",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "1021801XED10",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0021",
+      "expectedBarcode": "DMPGWM0021",
+      "expectedOriginalPn": "1017100-EG01",
+      "expectedQuantity": 20,
+      "sourceScope": "19#",
+      "sourceNameCn": "机油滤芯",
+      "sourceRow0902": 26,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "same_part_spelling_alias",
+        "references": [
+          "1017100EG01",
+          "1017100-EG01"
+        ],
+        "canonicalDisplayPn": "1017100-EG01",
+        "evidence": "Chris reply relayed by owner, 2026-09-07"
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "OIL FILTER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "1017100-EG01",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "OIL FILTER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "1017100-EG01",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0022",
+      "expectedBarcode": "DMPGWM0022",
+      "expectedOriginalPn": "1109107XGW02A",
+      "expectedQuantity": 10,
+      "sourceScope": "30#",
+      "sourceNameCn": "空气滤芯",
+      "sourceRow0902": 27,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1109107XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE AIR FILTER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "1109107XGW02A",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE AIR FILTER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "1109107XGW02A",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0023",
+      "expectedBarcode": "DMPGWM0023",
+      "expectedOriginalPn": "1109132XGW01A",
+      "expectedQuantity": 10,
+      "sourceScope": "30#",
+      "sourceNameCn": "空气滤芯",
+      "sourceRow0902": 28,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1109132XGW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE AIR FILTER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "1109132XGW01A",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE AIR FILTER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "1109132XGW01A",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0024",
+      "expectedBarcode": "DMPGWM0024",
+      "expectedOriginalPn": "1025014XEDA8",
+      "expectedQuantity": 4,
+      "sourceScope": "20#",
+      "sourceNameCn": "皮带",
+      "sourceRow0902": 29,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1025014XEDA8"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "DRIVE BELT",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "1025014XEDA8",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "DRIVE BELT",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "1025014XEDA8",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0025",
+      "expectedBarcode": "DMPGWM0025",
+      "expectedOriginalPn": "1025011XEC06",
+      "expectedQuantity": 4,
+      "sourceScope": "20#",
+      "sourceNameCn": "皮带",
+      "sourceRow0902": 30,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1025011XEC06"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "DRIVE BELT",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "1025011XEC06",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "DRIVE BELT",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "1025011XEC06",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0026",
+      "expectedBarcode": "DMPGWM0026",
+      "expectedOriginalPn": "1025100XEDA8",
+      "expectedQuantity": 2,
+      "sourceScope": "31#",
+      "sourceNameCn": "皮带张紧器",
+      "sourceRow0902": 31,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1025100XEDA8"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "DRIVE BELT TENSIONER",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "1025100XEDA8",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "DRIVE BELT TENSIONER",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "1025100XEDA8",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0027",
+      "expectedBarcode": "DMPGWM0027",
+      "expectedOriginalPn": "1017100XEC01",
+      "expectedQuantity": 8,
+      "sourceScope": "19#",
+      "sourceNameCn": "机油滤芯",
+      "sourceRow0902": 32,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1017100XEC01"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "OIL FILTER",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "1017100XEC01",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "OIL FILTER",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "1017100XEC01",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0028",
+      "expectedBarcode": "DMPGWM0028",
+      "expectedOriginalPn": "1017110XED95",
+      "expectedQuantity": 8,
+      "sourceScope": "19#",
+      "sourceNameCn": "机油滤芯",
+      "sourceRow0902": 33,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "filter_element_interchangeable",
+        "references": [
+          "1017110XED95",
+          "1017100XED95"
+        ],
+        "scope": "Cannon diesel 2.0T / 2.4T; filter element only",
+        "evidence": "Chris reply relayed by owner, 2026-09-07"
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "OIL FILTER",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "1017110XED95",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "OIL FILTER",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "1017110XED95",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0029",
+      "expectedBarcode": "DMPGWM0029",
+      "expectedOriginalPn": "1017100XED95",
+      "expectedQuantity": 8,
+      "sourceScope": "19#",
+      "sourceNameCn": "机油滤芯",
+      "sourceRow0902": 34,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "filter_element_interchangeable",
+        "references": [
+          "1017110XED95",
+          "1017100XED95"
+        ],
+        "scope": "Cannon diesel 2.0T / 2.4T; filter element only",
+        "evidence": "Chris reply relayed by owner, 2026-09-07"
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "OIL FILTER",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "1017100XED95",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "OIL FILTER",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "1017100XED95",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0030",
+      "expectedBarcode": "DMPGWM0030",
+      "expectedOriginalPn": "1109110XP6EXA",
+      "expectedQuantity": 4,
+      "sourceScope": "31#",
+      "sourceNameCn": "空气滤芯",
+      "sourceRow0902": 35,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "corrected_source_typo",
+        "references": [
+          "1109110XP6EXA"
+        ],
+        "historicalTypo": "1109110XPE6EXA",
+        "scope": "Cannon diesel 2.0T / 2.4T; air filter",
+        "evidence": "Chris reply relayed by owner, 2026-09-07"
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE AIR FILTER",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "1109110XP6EXA",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE AIR FILTER",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "1109110XP6EXA",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0031",
+      "expectedBarcode": "DMPGWM0031",
+      "expectedOriginalPn": "1109110XPE6EXA",
+      "expectedQuantity": 4,
+      "sourceScope": "31#",
+      "sourceNameCn": "空气滤芯",
+      "sourceRow0902": 36,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "corrected_source_typo",
+        "references": [
+          "1109110XP6EXA"
+        ],
+        "historicalTypo": "1109110XPE6EXA",
+        "scope": "Cannon diesel 2.0T / 2.4T; air filter",
+        "evidence": "Chris reply relayed by owner, 2026-09-07"
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE AIR FILTER",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "1109110XP6EXA",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE AIR FILTER",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "1109110XP6EXA",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0032",
+      "expectedBarcode": "DMPGWM0032",
+      "expectedOriginalPn": "8104430XKV3AA",
+      "expectedQuantity": 4,
+      "sourceScope": "26#",
+      "sourceNameCn": "空调滤芯",
+      "sourceRow0902": 37,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "8104430XKV3AA"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "CABIN AIR FILTER",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "8104430XKV3AA",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "CABIN AIR FILTER",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "8104430XKV3AA",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0033",
+      "expectedBarcode": "DMPGWM0033",
+      "expectedOriginalPn": "3502108XPW01A",
+      "expectedQuantity": 4,
+      "sourceScope": "38#",
+      "sourceNameCn": "后刹车盘",
+      "sourceRow0902": 38,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Rear"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "3502108XPW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "BRAKE ROTOR",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "3502108XPW01A",
+        "position": {
+          "status": "specified",
+          "value": "REAR"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "BRAKE ROTOR",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "3502108XPW01A",
+          "position": {
+            "status": "specified",
+            "value": "REAR"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0034",
+      "expectedBarcode": "DMPGWM0034",
+      "expectedOriginalPn": "3501104XPW01A",
+      "expectedQuantity": 10,
+      "sourceScope": "38#",
+      "sourceNameCn": "前刹车盘",
+      "sourceRow0902": 39,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "3501104XPW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "BRAKE ROTOR",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "3501104XPW01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "BRAKE ROTOR",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "3501104XPW01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0035",
+      "expectedBarcode": "DMPGWM0035",
+      "expectedOriginalPn": "3502102XGW02A",
+      "expectedQuantity": 4,
+      "sourceScope": "38#",
+      "sourceNameCn": "后刹车盘",
+      "sourceRow0902": 41,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Rear"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "3502102XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "BRAKE ROTOR",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "3502102XGW02A",
+        "position": {
+          "status": "specified",
+          "value": "REAR"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "BRAKE ROTOR",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "3502102XGW02A",
+          "position": {
+            "status": "specified",
+            "value": "REAR"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0036",
+      "expectedBarcode": "DMPGWM0036",
+      "expectedOriginalPn": "3501112XGW01A",
+      "expectedQuantity": 10,
+      "sourceScope": "38#",
+      "sourceNameCn": "前刹车盘",
+      "sourceRow0902": 43,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "3501112XGW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "BRAKE ROTOR",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "3501112XGW01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "BRAKE ROTOR",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "3501112XGW01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0037",
+      "expectedBarcode": "DMPGWM0037",
+      "expectedOriginalPn": "3501107XGW02A",
+      "expectedQuantity": 10,
+      "sourceScope": "38#",
+      "sourceNameCn": "前刹车盘",
+      "sourceRow0902": 44,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "3501107XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "BRAKE ROTOR",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "3501107XGW02A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "BRAKE ROTOR",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "3501107XGW02A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0038",
+      "expectedBarcode": "DMPGWM0038",
+      "expectedOriginalPn": "3502105XGW01A",
+      "expectedQuantity": 4,
+      "sourceScope": "38#",
+      "sourceNameCn": "后刹车盘",
+      "sourceRow0902": 45,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Rear"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "3502105XGW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "BRAKE ROTOR",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "3502105XGW01A",
+        "position": {
+          "status": "specified",
+          "value": "REAR"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "BRAKE ROTOR",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "3502105XGW01A",
+          "position": {
+            "status": "specified",
+            "value": "REAR"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0039",
+      "expectedBarcode": "DMPGWM0039",
+      "expectedOriginalPn": "3501100XGW02A",
+      "expectedQuantity": 10,
+      "sourceScope": "38#",
+      "sourceNameCn": "前刹车盘",
+      "sourceRow0902": 50,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "3501100XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "BRAKE ROTOR",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "3501100XGW02A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "BRAKE ROTOR",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "3501100XGW02A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0040",
+      "expectedBarcode": "DMPGWM0040",
+      "expectedOriginalPn": "3501302XGW04A",
+      "expectedQuantity": 4,
+      "sourceScope": "38#",
+      "sourceNameCn": "前刹车盘",
+      "sourceRow0902": 51,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "3501302XGW04A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "BRAKE ROTOR",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "3501302XGW04A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "BRAKE ROTOR",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "3501302XGW04A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0041",
+      "expectedBarcode": "DMPGWM0041",
+      "expectedOriginalPn": "151100002",
+      "expectedQuantity": 6,
+      "sourceScope": "27#",
+      "sourceNameCn": "变速箱滤芯",
+      "sourceRow0902": 55,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "151100002"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "TRANSMISSION FILTER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "151100002",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "TRANSMISSION FILTER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "151100002",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0042",
+      "expectedBarcode": "DMPGWM0042",
+      "expectedOriginalPn": "1001115AGW01A",
+      "expectedQuantity": 4,
+      "sourceScope": "13#",
+      "sourceNameCn": "发动机机脚胶（左）",
+      "sourceRow0902": 56,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Left (LH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1001115AGW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE MOUNT",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "1001115AGW01A",
+        "position": {
+          "status": "specified",
+          "value": "LEFT (LH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE MOUNT",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "1001115AGW01A",
+          "position": {
+            "status": "specified",
+            "value": "LEFT (LH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0043",
+      "expectedBarcode": "DMPGWM0043",
+      "expectedOriginalPn": "1001116AGW01A",
+      "expectedQuantity": 4,
+      "sourceScope": "14#",
+      "sourceNameCn": "发动机机脚胶(右）",
+      "sourceRow0902": 57,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Right (RH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1001116AGW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE MOUNT",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "1001116AGW01A",
+        "position": {
+          "status": "specified",
+          "value": "RIGHT (RH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE MOUNT",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "1001116AGW01A",
+          "position": {
+            "status": "specified",
+            "value": "RIGHT (RH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0044",
+      "expectedBarcode": "DMPGWM0044",
+      "expectedOriginalPn": "ZF1500101",
+      "expectedQuantity": 6,
+      "sourceScope": "4#",
+      "sourceNameCn": "变速箱油底壳",
+      "sourceRow0902": 58,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "ZF1500101"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "TRANSMISSION OIL PAN",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "ZF1500101",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "TRANSMISSION OIL PAN",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "ZF1500101",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0045",
+      "expectedBarcode": "DMPGWM0045",
+      "expectedOriginalPn": "1001100XGW02A",
+      "expectedQuantity": 4,
+      "sourceScope": "14#",
+      "sourceNameCn": "发动机机脚胶（变速箱机脚胶）",
+      "sourceRow0902": 59,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1001100XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "TRANSMISSION-SIDE ENGINE MOUNT",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "1001100XGW02A",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "TRANSMISSION-SIDE ENGINE MOUNT",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "1001100XGW02A",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0046",
+      "expectedBarcode": "DMPGWM0046",
+      "expectedOriginalPn": "151100057",
+      "expectedQuantity": 2,
+      "sourceScope": "31#",
+      "sourceNameCn": "变速箱油底壳",
+      "sourceRow0902": 60,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "151100057"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "TRANSMISSION OIL PAN",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "151100057",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "TRANSMISSION OIL PAN",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "151100057",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0047",
+      "expectedBarcode": "DMPGWM0047",
+      "expectedOriginalPn": "1001103XGW02A",
+      "expectedQuantity": 4,
+      "sourceScope": "14#",
+      "sourceNameCn": "发动机机脚胶（变速箱机脚胶）",
+      "sourceRow0902": 61,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1001103XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "TRANSMISSION-SIDE ENGINE MOUNT",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "1001103XGW02A",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "TRANSMISSION-SIDE ENGINE MOUNT",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "1001103XGW02A",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0048",
+      "expectedBarcode": "DMPGWM0048",
+      "expectedOriginalPn": "151100008",
+      "expectedQuantity": 6,
+      "sourceScope": "27#",
+      "sourceNameCn": "变速箱滤芯",
+      "sourceRow0902": 63,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "151100008"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "TRANSMISSION FILTER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "151100008",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "TRANSMISSION FILTER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "151100008",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0049",
+      "expectedBarcode": "DMPGWM0049",
+      "expectedOriginalPn": "2905127XGW01A",
+      "expectedQuantity": 10,
+      "sourceScope": "15#",
+      "sourceNameCn": "前减震塔顶胶",
+      "sourceRow0902": 64,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905127XGW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "STRUT TOP MOUNT",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2905127XGW01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "STRUT TOP MOUNT",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2905127XGW01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0050",
+      "expectedBarcode": "DMPGWM0050",
+      "expectedOriginalPn": "2905137XGW01A",
+      "expectedQuantity": 10,
+      "sourceScope": "15#",
+      "sourceNameCn": "前减震器防尘套",
+      "sourceRow0902": 65,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905137XGW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "STRUT DUST BOOT",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2905137XGW01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "STRUT DUST BOOT",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2905137XGW01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0051",
+      "expectedBarcode": "DMPGWM0051",
+      "expectedOriginalPn": "2905108XPW01A",
+      "expectedQuantity": 4,
+      "sourceScope": "15#",
+      "sourceNameCn": "前减震塔顶胶",
+      "sourceRow0902": 66,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905108XPW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "STRUT TOP MOUNT",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "2905108XPW01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "STRUT TOP MOUNT",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "2905108XPW01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0052",
+      "expectedBarcode": "DMPGWM0052",
+      "expectedOriginalPn": "2905121XPW01A",
+      "expectedQuantity": 4,
+      "sourceScope": "29#",
+      "sourceNameCn": "前减震器（左）",
+      "sourceRow0902": 67,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Left (LH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905121XPW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SHOCK ABSORBER",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "2905121XPW01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / LEFT (LH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SHOCK ABSORBER",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "2905121XPW01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / LEFT (LH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0053",
+      "expectedBarcode": "DMPGWM0053",
+      "expectedOriginalPn": "2905120XPW01A",
+      "expectedQuantity": 4,
+      "sourceScope": "29#",
+      "sourceNameCn": "前减震器（右）",
+      "sourceRow0902": 68,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Right (RH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905120XPW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SHOCK ABSORBER",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "2905120XPW01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / RIGHT (RH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SHOCK ABSORBER",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "2905120XPW01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / RIGHT (RH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0054",
+      "expectedBarcode": "DMPGWM0054",
+      "expectedOriginalPn": "2905377XGW02A",
+      "expectedQuantity": 10,
+      "sourceScope": "15#",
+      "sourceNameCn": "前减震器缓冲胶",
+      "sourceRow0902": 69,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905377XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "STRUT BUMP STOP",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2905377XGW02A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "STRUT BUMP STOP",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2905377XGW02A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0055",
+      "expectedBarcode": "DMPGWM0055",
+      "expectedOriginalPn": "AQAC000357",
+      "expectedQuantity": 4,
+      "sourceScope": "3#",
+      "sourceNameCn": "方向机内球头",
+      "sourceRow0902": 70,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "AQAC000357"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "INNER TIE ROD END",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "AQAC000357",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "INNER TIE ROD END",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "AQAC000357",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0056",
+      "expectedBarcode": "DMPGWM0056",
+      "expectedOriginalPn": "3401102XGW02A",
+      "expectedQuantity": 3,
+      "sourceScope": "3#",
+      "sourceNameCn": "方向机外球头（左）",
+      "sourceRow0902": 71,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Left (LH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "3401102XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "OUTER TIE ROD END",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "3401102XGW02A",
+        "position": {
+          "status": "specified",
+          "value": "LEFT (LH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "OUTER TIE ROD END",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "3401102XGW02A",
+          "position": {
+            "status": "specified",
+            "value": "LEFT (LH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0057",
+      "expectedBarcode": "DMPGWM0057",
+      "expectedOriginalPn": "3401103XGW02A",
+      "expectedQuantity": 3,
+      "sourceScope": "3#",
+      "sourceNameCn": "方向机外球头（右）",
+      "sourceRow0902": null,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Right (RH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "3401103XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "OUTER TIE ROD END",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "3401103XGW02A",
+        "position": {
+          "status": "specified",
+          "value": "RIGHT (RH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "OUTER TIE ROD END",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "3401103XGW02A",
+          "position": {
+            "status": "specified",
+            "value": "RIGHT (RH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0058",
+      "expectedBarcode": "DMPGWM0058",
+      "expectedOriginalPn": "2906102XGW02A",
+      "expectedQuantity": 6,
+      "sourceScope": "3#",
+      "sourceNameCn": "前平衡杆球头",
+      "sourceRow0902": 72,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2906102XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SWAY BAR LINK",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2906102XGW02A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SWAY BAR LINK",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2906102XGW02A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0059",
+      "expectedBarcode": "DMPGWM0059",
+      "expectedOriginalPn": "2905101XPW01B",
+      "expectedQuantity": 4,
+      "sourceScope": "13#",
+      "sourceNameCn": "前减震器缓冲胶/缓冲块",
+      "sourceRow0902": 73,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905101XPW01B"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "STRUT BUMP STOP",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "2905101XPW01B",
+        "position": {
+          "status": "specified",
+          "value": "FRONT"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "STRUT BUMP STOP",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "2905101XPW01B",
+          "position": {
+            "status": "specified",
+            "value": "FRONT"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0060",
+      "expectedBarcode": "DMPGWM0060",
+      "expectedOriginalPn": "2905102XGW01A",
+      "expectedQuantity": 10,
+      "sourceScope": "28#",
+      "sourceNameCn": "前减震器（左）",
+      "sourceRow0902": 74,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Left (LH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905102XGW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SHOCK ABSORBER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2905102XGW01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / LEFT (LH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SHOCK ABSORBER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2905102XGW01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / LEFT (LH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0061",
+      "expectedBarcode": "DMPGWM0061",
+      "expectedOriginalPn": "2905103XGW01A",
+      "expectedQuantity": 10,
+      "sourceScope": "28#",
+      "sourceNameCn": "前减震器（右）",
+      "sourceRow0902": 75,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Right (RH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905103XGW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SHOCK ABSORBER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2905103XGW01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / RIGHT (RH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SHOCK ABSORBER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2905103XGW01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / RIGHT (RH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0062",
+      "expectedBarcode": "DMPGWM0062",
+      "expectedOriginalPn": "2905401XGW02A",
+      "expectedQuantity": 10,
+      "sourceScope": "28#",
+      "sourceNameCn": "前减震器（左）",
+      "sourceRow0902": 76,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Left (LH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905401XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SHOCK ABSORBER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2905401XGW02A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / LEFT (LH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SHOCK ABSORBER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2905401XGW02A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / LEFT (LH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0063",
+      "expectedBarcode": "DMPGWM0063",
+      "expectedOriginalPn": "2905402XGW02A",
+      "expectedQuantity": 10,
+      "sourceScope": "28#",
+      "sourceNameCn": "前减震器（右）",
+      "sourceRow0902": 77,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Right (RH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905402XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SHOCK ABSORBER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2905402XGW02A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / RIGHT (RH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SHOCK ABSORBER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2905402XGW02A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / RIGHT (RH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0064",
+      "expectedBarcode": "DMPGWM0064",
+      "expectedOriginalPn": "2904103XGW01A",
+      "expectedQuantity": 10,
+      "sourceScope": "7#8#9#",
+      "sourceNameCn": "前下摆臂（左）",
+      "sourceRow0902": 78,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Left (LH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2904103XGW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "LOWER CONTROL ARM",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2904103XGW01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / LEFT (LH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "LOWER CONTROL ARM",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2904103XGW01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / LEFT (LH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0065",
+      "expectedBarcode": "DMPGWM0065",
+      "expectedOriginalPn": "2904104XGW01A",
+      "expectedQuantity": 10,
+      "sourceScope": "10#11#",
+      "sourceNameCn": "前下摆臂（右）",
+      "sourceRow0902": 79,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Right (RH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2904104XGW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "LOWER CONTROL ARM",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "2904104XGW01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / RIGHT (RH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "LOWER CONTROL ARM",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "2904104XGW01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / RIGHT (RH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0066",
+      "expectedBarcode": "DMPGWM0066",
+      "expectedOriginalPn": "2904100XGW02A",
+      "expectedQuantity": 10,
+      "sourceScope": "6#",
+      "sourceNameCn": "前下摆臂（左）",
+      "sourceRow0902": 80,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Left (LH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2904100XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "LOWER CONTROL ARM",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2904100XGW02A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / LEFT (LH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "LOWER CONTROL ARM",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2904100XGW02A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / LEFT (LH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0067",
+      "expectedBarcode": "DMPGWM0067",
+      "expectedOriginalPn": "2904101XGW02A",
+      "expectedQuantity": 10,
+      "sourceScope": "5#",
+      "sourceNameCn": "前下摆臂（右）",
+      "sourceRow0902": 81,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Right (RH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2904101XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "LOWER CONTROL ARM",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2904101XGW02A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / RIGHT (RH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "LOWER CONTROL ARM",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2904101XGW02A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / RIGHT (RH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0068",
+      "expectedBarcode": "DMPGWM0068",
+      "expectedOriginalPn": "2915102XGW01A",
+      "expectedQuantity": 4,
+      "sourceScope": "37#",
+      "sourceNameCn": "后减震器",
+      "sourceRow0902": 82,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Rear"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2915102XGW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SHOCK ABSORBER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2915102XGW01A",
+        "position": {
+          "status": "specified",
+          "value": "REAR"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SHOCK ABSORBER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2915102XGW01A",
+          "position": {
+            "status": "specified",
+            "value": "REAR"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0069",
+      "expectedBarcode": "DMPGWM0069",
+      "expectedOriginalPn": "2915103XGW04A",
+      "expectedQuantity": 4,
+      "sourceScope": "37#",
+      "sourceNameCn": "后减震器",
+      "sourceRow0902": 83,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Rear"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2915103XGW04A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SHOCK ABSORBER",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "2915103XGW04A",
+        "position": {
+          "status": "specified",
+          "value": "REAR"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SHOCK ABSORBER",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "2915103XGW04A",
+          "position": {
+            "status": "specified",
+            "value": "REAR"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0070",
+      "expectedBarcode": "DMPGWM0070",
+      "expectedOriginalPn": "2904101XPW01A",
+      "expectedQuantity": 4,
+      "sourceScope": "25#",
+      "sourceNameCn": "前上摆臂（左）",
+      "sourceRow0902": 84,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Left (LH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2904101XPW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "UPPER CONTROL ARM",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "2904101XPW01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / LEFT (LH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "UPPER CONTROL ARM",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "2904101XPW01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / LEFT (LH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0071",
+      "expectedBarcode": "DMPGWM0071",
+      "expectedOriginalPn": "3401108XGW01A",
+      "expectedQuantity": 6,
+      "sourceScope": "3#",
+      "sourceNameCn": "方向机外球头",
+      "sourceRow0902": 85,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "3401108XGW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "OUTER TIE ROD END",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "3401108XGW01A",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "OUTER TIE ROD END",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "3401108XGW01A",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0072",
+      "expectedBarcode": "DMPGWM0072",
+      "expectedOriginalPn": "2906101XGW01A",
+      "expectedQuantity": 6,
+      "sourceScope": "3#",
+      "sourceNameCn": "前平衡杆球头",
+      "sourceRow0902": 86,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2906101XGW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SWAY BAR LINK",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2906101XGW01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SWAY BAR LINK",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2906101XGW01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0073",
+      "expectedBarcode": "DMPGWM0073",
+      "expectedOriginalPn": "2905136XGW01A",
+      "expectedQuantity": 10,
+      "sourceScope": "13#",
+      "sourceNameCn": "前减震器缓冲胶",
+      "sourceRow0902": 87,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905136XGW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "STRUT BUMP STOP",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2905136XGW01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "STRUT BUMP STOP",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2905136XGW01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0074",
+      "expectedBarcode": "DMPGWM0074",
+      "expectedOriginalPn": "3401101XPW01A",
+      "expectedQuantity": 6,
+      "sourceScope": "3#",
+      "sourceNameCn": "方向机外球头",
+      "sourceRow0902": 88,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "3401101XPW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "OUTER TIE ROD END",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "3401101XPW01A",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "OUTER TIE ROD END",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "3401101XPW01A",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0075",
+      "expectedBarcode": "DMPGWM0075",
+      "expectedOriginalPn": "2905117XPW01A",
+      "expectedQuantity": 4,
+      "sourceScope": "13#",
+      "sourceNameCn": "前减震器防尘套",
+      "sourceRow0902": 89,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905117XPW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "STRUT DUST BOOT",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "2905117XPW01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "STRUT DUST BOOT",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "2905117XPW01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0076",
+      "expectedBarcode": "DMPGWM0076",
+      "expectedOriginalPn": "2905108XKM01A",
+      "expectedQuantity": 4,
+      "sourceScope": "13#",
+      "sourceNameCn": "前减震器防尘套",
+      "sourceRow0902": 90,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905108XKM01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "STRUT DUST BOOT",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "2905108XKM01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "STRUT DUST BOOT",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "2905108XKM01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0077",
+      "expectedBarcode": "DMPGWM0077",
+      "expectedOriginalPn": "2905104XGW02A",
+      "expectedQuantity": 10,
+      "sourceScope": "29#",
+      "sourceNameCn": "前减震器（左）",
+      "sourceRow0902": 91,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Left (LH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905104XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SHOCK ABSORBER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2905104XGW02A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / LEFT (LH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SHOCK ABSORBER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2905104XGW02A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / LEFT (LH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0078",
+      "expectedBarcode": "DMPGWM0078",
+      "expectedOriginalPn": "2905105XGW02A",
+      "expectedQuantity": 10,
+      "sourceScope": "29#",
+      "sourceNameCn": "前减震器（右）",
+      "sourceRow0902": 92,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Right (RH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905105XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SHOCK ABSORBER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2905105XGW02A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / RIGHT (RH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SHOCK ABSORBER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2905105XGW02A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / RIGHT (RH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0079",
+      "expectedBarcode": "DMPGWM0079",
+      "expectedOriginalPn": "2904103XKV1BA",
+      "expectedQuantity": 4,
+      "sourceScope": "24#",
+      "sourceNameCn": "前下摆臂（左）",
+      "sourceRow0902": 93,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Left (LH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2904103XKV1BA"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "LOWER CONTROL ARM",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "2904103XKV1BA",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / LEFT (LH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "LOWER CONTROL ARM",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "2904103XKV1BA",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / LEFT (LH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0080",
+      "expectedBarcode": "DMPGWM0080",
+      "expectedOriginalPn": "2904104XKV1BA",
+      "expectedQuantity": 4,
+      "sourceScope": "23#",
+      "sourceNameCn": "前下摆臂（右）",
+      "sourceRow0902": 94,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Right (RH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2904104XKV1BA"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "LOWER CONTROL ARM",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "2904104XKV1BA",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / RIGHT (RH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "LOWER CONTROL ARM",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "2904104XKV1BA",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / RIGHT (RH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0081",
+      "expectedBarcode": "DMPGWM0081",
+      "expectedOriginalPn": "2904103XPW01A",
+      "expectedQuantity": 4,
+      "sourceScope": "22#",
+      "sourceNameCn": "前下摆臂（左）",
+      "sourceRow0902": 95,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Left (LH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2904103XPW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "LOWER CONTROL ARM",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "2904103XPW01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / LEFT (LH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "LOWER CONTROL ARM",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "2904103XPW01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / LEFT (LH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0082",
+      "expectedBarcode": "DMPGWM0082",
+      "expectedOriginalPn": "2904104XPW01A",
+      "expectedQuantity": 4,
+      "sourceScope": "21#",
+      "sourceNameCn": "前下摆臂（左）",
+      "sourceRow0902": 96,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Right (RH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2904104XPW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "LOWER CONTROL ARM",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "2904104XPW01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / RIGHT (RH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "LOWER CONTROL ARM",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "2904104XPW01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / RIGHT (RH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0083",
+      "expectedBarcode": "DMPGWM0083",
+      "expectedOriginalPn": "2905100XPW04A",
+      "expectedQuantity": 4,
+      "sourceScope": "29#",
+      "sourceNameCn": "前减震器（左）",
+      "sourceRow0902": 97,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Left (LH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905100XPW04A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SHOCK ABSORBER",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "2905100XPW04A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / LEFT (LH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SHOCK ABSORBER",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "2905100XPW04A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / LEFT (LH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0084",
+      "expectedBarcode": "DMPGWM0084",
+      "expectedOriginalPn": "2905101XPW04A",
+      "expectedQuantity": 4,
+      "sourceScope": "28#",
+      "sourceNameCn": "前减震器（右）",
+      "sourceRow0902": 98,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Right (RH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905101XPW04A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SHOCK ABSORBER",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "2905101XPW04A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / RIGHT (RH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SHOCK ABSORBER",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "2905101XPW04A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / RIGHT (RH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0085",
+      "expectedBarcode": "DMPGWM0085",
+      "expectedOriginalPn": "2905550XGW04A",
+      "expectedQuantity": 4,
+      "sourceScope": "29#",
+      "sourceNameCn": "前减震器（左）",
+      "sourceRow0902": 99,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Left (LH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905550XGW04A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SHOCK ABSORBER",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "2905550XGW04A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / LEFT (LH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SHOCK ABSORBER",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "2905550XGW04A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / LEFT (LH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0086",
+      "expectedBarcode": "DMPGWM0086",
+      "expectedOriginalPn": "2905553XGW04A",
+      "expectedQuantity": 4,
+      "sourceScope": "29#",
+      "sourceNameCn": "前减震器（右）",
+      "sourceRow0902": 100,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Right (RH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905553XGW04A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SHOCK ABSORBER",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "2905553XGW04A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / RIGHT (RH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SHOCK ABSORBER",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "2905553XGW04A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / RIGHT (RH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0087",
+      "expectedBarcode": "DMPGWM0087",
+      "expectedOriginalPn": "1001119XGW04A",
+      "expectedQuantity": 4,
+      "sourceScope": "13#",
+      "sourceNameCn": "发动机机脚（左）",
+      "sourceRow0902": 102,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Left (LH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1001119XGW04A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE MOUNT",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "1001119XGW04A",
+        "position": {
+          "status": "specified",
+          "value": "LEFT (LH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE MOUNT",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "1001119XGW04A",
+          "position": {
+            "status": "specified",
+            "value": "LEFT (LH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0088",
+      "expectedBarcode": "DMPGWM0088",
+      "expectedOriginalPn": "1001120XGW04A",
+      "expectedQuantity": 4,
+      "sourceScope": "12#",
+      "sourceNameCn": "发动机机脚（右）",
+      "sourceRow0902": 103,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Right (RH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1001120XGW04A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE MOUNT",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "1001120XGW04A",
+        "position": {
+          "status": "specified",
+          "value": "RIGHT (RH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE MOUNT",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "1001120XGW04A",
+          "position": {
+            "status": "specified",
+            "value": "RIGHT (RH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0089",
+      "expectedBarcode": "DMPGWM0089",
+      "expectedOriginalPn": "1001100XKM01A",
+      "expectedQuantity": 4,
+      "sourceScope": "12#",
+      "sourceNameCn": "发动机机脚（左）",
+      "sourceRow0902": 104,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Left (LH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1001100XKM01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE MOUNT",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "1001100XKM01A",
+        "position": {
+          "status": "specified",
+          "value": "LEFT (LH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE MOUNT",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "1001100XKM01A",
+          "position": {
+            "status": "specified",
+            "value": "LEFT (LH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0090",
+      "expectedBarcode": "DMPGWM0090",
+      "expectedOriginalPn": "1001101XKM01A",
+      "expectedQuantity": 4,
+      "sourceScope": "12#",
+      "sourceNameCn": "发动机机脚（右）",
+      "sourceRow0902": 105,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Right (RH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1001101XKM01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE MOUNT",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "1001101XKM01A",
+        "position": {
+          "status": "specified",
+          "value": "RIGHT (RH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE MOUNT",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "1001101XKM01A",
+          "position": {
+            "status": "specified",
+            "value": "RIGHT (RH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0091",
+      "expectedBarcode": "DMPGWM0091",
+      "expectedOriginalPn": "1001123XGW04A",
+      "expectedQuantity": 4,
+      "sourceScope": "12#",
+      "sourceNameCn": "发动机机脚（左）",
+      "sourceRow0902": 106,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Left (LH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1001123XGW04A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE MOUNT",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "1001123XGW04A",
+        "position": {
+          "status": "specified",
+          "value": "LEFT (LH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE MOUNT",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "1001123XGW04A",
+          "position": {
+            "status": "specified",
+            "value": "LEFT (LH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0092",
+      "expectedBarcode": "DMPGWM0092",
+      "expectedOriginalPn": "1001122XGW04A",
+      "expectedQuantity": 4,
+      "sourceScope": "12#",
+      "sourceNameCn": "发动机机脚（右）",
+      "sourceRow0902": 107,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Right (RH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1001122XGW04A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE MOUNT",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "1001122XGW04A",
+        "position": {
+          "status": "specified",
+          "value": "RIGHT (RH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE MOUNT",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "1001122XGW04A",
+          "position": {
+            "status": "specified",
+            "value": "RIGHT (RH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0093",
+      "expectedBarcode": "DMPGWM0093",
+      "expectedOriginalPn": "2904102XPW01A",
+      "expectedQuantity": 4,
+      "sourceScope": "25#",
+      "sourceNameCn": "前上摆臂（右）",
+      "sourceRow0902": 108,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Right (RH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2904102XPW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "UPPER CONTROL ARM",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "2904102XPW01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / RIGHT (RH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "UPPER CONTROL ARM",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "2904102XPW01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / RIGHT (RH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0094",
+      "expectedBarcode": "DMPGWM0094",
+      "expectedOriginalPn": "2915101XGW02A",
+      "expectedQuantity": 4,
+      "sourceScope": "36#",
+      "sourceNameCn": "后减震器",
+      "sourceRow0902": 109,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Rear"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2915101XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SHOCK ABSORBER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2915101XGW02A",
+        "position": {
+          "status": "specified",
+          "value": "REAR"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SHOCK ABSORBER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2915101XGW02A",
+          "position": {
+            "status": "specified",
+            "value": "REAR"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0095",
+      "expectedBarcode": "DMPGWM0095",
+      "expectedOriginalPn": "2915370XGW02A",
+      "expectedQuantity": 4,
+      "sourceScope": "35#",
+      "sourceNameCn": "后减震器",
+      "sourceRow0902": 110,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Rear"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2915370XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SHOCK ABSORBER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2915370XGW02A",
+        "position": {
+          "status": "specified",
+          "value": "REAR"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SHOCK ABSORBER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2915370XGW02A",
+          "position": {
+            "status": "specified",
+            "value": "REAR"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0096",
+      "expectedBarcode": "DMPGWM0096",
+      "expectedOriginalPn": "2915105XGW02A",
+      "expectedQuantity": 4,
+      "sourceScope": "35#",
+      "sourceNameCn": "后减震器",
+      "sourceRow0902": 111,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Rear"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2915105XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SHOCK ABSORBER",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2915105XGW02A",
+        "position": {
+          "status": "specified",
+          "value": "REAR"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SHOCK ABSORBER",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2915105XGW02A",
+          "position": {
+            "status": "specified",
+            "value": "REAR"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0097",
+      "expectedBarcode": "DMPGWM0097",
+      "expectedOriginalPn": "2904201XKV1BB",
+      "expectedQuantity": 4,
+      "sourceScope": "18#",
+      "sourceNameCn": "前上摆臂（左）",
+      "sourceRow0902": 112,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Left (LH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2904201XKV1BB"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "UPPER CONTROL ARM",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "2904201XKV1BB",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / LEFT (LH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "UPPER CONTROL ARM",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "2904201XKV1BB",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / LEFT (LH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0098",
+      "expectedBarcode": "DMPGWM0098",
+      "expectedOriginalPn": "2904202XKV1BA",
+      "expectedQuantity": 4,
+      "sourceScope": "18#",
+      "sourceNameCn": "前上摆臂（右）",
+      "sourceRow0902": 113,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front / Right (RH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2904202XKV1BA"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "UPPER CONTROL ARM",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "2904202XKV1BA",
+        "position": {
+          "status": "specified",
+          "value": "FRONT / RIGHT (RH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "UPPER CONTROL ARM",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "2904202XKV1BA",
+          "position": {
+            "status": "specified",
+            "value": "FRONT / RIGHT (RH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0099",
+      "expectedBarcode": "DMPGWM0099",
+      "expectedOriginalPn": "2915507XGW04A",
+      "expectedQuantity": 4,
+      "sourceScope": "36#",
+      "sourceNameCn": "后减震器",
+      "sourceRow0902": 114,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Rear"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2915507XGW04A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SHOCK ABSORBER",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "2915507XGW04A",
+        "position": {
+          "status": "specified",
+          "value": "REAR"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SHOCK ABSORBER",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "2915507XGW04A",
+          "position": {
+            "status": "specified",
+            "value": "REAR"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0100",
+      "expectedBarcode": "DMPGWM0100",
+      "expectedOriginalPn": "2915100XPW04A",
+      "expectedQuantity": 2,
+      "sourceScope": "34#",
+      "sourceNameCn": "后减震器",
+      "sourceRow0902": 115,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Rear"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2915100XPW04A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SHOCK ABSORBER",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "2915100XPW04A",
+        "position": {
+          "status": "specified",
+          "value": "REAR"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SHOCK ABSORBER",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "2915100XPW04A",
+          "position": {
+            "status": "specified",
+            "value": "REAR"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0101",
+      "expectedBarcode": "DMPGWM0101",
+      "expectedOriginalPn": "2915101XPW01A",
+      "expectedQuantity": 2,
+      "sourceScope": "35#",
+      "sourceNameCn": "后减震器",
+      "sourceRow0902": 116,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Rear"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2915101XPW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "SHOCK ABSORBER",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "2915101XPW01A",
+        "position": {
+          "status": "specified",
+          "value": "REAR"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "SHOCK ABSORBER",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "2915101XPW01A",
+          "position": {
+            "status": "specified",
+            "value": "REAR"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0102",
+      "expectedBarcode": "DMPGWM0102",
+      "expectedOriginalPn": "3401101XKV3AA",
+      "expectedQuantity": 4,
+      "sourceScope": "3#",
+      "sourceNameCn": "方向机外球头",
+      "sourceRow0902": 117,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "3401101XKV3AA"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "OUTER TIE ROD END",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "3401101XKV3AA",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "OUTER TIE ROD END",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "3401101XKV3AA",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0103",
+      "expectedBarcode": "DMPGWM0103",
+      "expectedOriginalPn": "2905302XGW04A",
+      "expectedQuantity": 4,
+      "sourceScope": "13#",
+      "sourceNameCn": "前减震器防尘套",
+      "sourceRow0902": 118,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905302XGW04A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "STRUT DUST BOOT",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "2905302XGW04A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "STRUT DUST BOOT",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "2905302XGW04A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0104",
+      "expectedBarcode": "DMPGWM0104",
+      "expectedOriginalPn": "2904500XKV08A",
+      "expectedQuantity": 4,
+      "sourceScope": "13#",
+      "sourceNameCn": "前减震器缓冲胶",
+      "sourceRow0902": 119,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2904500XKV08A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "STRUT BUMP STOP",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "2904500XKV08A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "STRUT BUMP STOP",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "2904500XKV08A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0105",
+      "expectedBarcode": "DMPGWM0105",
+      "expectedOriginalPn": "2905107XPW01A",
+      "expectedQuantity": 2,
+      "sourceScope": "13#",
+      "sourceNameCn": "前螺旋弹簧上安装垫",
+      "sourceRow0902": 120,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2905107XPW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "COIL SPRING UPPER INSULATOR",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "2905107XPW01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "COIL SPRING UPPER INSULATOR",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "2905107XPW01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0106",
+      "expectedBarcode": "DMPGWM0106",
+      "expectedOriginalPn": "2803106XKN01A",
+      "expectedQuantity": 4,
+      "sourceScope": "1#",
+      "sourceNameCn": "保险杠支架（左)",
+      "sourceRow0902": 121,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Left (LH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2803106XKN01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "BUMPER BRACKET",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2803106XKN01A",
+        "position": {
+          "status": "specified",
+          "value": "LEFT (LH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "BUMPER BRACKET",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2803106XKN01A",
+          "position": {
+            "status": "specified",
+            "value": "LEFT (LH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0107",
+      "expectedBarcode": "DMPGWM0107",
+      "expectedOriginalPn": "2803107XKN01A",
+      "expectedQuantity": 4,
+      "sourceScope": "1#",
+      "sourceNameCn": "保险杠支架（右)",
+      "sourceRow0902": 122,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Right (RH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2803107XKN01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "BUMPER BRACKET",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2803107XKN01A",
+        "position": {
+          "status": "specified",
+          "value": "RIGHT (RH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "BUMPER BRACKET",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2803107XKN01A",
+          "position": {
+            "status": "specified",
+            "value": "RIGHT (RH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0108",
+      "expectedBarcode": "DMPGWM0108",
+      "expectedOriginalPn": "2803101XST01A",
+      "expectedQuantity": 4,
+      "sourceScope": "1#",
+      "sourceNameCn": "保险杠支架（左）",
+      "sourceRow0902": 123,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Left (LH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2803101XST01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "BUMPER BRACKET",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2803101XST01A",
+        "position": {
+          "status": "specified",
+          "value": "LEFT (LH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "BUMPER BRACKET",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2803101XST01A",
+          "position": {
+            "status": "specified",
+            "value": "LEFT (LH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0109",
+      "expectedBarcode": "DMPGWM0109",
+      "expectedOriginalPn": "2803102XST01A",
+      "expectedQuantity": 4,
+      "sourceScope": "1#",
+      "sourceNameCn": "保险杠支架（右)",
+      "sourceRow0902": 124,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Right (RH)"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "2803102XST01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "BUMPER BRACKET",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "2803102XST01A",
+        "position": {
+          "status": "specified",
+          "value": "RIGHT (RH)"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "BUMPER BRACKET",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "2803102XST01A",
+          "position": {
+            "status": "specified",
+            "value": "RIGHT (RH)"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0110",
+      "expectedBarcode": "DMPGWM0110",
+      "expectedOriginalPn": "1001117AGW01A",
+      "expectedQuantity": 4,
+      "sourceScope": "18#",
+      "sourceNameCn": "发动机机脚胶（后）",
+      "sourceRow0902": 126,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Rear"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1001117AGW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE MOUNT",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "1001117AGW01A",
+        "position": {
+          "status": "specified",
+          "value": "REAR"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE MOUNT",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "1001117AGW01A",
+          "position": {
+            "status": "specified",
+            "value": "REAR"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0111",
+      "expectedBarcode": "DMPGWM0111",
+      "expectedOriginalPn": "1306100-ED01",
+      "expectedQuantity": 6,
+      "sourceScope": "33#",
+      "sourceNameCn": "节温器",
+      "sourceRow0902": 127,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1306100-ED01"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE THERMOSTAT",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "1306100-ED01",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE THERMOSTAT",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "1306100-ED01",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0112",
+      "expectedBarcode": "DMPGWM0112",
+      "expectedOriginalPn": "3103100XPW01A",
+      "expectedQuantity": 4,
+      "sourceScope": "32#",
+      "sourceNameCn": "前轮轴承",
+      "sourceRow0902": 128,
+      "sourcePositionEvidence": {
+        "status": "specified",
+        "value": "Front"
+      },
+      "positionDecision": "Retain documented position; 0082 right supported by PN-specific supplier label photograph.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "3103100XPW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "WHEEL BEARING",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "3103100XPW01A",
+        "position": {
+          "status": "specified",
+          "value": "FRONT"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "WHEEL BEARING",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "3103100XPW01A",
+          "position": {
+            "status": "specified",
+            "value": "FRONT"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0113",
+      "expectedBarcode": "DMPGWM0113",
+      "expectedOriginalPn": "1307100XED95",
+      "expectedQuantity": 4,
+      "sourceScope": "16#",
+      "sourceNameCn": "水泵",
+      "sourceRow0902": 129,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1307100XED95"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE WATER PUMP",
+        "vehicleMakes": [
+          "GWM"
+        ],
+        "partReference": "1307100XED95",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE WATER PUMP",
+          "vehicleMakes": [
+            "GWM"
+          ],
+          "partReference": "1307100XED95",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0114",
+      "expectedBarcode": "DMPGWM0114",
+      "expectedOriginalPn": "3103100XGW02A",
+      "expectedQuantity": 4,
+      "sourceScope": "32#",
+      "sourceNameCn": "轴头轴承总成",
+      "sourceRow0902": 130,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "3103100XGW02A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "WHEEL HUB BEARING ASSEMBLY",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "3103100XGW02A",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "WHEEL HUB BEARING ASSEMBLY",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "3103100XGW02A",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0115",
+      "expectedBarcode": "DMPGWM0115",
+      "expectedOriginalPn": "1307100-EG01B",
+      "expectedQuantity": 6,
+      "sourceScope": "17#",
+      "sourceNameCn": "水泵",
+      "sourceRow0902": 131,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1307100-EG01B"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE WATER PUMP",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "1307100-EG01B",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE WATER PUMP",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "1307100-EG01B",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0116",
+      "expectedBarcode": "DMPGWM0116",
+      "expectedOriginalPn": "1306100-EG01",
+      "expectedQuantity": 6,
+      "sourceScope": "33#",
+      "sourceNameCn": "节温器",
+      "sourceRow0902": 132,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1306100-EG01"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE THERMOSTAT",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "1306100-EG01",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE THERMOSTAT",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "1306100-EG01",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0117",
+      "expectedBarcode": "DMPGWM0117",
+      "expectedOriginalPn": "3103100XGW01A",
+      "expectedQuantity": 4,
+      "sourceScope": "32#",
+      "sourceNameCn": "轴头轴承总成",
+      "sourceRow0902": 133,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "3103100XGW01A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "WHEEL HUB BEARING ASSEMBLY",
+        "vehicleMakes": [
+          "GWM",
+          "HAVAL"
+        ],
+        "partReference": "3103100XGW01A",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "WHEEL HUB BEARING ASSEMBLY",
+          "vehicleMakes": [
+            "GWM",
+            "HAVAL"
+          ],
+          "partReference": "3103100XGW01A",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0118",
+      "expectedBarcode": "DMPGWM0118",
+      "expectedOriginalPn": "3103100XGW04A",
+      "expectedQuantity": 4,
+      "sourceScope": "32#",
+      "sourceNameCn": "轴头轴承总成",
+      "sourceRow0902": 134,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "3103100XGW04A"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "WHEEL HUB BEARING ASSEMBLY",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "3103100XGW04A",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "WHEEL HUB BEARING ASSEMBLY",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "3103100XGW04A",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "sku": "DM-GWM-0119",
+      "expectedBarcode": "DMPGWM0119",
+      "expectedOriginalPn": "1307100XEC71",
+      "expectedQuantity": 4,
+      "sourceScope": "33#",
+      "sourceNameCn": "水泵",
+      "sourceRow0902": 135,
+      "sourcePositionEvidence": {
+        "status": "unknown"
+      },
+      "positionDecision": "Omit Position on this supplementary label; no new axle/side interchangeability claim. Owner delegated wording decisions; existing PN remains identification.",
+      "referenceDecision": {
+        "kind": "retain_source_reference",
+        "references": [
+          "1307100XEC71"
+        ]
+      },
+      "labelProfile": {
+        "schemaVersion": 1,
+        "displayName": "ENGINE WATER PUMP",
+        "vehicleMakes": [
+          "GWM",
+          "TANK"
+        ],
+        "partReference": "1307100XEC71",
+        "position": {
+          "status": "not_applicable"
+        }
+      },
+      "permittedProductPatch": {
+        "label_profile": {
+          "schemaVersion": 1,
+          "displayName": "ENGINE WATER PUMP",
+          "vehicleMakes": [
+            "GWM",
+            "TANK"
+          ],
+          "partReference": "1307100XEC71",
+          "position": {
+            "status": "not_applicable"
+          }
+        }
+      }
+    }
+  ]
+}
