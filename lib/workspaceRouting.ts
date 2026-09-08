@@ -43,10 +43,11 @@ const safeContextKeys = new Set([
   "pallet",
   "returnId",
   "orderId",
+  "locationSearch", "locationStatus", "staffSearch", "staffRole", "staffStatus", "dashboardSearch", "dashboardZone",
 ]);
 const safeContextValue = /^[A-Za-z0-9 _.,:@+-]{0,200}$/;
 const safeAnchor = /^#[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
-const paginatedContext = /^(reorder|products|fitment|batches|pricing|rfq|lookups|accounts|roles|applications|orders|movements|documents|purchasePreview|staff|locations)(Page|Size)$/;
+const paginatedContext = /^(reorder|products|fitment|batches|pricing|rfq|lookups|accounts|roles|applications|orders|movements|documents|purchasePreview|staff|locations|tradePad|tradeMatches|tradeOrders|tradeDocuments|shipments|attention|activity)(Page|Size)$/;
 const pageSize = new Set(["25", "50", "100"]);
 
 function isWorkspaceRole(role: string | undefined | null): role is WorkspaceRole {
@@ -81,6 +82,14 @@ export function safeWorkspaceNext(value: string | null | undefined): string | nu
 
   if (url.origin !== "https://drivemate.local" || !knownRoutes.has(url.pathname)) return null;
   for (const [key, contextValue] of url.searchParams.entries()) {
+    if (key === "cartonNumber" || key === "palletNumber") {
+      if (url.pathname !== "/warehouse" || !contextValue || contextValue.length > 200 || /\p{Cc}/u.test(contextValue)) return null;
+      continue;
+    }
+    if (key === "scope") {
+      if (url.pathname !== "/warehouse" || contextValue !== "all") return null;
+      continue;
+    }
     if (safeContextKeys.has(key)) {
       if (!safeContextValue.test(contextValue)) return null;
       continue;

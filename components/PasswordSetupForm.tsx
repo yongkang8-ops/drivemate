@@ -1,6 +1,9 @@
 "use client";
-import { FormEvent, useState } from "react";
-import Link from "next/link";
+import { FormEvent, useEffect, useState } from "react";
+import { useHydrated } from "../hooks/useHydrated";
+import { flushSync } from "react-dom";
+import { useUnsavedChanges } from "../hooks/useUnsavedChanges";
+import Link from "./StableLink";
 import {
   CheckCircle,
   Info,
@@ -27,6 +30,7 @@ const noticeIcons = {
 } satisfies Record<PasswordNoticeTone, typeof Info>;
 
 export function PasswordSetupForm() {
+  const hydrated = useHydrated();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [notice, setNotice] = useState<PasswordNotice>({
@@ -36,6 +40,12 @@ export function PasswordSetupForm() {
   const [completed, setCompleted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [continueHref, setContinueHref] = useState("/staff/login");
+  useUnsavedChanges(!completed && Boolean(password || confirm || submitting));
+  useEffect(() => {
+    const clearCredentials = () => flushSync(() => { setPassword(""); setConfirm(""); });
+    window.addEventListener("pagehide", clearCredentials);
+    return () => window.removeEventListener("pagehide", clearCredentials);
+  }, []);
   const NoticeIcon = noticeIcons[notice.tone];
 
   async function submit(event: FormEvent) {
@@ -118,6 +128,7 @@ export function PasswordSetupForm() {
           autoComplete="new-password"
           required
           value={password}
+          disabled={!hydrated || submitting}
           onChange={(event) => setPassword(event.target.value)}
         />
       </label>
@@ -128,10 +139,11 @@ export function PasswordSetupForm() {
           autoComplete="new-password"
           required
           value={confirm}
+          disabled={!hydrated || submitting}
           onChange={(event) => setConfirm(event.target.value)}
         />
       </label>
-      <button className="button button-primary" disabled={submitting} type="submit">
+      <button className="button button-primary" disabled={!hydrated || submitting} type="submit">
         {submitting ? "Setting password…" : "Set password"}
       </button>
       <div

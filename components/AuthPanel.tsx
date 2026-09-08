@@ -6,7 +6,10 @@ import {
   WarningCircle,
   XCircle,
 } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import { confirmWorkspaceExit } from "../hooks/useUnsavedChanges";
+import { useHydrated } from "../hooks/useHydrated";
 import { buildApiHeaders, type AuthenticatedRole } from "../lib/clientAuth";
 import {
   passwordSetupDestination,
@@ -65,11 +68,17 @@ async function responseBody(response: Response): Promise<Record<string, unknown>
 }
 
 export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToWorkspace = false }: AuthPanelProps) {
+  const hydrated = useHydrated();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [configured, setConfigured] = useState(true);
   const [signingIn, setSigningIn] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [requestingRecovery, setRequestingRecovery] = useState(false);
+  const recoveryPending = useRef(false);
+  const logoutPending = useRef(false);
+  const lifecycleVersion = useRef(0);
   const [notice, setNotice] = useState<AuthNotice>({
     tone: "info",
     text: "Checking your session.",
@@ -81,6 +90,7 @@ export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToW
     return `${window.location.pathname}${window.location.search}${window.location.hash}`;
   }
   async function refreshSession() {
+    const version = lifecycleVersion.current;
     try {
       const response = await fetch("/api/auth/session", { cache: "no-store" });
       const body = (await responseBody(response)) as {
@@ -90,6 +100,7 @@ export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToW
         code?: "account_disabled" | "reauthentication_required";
         passwordChangeRequired?: boolean;
       };
+      if (version !== lifecycleVersion.current) return;
 
       if (!response.ok || !body.authenticated || !body.profile) {
         if (localDemoWorkspaceEnabled()) {
@@ -148,6 +159,7 @@ export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToW
           : "Your account does not have access to this workspace.",
       });
     } catch {
+      if (version !== lifecycleVersion.current) return;
       setProfile(null);
       const demoWorkspaceEnabled = localDemoWorkspaceEnabled();
       setConfigured(!demoWorkspaceEnabled);
@@ -163,6 +175,7 @@ export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToW
 
   async function signIn() {
     if (signingIn) return;
+    const version = lifecycleVersion.current;
     setSigningIn(true);
     try {
       const response = await fetch("/api/auth/login", {
@@ -175,6 +188,7 @@ export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToW
         message?: string;
         passwordChangeRequired?: boolean;
       };
+      if (version !== lifecycleVersion.current) return;
       if (!response.ok || !body.ok) {
         setNotice({
           tone: "error",
@@ -211,6 +225,7 @@ export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToW
   }
 
   async function requestPasswordReset() {
+    if (recoveryPending.current || signingIn) return;
     if (!email.trim()) {
       setNotice({
         tone: "warning",
@@ -218,6 +233,9 @@ export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToW
       });
       return;
     }
+    const version = lifecycleVersion.current;
+    recoveryPending.current = true;
+    setRequestingRecovery(true);
     try {
       const response = await fetch("/api/auth/password-reset", {
         method: "POST",
@@ -225,6 +243,7 @@ export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToW
         body: JSON.stringify({ email }),
       });
       const body = (await responseBody(response)) as { ok?: boolean; message?: string };
+      if (version !== lifecycleVersion.current) return;
       const recoveryRequested = response.ok && body.ok;
       setNotice({
         tone: recoveryRequested ? "success" : "error",
@@ -234,28 +253,51 @@ export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToW
             "Password recovery could not be requested. Try again later.",
       });
     } catch {
+      if (version !== lifecycleVersion.current) return;
       setNotice({
         tone: "error",
         text: "Password recovery could not be requested. Try again later.",
       });
+    } finally {
+      recoveryPending.current = false;
+      setRequestingRecovery(false);
     }
   }
 
   async function signOut() {
+    if (logoutPending.current || !confirmWorkspaceExit()) return;
+    logoutPending.current = true;
+    setSigningOut(true);
     try {
-      await fetch("/api/auth/logout", {
+      const response = await fetch("/api/auth/logout", {
         method: "POST",
         headers: await buildApiHeaders(expectedRole),
       });
-    } finally {
+      const body = await responseBody(response);
+      if (!response.ok || body.ok !== true) throw new Error("logout_unconfirmed");
       setProfile(null);
       onAccessChange?.(false);
       setNotice({ tone: "success", text: "You have been signed out." });
+    } catch {
+      setNotice({ tone: "error", text: "Sign-out could not be confirmed. Your session may still be active. Check the connection and try again." });
+    } finally {
+      logoutPending.current = false;
+      setSigningOut(false);
     }
   }
 
   useEffect(() => {
     void refreshSession();
+    const suspend = () => {
+      lifecycleVersion.current++;
+      // Purge protected children and credentials before a page can be kept in
+      // browser back/forward cache. Restoring always requires a fresh session.
+      flushSync(() => { setPassword(""); setProfile(null); onAccessChange?.(false); });
+    };
+    const resume = (event: PageTransitionEvent) => { if (event.persisted) void refreshSession(); };
+    window.addEventListener("pagehide", suspend);
+    window.addEventListener("pageshow", resume);
+    return () => { lifecycleVersion.current++; window.removeEventListener("pagehide", suspend); window.removeEventListener("pageshow", resume); };
   }, []);
 
   return (
@@ -274,8 +316,8 @@ export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToW
 
       {profile ? (
         <div className="auth-actions">
-          <button className="secondary-button" onClick={signOut} type="button">
-            Sign out
+          <button className="secondary-button" disabled={signingOut} onClick={signOut} type="button">
+            {signingOut ? "Signing out…" : "Sign out"}
           </button>
         </div>
       ) : configured ? (
@@ -290,6 +332,7 @@ export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToW
             <label htmlFor="drivemate-login-email">Email address</label>
             <input
               autoComplete="email"
+              disabled={!hydrated || signingIn || requestingRecovery}
               id="drivemate-login-email"
               placeholder="name@company.com"
               type="email"
@@ -302,14 +345,16 @@ export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToW
               <label htmlFor="drivemate-login-password">Password</label>
               <button
                 className="auth-forgot-link"
+                disabled={!hydrated || requestingRecovery || signingIn}
                 onClick={() => void requestPasswordReset()}
                 type="button"
               >
-                Forgot password?
+                {requestingRecovery ? "Requesting recovery…" : "Forgot password?"}
               </button>
             </span>
             <input
               autoComplete="current-password"
+              disabled={!hydrated || signingIn}
               id="drivemate-login-password"
               placeholder="Enter your password"
               type="password"
@@ -317,7 +362,7 @@ export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToW
               onChange={(event) => setPassword(event.target.value)}
             />
           </div>
-          <button className="primary-button auth-submit" disabled={signingIn} type="submit">
+          <button className="primary-button auth-submit" disabled={!hydrated || signingIn || requestingRecovery} type="submit">
             {signingIn ? "Signing in…" : "Sign in"}
           </button>
         </form>

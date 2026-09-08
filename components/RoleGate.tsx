@@ -4,6 +4,7 @@ import { createContext, type ReactNode, useContext, useState } from "react";
 import { type AuthenticatedRole } from "../lib/clientAuth";
 import { AuthPanel } from "./AuthPanel";
 import { MfaStepUpProvider } from "./MfaStepUpProvider";
+import { useHistoryScroll } from "../hooks/useHistoryScroll";
 
 type RoleGateProps = {
   expectedRole: AuthenticatedRole;
@@ -19,9 +20,11 @@ export function useWorkspaceRole() {
 export function RoleGate({ expectedRole, children }: RoleGateProps) {
   const [hasAccess, setHasAccess] = useState(false);
   const [viewerRole, setViewerRole] = useState<string | null>(null);
+  useHistoryScroll(hasAccess);
 
   return (
     <MfaStepUpProvider role={expectedRole}>
+      <div className={expectedRole !== "trade" ? `operations-frame${hasAccess ? " has-access" : ""}` : "trade-frame"}>
       <AuthPanel expectedRole={expectedRole} onAccessChange={(allowed, role) => {
         setHasAccess(allowed);
         setViewerRole(allowed ? role ?? null : null);
@@ -34,6 +37,7 @@ export function RoleGate({ expectedRole, children }: RoleGateProps) {
           <p>Sign in with an approved account to load this workspace.</p>
         </section>
       )}
+      </div>
     </MfaStepUpProvider>
   );
 }
