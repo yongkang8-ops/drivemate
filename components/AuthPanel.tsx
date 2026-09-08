@@ -8,6 +8,10 @@ import {
 } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { buildApiHeaders, type AuthenticatedRole } from "../lib/clientAuth";
+import {
+  passwordSetupDestination,
+  resolveWorkspaceDestination,
+} from "../lib/workspaceRouting";
 
 type Profile = {
   role?: string;
@@ -16,6 +20,8 @@ type Profile = {
 type AuthPanelProps = {
   expectedRole: AuthenticatedRole;
   onAccessChange?: (hasAccess: boolean, role?: string) => void;
+  entryNext?: string | null;
+  redirectToWorkspace?: boolean;
 };
 type AuthNoticeTone = "info" | "success" | "warning" | "error";
 type AuthNotice = {
@@ -49,20 +55,35 @@ function localDemoWorkspaceEnabled(): boolean {
   );
 }
 
-export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
+async function responseBody(response: Response): Promise<Record<string, unknown>> {
+  try {
+    const body: unknown = await response.json();
+    return body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToWorkspace = false }: AuthPanelProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [configured, setConfigured] = useState(true);
+  const [signingIn, setSigningIn] = useState(false);
   const [notice, setNotice] = useState<AuthNotice>({
     tone: "info",
     text: "Checking your session.",
   });
   const NoticeIcon = noticeIcons[notice.tone];
+  function intendedWorkspaceRoute() {
+    if (entryNext !== undefined) return entryNext;
+    if (typeof window === "undefined") return null;
+    return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  }
   async function refreshSession() {
     try {
       const response = await fetch("/api/auth/session", { cache: "no-store" });
-      const body = (await response.json()) as {
+      const body = (await responseBody(response)) as {
         authenticated?: boolean;
         profile?: Profile;
         message?: string;
@@ -104,11 +125,19 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
           tone: "warning",
           text: "Complete your password setup before opening the workspace.",
         });
-        window.location.assign("/password-setup");
+        window.location.assign(passwordSetupDestination(intendedWorkspaceRoute()));
         return;
       }
 
       const nextProfile = body.profile;
+      if (redirectToWorkspace) {
+        const destination = resolveWorkspaceDestination(nextProfile.role, entryNext);
+        if (destination) {
+          setPassword("");
+          window.location.assign(destination);
+          return;
+        }
+      }
       const hasAccess = roleCanAccess(nextProfile.role, expectedRole);
       setProfile(nextProfile);
       onAccessChange?.(hasAccess, nextProfile.role);
@@ -119,27 +148,29 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
           : "Your account does not have access to this workspace.",
       });
     } catch {
-      setConfigured(false);
       setProfile(null);
-      const demoWorkspaceEnabled = process.env.NODE_ENV !== "production";
+      const demoWorkspaceEnabled = localDemoWorkspaceEnabled();
+      setConfigured(!demoWorkspaceEnabled);
       onAccessChange?.(demoWorkspaceEnabled, demoWorkspaceEnabled ? expectedRole : undefined);
       setNotice({
         tone: demoWorkspaceEnabled ? "info" : "error",
         text: demoWorkspaceEnabled
           ? "Demo mode active until Supabase Auth is configured."
-          : "Authentication is unavailable in this environment.",
+          : "Authentication is temporarily unavailable. You can still try to sign in.",
       });
     }
   }
 
   async function signIn() {
+    if (signingIn) return;
+    setSigningIn(true);
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      const body = (await response.json()) as {
+      const body = (await responseBody(response)) as {
         ok?: boolean;
         message?: string;
         passwordChangeRequired?: boolean;
@@ -148,8 +179,10 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
         setNotice({
           tone: "error",
           text:
-            body.message ||
-            "Sign-in failed. Check the account details and try again.",
+            (typeof body.message === "string" ? body.message : "") ||
+            (response.headers.get("content-type")?.includes("application/json")
+              ? "Sign-in failed. Check the account details and try again."
+              : "Sign-in is temporarily unavailable. Try again."),
         });
         return;
       }
@@ -160,17 +193,20 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
           tone: "warning",
           text: "Complete your password setup before opening the workspace.",
         });
-        window.location.assign("/password-setup");
+        setPassword("");
+        window.location.assign(passwordSetupDestination(intendedWorkspaceRoute()));
         return;
       }
 
+      setPassword("");
       await refreshSession();
     } catch {
-      setConfigured(false);
       setNotice({
         tone: "error",
-        text: "Authentication is unavailable in this environment.",
+        text: "Sign-in is temporarily unavailable. Try again.",
       });
+    } finally {
+      setSigningIn(false);
     }
   }
 
@@ -188,7 +224,7 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      const body = (await response.json()) as { ok?: boolean; message?: string };
+      const body = (await responseBody(response)) as { ok?: boolean; message?: string };
       const recoveryRequested = response.ok && body.ok;
       setNotice({
         tone: recoveryRequested ? "success" : "error",
@@ -281,8 +317,8 @@ export function AuthPanel({ expectedRole, onAccessChange }: AuthPanelProps) {
               onChange={(event) => setPassword(event.target.value)}
             />
           </div>
-          <button className="primary-button auth-submit" type="submit">
-            Sign in
+          <button className="primary-button auth-submit" disabled={signingIn} type="submit">
+            {signingIn ? "Signing in…" : "Sign in"}
           </button>
         </form>
       ) : (

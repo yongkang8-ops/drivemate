@@ -5,12 +5,13 @@ export default defineConfig({
   testMatch: [
     /account-access-polish\.spec\.ts/,
     /auth-panel-redesign\.spec\.ts/,
+    /auth-entry\.spec\.ts/,
     /staff-role-acceptance\.spec\.ts/,
   ],
   workers: 1,
   webServer: {
-    command: "npm run dev -- --hostname 127.0.0.1 --port 3101",
-    url: "http://127.0.0.1:3101",
+    command: "npm run dev -- --hostname 127.0.0.1 --port 3242",
+    url: "http://127.0.0.1:3242",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
@@ -18,14 +19,14 @@ export default defineConfig({
       DRIVEMATE_REPOSITORY: "memory",
       DRIVEMATE_ENABLE_DEMO_AUTH: "true",
       NEXT_PUBLIC_SHOW_INTERNAL_NAV: "false",
-      NEXT_PUBLIC_SITE_URL: "http://127.0.0.1:3101",
+      NEXT_PUBLIC_SITE_URL: "http://127.0.0.1:3242",
       DRIVEMATE_TURNSTILE_REQUIRED: "false",
       REQUIRE_SUPABASE_USERS: "false",
       REQUIRE_SUPABASE_STORAGE: "false",
     },
   },
   use: {
-    baseURL: "http://127.0.0.1:3101",
+    baseURL: "http://127.0.0.1:3242",
     trace: "retain-on-failure",
   },
   projects: [

@@ -25,8 +25,8 @@ test("password setup success becomes a clear staff sign-in handoff", async ({
     page.getByText("Your DriveMate password has been set."),
   ).toBeVisible();
   await expect(
-    page.locator(".password-complete").getByRole("link", { name: "Staff login" }),
-  ).toHaveAttribute("href", "/admin");
+    page.locator(".password-complete").getByRole("link", { name: "Continue to sign in" }),
+  ).toHaveAttribute("href", "/staff/login");
   await expect(
     page.getByRole("button", { name: "Set password" }),
   ).toHaveCount(0);
@@ -40,7 +40,7 @@ test("footer offers a restrained staff login entry and email fields fit business
   const footer = page.getByRole("contentinfo");
   await expect(
     footer.getByRole("link", { name: "Staff login" }),
-  ).toHaveAttribute("href", "/admin");
+  ).toHaveAttribute("href", "/staff/login");
 
   await page.goto("/admin");
   const emailWidth = await page.getByLabel("Email").evaluate((input) =>

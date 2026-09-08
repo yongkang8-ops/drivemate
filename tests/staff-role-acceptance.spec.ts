@@ -66,7 +66,7 @@ test("trade customer keeps Trade Portal access without inheriting staff workspac
 test("pending first login redirects to password setup before workspace content", async ({ page }) => {
   await mockSession(page, "warehouse_staff", { passwordChangeRequired: true });
   await page.goto("/warehouse");
-  await expect(page).toHaveURL(/\/password-setup$/);
+  await expect(page).toHaveURL(/\/password-setup\?next=%2Fwarehouse$/);
   await expect(page.locator(".inbound-app")).toHaveCount(0);
 });
 

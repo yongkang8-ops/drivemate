@@ -9,6 +9,10 @@ import {
   XCircle,
 } from "@phosphor-icons/react";
 import { recoveryAccessTokenFromHash } from "../lib/authRecovery";
+import {
+  loginDestinationAfterPasswordSetup,
+  safeWorkspaceNext,
+} from "../lib/workspaceRouting";
 
 type PasswordNoticeTone = "info" | "warning" | "error";
 type PasswordNotice = {
@@ -30,36 +34,60 @@ export function PasswordSetupForm() {
     text: "Use 12 or more characters with upper and lower case, a number and a symbol.",
   });
   const [completed, setCompleted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [continueHref, setContinueHref] = useState("/staff/login");
   const NoticeIcon = noticeIcons[notice.tone];
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (submitting) return;
     if (password !== confirm) {
       setNotice({ tone: "warning", text: "Passwords do not match." });
       return;
     }
 
-    const accessToken = recoveryAccessTokenFromHash(window.location.hash);
-    const response = await fetch("/api/auth/password-setup", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      },
-      body: JSON.stringify({ password }),
-    });
-    const body = await response.json();
+    setSubmitting(true);
+    try {
+      const accessToken = recoveryAccessTokenFromHash(window.location.hash);
+      const requestedNext = safeWorkspaceNext(new URLSearchParams(window.location.search).get("next"));
+      const response = await fetch("/api/auth/password-setup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({ password }),
+      });
+      let body: { ok?: boolean; message?: string } = {};
+      try {
+        body = await response.json();
+      } catch {
+        // A proxy error may not be JSON; the form remains available for a deliberate retry.
+      }
 
-    if (response.ok && body.ok) {
-      window.history.replaceState(null, "", window.location.pathname);
-      setCompleted(true);
-      return;
+      if (response.ok && body.ok) {
+        window.history.replaceState(null, "", window.location.pathname);
+        setPassword("");
+        setConfirm("");
+        setContinueHref(loginDestinationAfterPasswordSetup(requestedNext));
+        setCompleted(true);
+        return;
+      }
+
+      setNotice({
+        tone: "error",
+        text: body.message || (response.headers.get("content-type")?.includes("application/json")
+          ? "Password could not be updated."
+          : "Password setup is temporarily unavailable. Try again."),
+      });
+    } catch {
+      setNotice({
+        tone: "error",
+        text: "Password setup is temporarily unavailable. Try again.",
+      });
+    } finally {
+      setSubmitting(false);
     }
-
-    setNotice({
-      tone: "error",
-      text: body.message || "Password could not be updated.",
-    });
   }
 
   if (completed) {
@@ -73,8 +101,8 @@ export function PasswordSetupForm() {
           <h1 id="password-updated-title">Password updated</h1>
           <p>Your DriveMate password has been set.</p>
         </div>
-        <Link className="button button-primary" href="/admin">
-          Staff login
+        <Link className="button button-primary" href={continueHref}>
+          Continue to sign in
         </Link>
       </section>
     );
@@ -103,8 +131,8 @@ export function PasswordSetupForm() {
           onChange={(event) => setConfirm(event.target.value)}
         />
       </label>
-      <button className="button button-primary" type="submit">
-        Set password
+      <button className="button button-primary" disabled={submitting} type="submit">
+        {submitting ? "Setting password…" : "Set password"}
       </button>
       <div
         className={`auth-notice auth-notice--${notice.tone}`}
