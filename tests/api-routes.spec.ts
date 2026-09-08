@@ -804,12 +804,14 @@ test("trade account application API creates an admin-visible pending account", a
 
 test("trade account application API rate limits repeated email submissions", async ({
   request,
-}) => {
+}, testInfo) => {
   const email = `rate-${Date.now()}@example.com`;
   const statuses: number[] = [];
   for (let attempt = 0; attempt < 4; attempt += 1) {
     const response = await request.post("/api/trade-account-applications", {
-      headers: { ...publicHeaders(), "x-forwarded-for": "203.0.113.47" },
+      // Each browser project is a distinct synthetic client. Repository reset
+      // intentionally does not reset the application's anti-abuse counters.
+      headers: { ...publicHeaders(), "x-forwarded-for": `203.0.113.${47 + testInfo.workerIndex % 150}` },
       data: tradeApplication({
         accountName: `Rate Limit Workshop ${attempt}`,
         contactName: "Rate Test",

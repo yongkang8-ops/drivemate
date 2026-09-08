@@ -26,7 +26,7 @@ test("public open trade account form submits an application visible to admin", a
     /Application TA-\d+ has been received/,
   );
 
-  await page.goto("/admin");
+  await page.goto("/admin#accounts");
   await page.getByRole("button", { name: "Refresh admin state" }).click();
   await expect(
     page.getByRole("row", {

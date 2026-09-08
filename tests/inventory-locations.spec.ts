@@ -10,7 +10,7 @@ test("authenticated Inventory uses only the private operations shell", async ({ 
   await expect(page.getByRole("heading", { name: "Location management" })).toBeVisible();
   await expect(page.locator(".site-header")).toBeHidden();
   await expect(page.locator(".site-footer")).toBeHidden();
-  await expect(page.getByLabel("Account session")).toBeHidden();
+  await expect(page.getByLabel("Account session")).toBeVisible();
 
   const viewport = page.viewportSize();
   const appBox = await page.locator(".inventory-location-app").boundingBox();
@@ -18,7 +18,7 @@ test("authenticated Inventory uses only the private operations shell", async ({ 
   expect(appBox).not.toBeNull();
   expect(Math.abs(appBox!.x)).toBeLessThanOrEqual(1);
   expect(Math.abs(appBox!.x + appBox!.width - viewport!.width)).toBeLessThanOrEqual(1);
-  expect(appBox!.height).toBeGreaterThanOrEqual(viewport!.height);
+  expect(appBox!.y + appBox!.height).toBeGreaterThanOrEqual(viewport!.height);
 });
 
 test("inventory mobile navigation uses two visible columns", async ({ page }) => {
@@ -121,7 +121,7 @@ test("a partner creates locations, saves notes, prints two exact label sheets, c
   await page.getByLabel("Physical description for BNE-A01-03").fill("Aisle A01, shelf 03");
   await page.getByLabel("Notes for BNE-A01-03").fill("Verified during warehouse walk-through");
   await page.getByRole("button", { name: "Save location notes" }).click();
-  await expect(page.getByRole("status")).toContainText("Location notes saved");
+  await expect(page.getByRole("status").filter({ hasText: "Location notes saved" })).toBeVisible();
 
   await page.getByLabel("Select BNE-A01-03").check();
   await page.getByLabel("Select BNE-A01-04").check();

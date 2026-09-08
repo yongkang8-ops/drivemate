@@ -67,7 +67,7 @@ test("partner Staff navigation does not advertise administrator-only access", as
 });
 
 test("every Administration module link resolves to a real destination", async ({ page }) => {
-  await page.goto("/admin");
+  await page.goto("/admin#products");
   await expect(page.getByRole("heading", { name: "SKU master data" })).toBeVisible();
   const nav = page.getByRole("navigation", { name: "Admin modules", exact: true });
   const targets = await nav.locator("a").evaluateAll(links => links.map(a => ({ name: a.textContent, href: a.getAttribute("href")! })));
@@ -76,7 +76,7 @@ test("every Administration module link resolves to a real destination", async ({
     await nav.getByRole("link", { name: name!, exact: true }).click();
     await expect(page.locator(href)).toBeInViewport();
   }
-  await nav.getByRole("link", { name: "Inventory", exact: true }).click();
+  await page.getByRole("navigation", { name: "Workspace navigation", exact: true }).getByRole("link", { name: "Inventory & locations", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Location management" })).toBeVisible();
 });
 
@@ -113,7 +113,7 @@ test("product Edit focuses its loaded master editor without saving or jumping on
   });
   const writes: string[] = [];
   page.on("request", r => { if (r.method() === "PATCH") writes.push(r.url()); });
-  await page.goto("/admin");
+  await page.goto("/admin#products");
   await expect(page.getByRole("heading", { name: "SKU master data" })).toBeVisible();
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
   const row = page.locator("#products tbody tr").first();

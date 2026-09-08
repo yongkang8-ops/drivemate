@@ -89,7 +89,7 @@ test("pre-arrival mobile navigation uses two visible columns", async ({ page }) 
   for (const width of [390, 701, 768, 880, 1040, 1440]) {
     await page.setViewportSize({ width, height: 900 });
 
-    const navigation = page.locator(".prearrival-nav");
+    const navigation = page.locator(".prearrival-nav.workspace-navigation");
     await expect(navigation).toBeVisible();
     const layout = await navigation.evaluate((element) => {
       const documentElement = document.documentElement;
@@ -485,6 +485,7 @@ test("first Packing List validation stays local and cancel clears errors", async
   await cartonInput.fill("C001");
   await expect(page.getByText("Enter the source scope number.", { exact: true })).toHaveCount(0);
 
+  page.once("dialog", dialog => dialog.accept());
   await page.getByRole("button", { name: "Cancel working copy" }).click();
   await expect(errorSummary).toHaveCount(0);
   await expect(
@@ -625,6 +626,7 @@ test("duplicate Packing List values stay local and do not create a revision", as
 test("cancel restores the loaded confirmed shipment status message", async ({ page }) => {
   await page.goto("/prearrival");
   await page.getByRole("button", { name: "Create revision" }).click();
+  page.once("dialog", dialog => dialog.accept());
   await page.getByRole("button", { name: "Cancel working copy" }).click();
 
   await expect(page.locator(".prearrival-message")).toHaveText(

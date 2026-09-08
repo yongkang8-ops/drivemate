@@ -10,13 +10,13 @@ test("trade portal preserves the pre-trade order lock while internal operating v
   await page.goto("/portal");
 
   await page.getByRole("button", { name: "Search matching parts" }).click();
-  await expect(page.getByRole("status")).toContainText("matching parts found");
+  await expect(page.locator(".workspace-feedback[role=status]")).toContainText("matching parts found");
   await expect(page.getByRole("row", { name: /DM-GWM-OF-001/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "Closed" })).toHaveCount(4);
   await expect(page.getByRole("button", { name: "Closed" }).first()).toBeDisabled();
   await expect(page.getByRole("button", { name: "Ordering unavailable" })).toBeDisabled();
 
-  await page.goto("/admin");
+  await page.goto("/admin#products");
   await page.getByRole("button", { name: "Refresh admin state" }).click();
   await expect(page.getByText("Operating state refreshed.")).toBeVisible();
   await expect(
@@ -24,9 +24,8 @@ test("trade portal preserves the pre-trade order lock while internal operating v
       name: /DM-GWM-OF-001\s+GWM Cannon Alpha 2024-on\s+GW4D24/,
     }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("row", { name: /BNE-2026-06-PILOT\s+DM-GWM-OF-001/ }),
-  ).toBeVisible();
+  await page.getByRole("navigation", { name: "Admin modules", exact: true }).getByRole("link", { name: "Purchasing", exact: true }).click();
+  await expect(page.getByRole("row", { name: /BNE-2026-06-PILOT\s+DM-GWM-OF-001/ })).toBeVisible();
 
   await page.goto("/warehouse");
   await expect(page.getByRole("heading", { name: "Inbound operations" })).toBeVisible();

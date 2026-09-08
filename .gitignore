@@ -6,6 +6,8 @@
 .next/
 node_modules/
 test-results/
+test-results-*/
+experience-*-results.json
 playwright-report/
 coverage/
 tsconfig.tsbuildinfo

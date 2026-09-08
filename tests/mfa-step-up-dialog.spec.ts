@@ -1,5 +1,54 @@
 import { expect, test } from "@playwright/test";
 
+test("leaving during MFA verification cancels the deferred write and clears the dialog", async ({ page }) => {
+  let attempts = 0; let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/admin/landed-costs", route => { attempts++; return route.fulfill({ status: 403, json: { ok: false, code: "mfa_required" } }); });
+  await page.route("**/api/auth/mfa", route => route.fulfill({ json: { ok: true, factors: [{ id: "qa-factor", status: "verified" }] } }));
+  await page.route("**/api/auth/mfa/verify", async route => { await gate; await route.fulfill({ json: { ok: true, assuranceLevel: "aal2" } }); });
+  await page.goto("/admin#costs");
+  await page.getByLabel("Shipment ID", { exact: true }).fill("qa-shipment");
+  await page.getByRole("button", { name: "Save cost version", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Verify this sensitive action" });
+  await dialog.getByLabel("Six-digit code").fill("123456");
+  await dialog.getByRole("button", { name: "Verify and continue" }).click();
+  await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true })));
+  release();
+  await page.waitForLoadState("networkidle");
+  expect(attempts).toBe(1);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("authenticator setup network failure is recoverable and does not leave the button busy", async ({ page }) => {
+  await page.route("**/api/admin/landed-costs", route => route.fulfill({ status: 403, json: { ok: false, code: "mfa_required" } }));
+  await page.route("**/api/auth/mfa", route => route.request().method() === "POST" ? route.abort("failed") : route.fulfill({ json: { ok: true, factors: [] } }));
+  await page.goto("/admin#costs");
+  await page.getByLabel("Shipment ID", { exact: true }).fill("qa-shipment");
+  await page.getByRole("button", { name: "Save cost version", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Set up authenticator" });
+  await dialog.getByRole("button", { name: "Set up authenticator", exact: true }).click();
+  await expect(dialog).toContainText("Check the connection and try again");
+  await expect(dialog.getByRole("button", { name: "Set up authenticator", exact: true })).toBeEnabled();
+});
+
+test("MFA dialog contains keyboard focus and Escape cancels without a second request", async ({ page }) => {
+  let attempts = 0;
+  await page.route("**/api/admin/landed-costs", route => { attempts++; return route.fulfill({ status: 403, json: { ok: false, code: "mfa_required" } }); });
+  await page.route("**/api/auth/mfa", route => route.fulfill({ json: { ok: true, factors: [{ id: "qa-factor", status: "verified" }] } }));
+  await page.goto("/admin#costs");
+  await page.getByLabel("Shipment ID", { exact: true }).fill("qa-shipment");
+  const trigger = page.getByRole("button", { name: "Save cost version", exact: true });
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "Verify this sensitive action" });
+  await dialog.getByRole("button", { name: "Verify and continue", exact: true }).focus();
+  await page.keyboard.press("Tab");
+  await expect(dialog.getByRole("button", { name: "Cancel verification", exact: true })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  expect(attempts).toBe(1);
+});
+
 test("a sensitive admin mutation pauses for MFA and then resumes once", async ({ page }) => {
   let landedCostAttempts = 0;
 
@@ -45,7 +94,7 @@ test("a sensitive admin mutation pauses for MFA and then resumes once", async ({
     });
   });
 
-  await page.goto("/admin");
+  await page.goto("/admin#costs");
   await page.getByLabel("Shipment ID").fill("11111111-1111-4111-8111-111111111111");
   await page.getByRole("button", { name: "Save cost version" }).click();
 
@@ -75,13 +124,13 @@ test("an expired session explains that the pending action was not submitted", as
     });
   });
 
-  await page.goto("/admin");
+  await page.goto("/admin#costs");
   await page.getByLabel("Shipment ID").fill("11111111-1111-4111-8111-111111111111");
   await page.getByRole("button", { name: "Save cost version" }).click();
 
   const dialog = page.getByRole("dialog", { name: "Your session has expired" });
   await expect(dialog).toContainText("The pending operation has not been submitted.");
-  await expect(dialog.getByRole("link", { name: "Sign in again" })).toHaveAttribute("href", "/admin");
+  await expect(dialog.getByRole("link", { name: "Sign in again" })).toHaveAttribute("href", "/staff/login?next=%2Fadmin%23costs");
 });
 
 test("the first sensitive action can enroll an authenticator before resuming", async ({ page }) => {
@@ -115,7 +164,7 @@ test("the first sensitive action can enroll an authenticator before resuming", a
     await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, assuranceLevel: "aal2" }) });
   });
 
-  await page.goto("/admin");
+  await page.goto("/admin#costs");
   await page.getByLabel("Shipment ID").fill("11111111-1111-4111-8111-111111111111");
   await page.getByRole("button", { name: "Save cost version" }).click();
 
@@ -154,7 +203,7 @@ test("an invalid authenticator code keeps the pending action paused", async ({ p
     });
   });
 
-  await page.goto("/admin");
+  await page.goto("/admin#costs");
   await page.getByLabel("Shipment ID").fill("11111111-1111-4111-8111-111111111111");
   await page.getByRole("button", { name: "Save cost version" }).click();
   const dialog = page.getByRole("dialog", { name: "Verify this sensitive action" });

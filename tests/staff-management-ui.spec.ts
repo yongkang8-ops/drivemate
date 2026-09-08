@@ -74,7 +74,7 @@ test("authenticated Staff uses only the private operations shell", async ({ page
   await expect(page.getByRole("heading", { name: "Staff management" })).toBeVisible();
   await expect(page.locator(".site-header")).toBeHidden();
   await expect(page.locator(".site-footer")).toBeHidden();
-  await expect(page.getByLabel("Account session")).toBeHidden();
+  await expect(page.getByLabel("Account session")).toBeVisible();
 
   const viewport = page.viewportSize();
   const app = page.locator(".staff-operations-app");
@@ -83,7 +83,7 @@ test("authenticated Staff uses only the private operations shell", async ({ page
   expect(appBox).not.toBeNull();
   expect(Math.abs(appBox!.x)).toBeLessThanOrEqual(1);
   expect(Math.abs(appBox!.x + appBox!.width - viewport!.width)).toBeLessThanOrEqual(1);
-  expect(appBox!.height).toBeGreaterThanOrEqual(viewport!.height);
+  expect(appBox!.y + appBox!.height).toBeGreaterThanOrEqual(viewport!.height);
   await expect(app).toHaveCSS("border-top-width", "0px");
   await expect(app).toHaveCSS("border-radius", "0px");
   await expect(app).toHaveCSS("box-shadow", "none");
@@ -277,7 +277,7 @@ test("uses a right-side desktop drawer and returns focus after closing", async (
   await mockAdminSession(page);
   await mockStaffApi(page);
   await page.goto("/admin/staff");
-  await expect(page.getByLabel("Account session")).toBeHidden();
+  await expect(page.getByLabel("Account session")).toBeVisible();
   const tableFontSize = await page.locator(".staff-table td").first().evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
   expect(tableFontSize).toBeGreaterThanOrEqual(10);
   const trigger = page.getByRole("button", { name: /Warehouse Operator 01/ });

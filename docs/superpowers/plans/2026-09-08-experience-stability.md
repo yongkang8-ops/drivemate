@@ -33,5 +33,6 @@ All public and protected routes; role/session/first-password/MFA matrix; happy/e
 
 ## Progress
 
-- Task 1: in progress.
-- Tasks 2–5: pending.
+- Task 1: source route/control inventory and frozen scope complete; final execution evidence is maintained separately.
+- Tasks 2–4: implementation, targeted RED/GREEN and integrated local verification complete.
+- Task 5: local automatic verification, screenshot review and report/manual/questionnaire complete. Runtime candidate frozen at 01d91e5; final test/document packaging is a separate local commit. Production release and the explicitly documented provider/physical/native-browser checks remain separately gated.

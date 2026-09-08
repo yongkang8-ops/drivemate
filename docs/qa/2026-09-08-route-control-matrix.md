@@ -2,6 +2,8 @@
 
 ## Scope and evidence boundary
 
+Final execution status is recorded in `2026-09-08-experience-final-report.md`. The risk/pending columns below intentionally retain the original inventory snapshot; they are not unresolved-final-status claims. The new `/staff/login` route and shared controls are covered in the final report.
+
 This is the Task 1 inventory and Task 5 evidence ledger for the 15 original App Router page routes in this checkout. It covers the original route surfaces observed at inventory time, including controls rendered by nested operational components; implementation work may subsequently change those files and must be reconciled against this ledger in Task 5. It is a source audit only: **no route below is claimed as live-browser validated by this document**. Existing automated tests are pointers, not fresh pass evidence. Physical print, scan, receipt and device acceptance remain pending.
 
 Source cross-check: `deliverables/2026-09-07-human-acceptance-v2/04_全部用例文字版.md` (manual cases F01–F11, S01–S15, D01–D15, Q01–Q08). The manual correctly distinguishes read-only, real-data writes, conditional writes and capability gaps; those gates remain in force.
@@ -176,7 +178,7 @@ The original `/admin` source observed during inventory mounts all three large co
 | P1 | Manual guide identifies currently conditional/unimplemented long-chain capabilities (positive ordering, documents, RMA receive/inspect, dispatch/delivery, adjustments/transfers/counts, universal supplier import, pricing/compliance publication). API/component existence cannot be treated as usable UI coverage. | Capability boundary | Record `待条件`/`能力缺口`; no fabricated feature or pass claim |
 | P1 | Public legal/support wording includes pre-production/future qualifiers and lacks final legal evidence. | Content/legal gate | Legal/operations review before trading; do not claim legal approval |
 
-## Task 5 execution ledger (all currently pending here)
+## Task 5 planned verification ledger (historical inventory; final results in report)
 
 1. Fresh unit, typecheck and production build evidence; reconcile exact counts with the plan baseline rather than reusing the stated 351/1/72 as a fresh result.
 2. General browser suite plus the **existing dedicated** `playwright.auth.config.ts` suites; Edge/Chrome-equivalent and WebKit. No unexplained failures or skips.

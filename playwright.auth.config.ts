@@ -9,10 +9,11 @@ export default defineConfig({
     /staff-role-acceptance\.spec\.ts/,
   ],
   workers: 1,
+  outputDir: "test-results-auth",
   webServer: {
     command: "npm run dev -- --hostname 127.0.0.1 --port 3242",
     url: "http://127.0.0.1:3242",
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000,
     env: {
       ...process.env,
@@ -34,5 +35,7 @@ export default defineConfig({
       name: "auth-edge",
       use: { ...devices["Desktop Edge"], channel: "msedge" },
     },
+    { name: "auth-chrome", use: { ...devices["Desktop Chrome"], channel: "chrome" } },
+    { name: "auth-webkit", use: { ...devices["iPhone 13"], browserName: "webkit" } },
   ],
 });
