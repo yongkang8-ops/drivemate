@@ -1,0 +1,82 @@
+/* Shared operations chrome. Print output stays governed by its own stylesheet. */
+@media screen {
+  .workspace-form-lock { border: 0; margin: 0; padding: 0; min-width: 0; }
+  .operations-frame { width: 100%; min-width: 0; }
+  body:has(.operations-frame.has-access) .site-header,
+  body:has(.operations-frame.has-access) .site-footer { display: none; }
+  .operations-frame.has-access > .auth-panel {
+    display: grid !important; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 20px;
+    width: 100%; max-width: none; min-height: 0; margin: 0; padding: 12px 24px;
+    border: 0; border-bottom: 1px solid #cedbd9; border-radius: 0; background: #fff;
+  }
+  .operations-frame.has-access > .auth-panel .auth-copy :is(.eyebrow, h2) { display: none; }
+  .operations-frame.has-access > .auth-panel .auth-copy p { margin: 0; color: #254b4f; font-size: 14px; overflow-wrap: anywhere; }
+  .operations-frame.has-access > .auth-panel .auth-actions { display: flex; justify-content: flex-end; }
+  .operations-frame.has-access > .auth-panel .auth-notice { grid-column: 1 / -1; margin: 0; padding: 8px 12px; max-width: none; }
+  .operations-frame.has-access > .auth-panel .auth-notice--success { display: none; }
+  .operations-frame [hidden] { display: none !important; }
+  .operations-frame :is(button, a, input, textarea, select):focus-visible { outline: 3px solid #007e87; outline-offset: 3px; }
+  .operations-frame :is(button, .button) { min-height: 44px; touch-action: manipulation; }
+  .operations-frame button:disabled { cursor: not-allowed; }
+  .operations-frame :is(input, select, textarea) { max-width: 100%; min-width: 0; }
+  .operations-frame textarea { resize: vertical; }
+  .operations-frame :is(th, td) { overflow-wrap: anywhere; }
+  .operations-frame :is(.table-shell, .import-preview-table) { max-width: 100%; overflow-x: auto; }
+  .operations-frame :is(.partner-dashboard-app, .prearrival-app, .inbound-app, .inventory-location-app, .staff-operations-app, .administration-app) {
+    grid-template-columns: 250px minmax(0, 1fr); min-height: calc(100dvh - 70px);
+  }
+  .operations-frame :is(.partner-dashboard-sidebar, .prearrival-sidebar, .inbound-sidebar, .inventory-location-sidebar, .staff-operations-sidebar, .administration-sidebar) {
+    padding: 24px 16px; background: #123a3c; color: #d5e7e4; min-width: 0;
+  }
+  .workspace-navigation { display: flex; flex-direction: column; gap: 4px; padding: 12px 0; }
+  .workspace-navigation > span { color: #b2cfcd; font-size: 12px; padding: 8px 12px; font-weight: 600; }
+  .workspace-navigation a { color: #d5e7e4; padding: 11px 12px; font-size: 14px; font-weight: 600; line-height: 1.45; border-radius: 6px; min-width: 0; white-space: normal; text-decoration: none; }
+  .workspace-navigation a:hover { background: #1b5052; color: white; }
+  .workspace-navigation a.is-active { background: #dff1ed; color: #123a3c; box-shadow: inset 3px 0 #169e99; }
+  .administration-app { display: grid; background: #f5f8f7; color: #183c40; }
+  .workspace-brand img { width: 170px; max-width: 100%; filter: brightness(0) invert(1); }
+  .workspace-brand p { font-size: 12px; color: #b2cfcd; }
+  .administration-content { padding: 28px 32px 48px; min-width: 0; }
+  .administration-heading { margin-bottom: 24px; }
+  .administration-heading h1 { font-size: clamp(24px, 3vw, 32px); line-height: 1.2; margin: 6px 0 10px; }
+  .administration-heading p { max-width: 70ch; }
+  .administration-content .operations-grid { grid-template-columns: minmax(0, 1fr); }
+  .administration-content .panel { min-width: 0; }
+  .administration-content :is(.form-grid, .cost-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .administration-content .form-grid label { min-width: 0; }
+  .administration-content :is(input, textarea, select) { font-size: 16px; }
+  .administration-content .operations-message { white-space: normal; overflow-wrap: anywhere; }
+  .administration-content .badge[role="status"] { display: inline-block; max-width: 100%; white-space: normal; line-height: 1.5; }
+  .admin-modules { border-top: 1px solid #396061; }
+  .prearrival-section-nav { display: flex; flex-direction: column; gap: 8px; padding: 12px; font-size: 14px; }
+  .prearrival-section-nav a { color: #d5e7e4; padding: 8px 0; }
+  .paginated-table { min-width: 0; }
+  .paginated-table-scroll { max-width: 100%; overflow-x: auto; }
+  .pagination-controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 12px; background: #f4f8f7; font-size: 14px; }
+  .pagination-controls p { margin: 0; margin-right: auto; }
+  .pagination-controls label { display: flex; align-items: center; gap: 8px; }
+  .pagination-controls select { width: auto; }
+  .table-scroll-hint { margin: 0; padding: 8px 12px; font-size: 14px; color: #36595d; background: #eef4f3; }
+  .pagination-controls button { min-height: 44px; }
+  .pagination-controls button:disabled { opacity: .55; cursor: not-allowed; }
+  .operations-frame .workspace-navigation a { font-size: 14px; line-height: 1.45; }
+  .workspace-feedback { padding: 12px 16px; border: 1px solid #cedbd9; border-left: 4px solid #087f82; border-radius: 6px; background: #f4f8f7; color: #183c40; line-height: 1.6; overflow-wrap: anywhere; }
+  .workspace-feedback.is-error { border-left-color: #a12732; background: #fff5f5; }
+  .trade-frame :is(button, input, textarea, select) { min-height: 44px; font-size: 16px; }
+  .trade-frame :is(.panel, .table-shell, .paginated-table) { min-width: 0; max-width: 100%; }
+  .trade-frame .two-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (min-width: 701px) and (max-width: 1024px) {
+    .operations-frame .inbound-scope-bar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+    .operations-frame .inbound-scope-bar > * { min-width: 0; width: 100%; }
+  }
+  @media (max-width: 700px) {
+    .operations-frame :is(.partner-dashboard-app, .prearrival-app, .inbound-app, .inventory-location-app, .staff-operations-app, .administration-app) { display: block; }
+    .operations-frame .workspace-navigation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; }
+    .workspace-navigation > span { grid-column: 1 / -1; }
+    .operations-frame.has-access > .auth-panel { padding: 12px 16px; }
+    .administration-content { padding: 20px 16px 32px; }
+    .administration-content :is(.form-grid, .cost-grid, .two-column) { grid-template-columns: minmax(0, 1fr); }
+    .trade-frame .two-column { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (prefers-reduced-motion: reduce) { .operations-frame *, .operations-frame *::before, .operations-frame *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
+}

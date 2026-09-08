@@ -1,6 +1,10 @@
 "use client";
 
-import Link from "next/link";
+import Link from "./StableLink";
+import { WorkspaceNavigation } from "./WorkspaceNavigation";
+import { PaginatedTable } from "./PaginatedTable";
+import { useListFilters } from "../hooks/useListFilters";
+import { confirmDiscardChanges, useUnsavedChanges } from "../hooks/useUnsavedChanges";
 import { WarehouseLocationLabel as LocationLabel } from "./WarehouseLocationLabel";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildApiHeaders } from "../lib/clientAuth";
@@ -64,8 +68,11 @@ export function InventoryLocationPanel() {
   const [batch, setBatch] = useState("");
   const [previewedBatch, setPreviewedBatch] = useState("");
   const [previewedLocations, setPreviewedLocations] = useState<Array<{ locationCode: string; barcode: string }>>([]);
-  const [locationStatus, setLocationStatus] = useState<"all" | InventoryLocationStatus>("all");
-  const [search, setSearch] = useState("");
+  const [listFilters, setListFilter] = useListFilters({ locationStatus: "all", locationSearch: "" }, "locations", { locationStatus: ["all", "active", "disabled", "archived"] });
+  const locationStatus = listFilters.locationStatus;
+  const search = listFilters.locationSearch;
+  const setLocationStatus = (value: string) => setListFilter("locationStatus", value);
+  const setSearch = (value: string) => setListFilter("locationSearch", value);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [labelPreview, setLabelPreview] = useState<Array<{ locationCode: string; barcode: string }>>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -118,6 +125,8 @@ export function InventoryLocationPanel() {
   const selectedLocations = locations.filter((location) => selectedIds.includes(location.id)
     && location.status === "active" && location.isPutawayDestination);
   const editingLocation = locations.find((location) => location.id === editingId) ?? null;
+  const editorDirty = Boolean(editingLocation && (description !== (editingLocation.physicalDescription ?? "") || notes !== (editingLocation.notes ?? "")));
+  useUnsavedChanges(editorDirty || Boolean(batch.trim()) || busy);
   const hasFreshBatchPreview = previewedLocations.length > 0 && previewedBatch === batch;
 
   function previewBatch() {
@@ -172,6 +181,7 @@ export function InventoryLocationPanel() {
   }, [editRequest, editingId]);
 
   function startEdit(location: LocationRecord, trigger: HTMLButtonElement) {
+    if (!confirmDiscardChanges(editorDirty)) return;
     editTrigger.current = trigger;
     setEditingId(location.id);
     setDescription(location.physicalDescription ?? "");
@@ -180,6 +190,7 @@ export function InventoryLocationPanel() {
   }
 
   function closeEditor() {
+    if (!confirmDiscardChanges(editorDirty)) return;
     setEditingId(null);
     editTrigger.current?.focus({ preventScroll: true });
     editTrigger.current?.scrollIntoView({ block: "center", behavior: "instant" });
@@ -356,14 +367,7 @@ export function InventoryLocationPanel() {
           <p>Partner workspace</p>
           <span>Physical location control</span>
         </div>
-        <nav className="inventory-location-nav" aria-label="Partner operations navigation">
-          <span>Operations</span>
-          <Link href="/partner">Dashboard</Link>
-          <Link href="/prearrival">Pre-arrival shipments</Link>
-          <Link href="/warehouse">Inbound operations</Link>
-          <Link className="is-active" href="/inventory">Inventory &amp; locations</Link>
-          <Link href="/admin/staff">Staff management</Link>
-        </nav>
+        <WorkspaceNavigation current="/inventory" className="inventory-location-nav" label="Partner operations navigation" />
         <div className="inventory-location-boundary">
           <span>Location boundary</span>
           <p>Physical BNE bins are maintained here. Receiving staging remains a system source and cannot be printed or selected for putaway.</p>
@@ -432,7 +436,7 @@ export function InventoryLocationPanel() {
             </div>
 
             <div className="inventory-location-table-shell">
-              <table aria-label="Location register">
+              <PaginatedTable id="locations" label="Location register" total={filteredLocations.length}>
                 <thead><tr><th scope="col">Print</th><th scope="col">Code</th><th scope="col">Physical description</th><th scope="col">Status</th><th scope="col">Balance</th><th scope="col">Label state</th><th scope="col">Actions</th></tr></thead>
                 <tbody>
                   {filteredLocations.map((location) => {
@@ -455,7 +459,7 @@ export function InventoryLocationPanel() {
                     );
                   })}
                 </tbody>
-              </table>
+              </PaginatedTable>
               {!filteredLocations.length ? <p className="inventory-location-empty">No saved location matches this filter.</p> : null}
             </div>
 

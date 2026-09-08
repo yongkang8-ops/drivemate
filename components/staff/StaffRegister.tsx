@@ -1,6 +1,7 @@
 import type { StaffAccountStatus, StaffRole } from "../../lib/repository";
 import { formatStaffDate, staffSecurityLabel } from "../../lib/staffUi";
 import type { StaffRow, StaffViewer } from "./staffTypes";
+import { PaginatedTable } from "../PaginatedTable";
 
 function roleLabel(role: StaffRole) {
   if (role === "warehouse_staff") return "Warehouse staff";
@@ -24,14 +25,16 @@ export function StaffRegister({
   accounts,
   viewerRole,
   onSelect,
+  filterKey = "",
 }: {
   accounts: StaffRow[];
   viewerRole: StaffViewer;
   onSelect: (userId: string, trigger: HTMLButtonElement) => void;
+  filterKey?: string;
 }) {
   return (
     <div className="staff-table-shell">
-      <table className="staff-table">
+      <PaginatedTable id="staff" label="Staff register" total={accounts.length} className="staff-table" resetKey={filterKey}>
         <thead><tr><th>Staff member</th><th>Role</th><th>Status</th><th>{viewerRole === "admin" ? "Security" : "Access"}</th><th>Last login</th><th>Created</th></tr></thead>
         <tbody>
           {accounts.map((account) => (
@@ -50,7 +53,7 @@ export function StaffRegister({
             </tr>
           ))}
         </tbody>
-      </table>
+      </PaginatedTable>
     </div>
   );
 }

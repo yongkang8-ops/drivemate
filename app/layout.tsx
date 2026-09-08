@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
+import Link from "../components/StableLink";
 import { SignIn, UserPlus } from "@phosphor-icons/react/dist/ssr";
 import "./globals.css";
+import "./operations.css";
 
 const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -57,7 +58,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <Link href="/terms">Website Terms</Link>
               <Link href="/trade-terms">Trade Terms</Link>
               <Link href="/delivery-returns-warranty">Delivery, Returns &amp; Warranty</Link>
-              <Link href="/admin">Staff login</Link>
+              <Link href="/staff/login">Staff login</Link>
             </nav>
           </footer>
         </div>

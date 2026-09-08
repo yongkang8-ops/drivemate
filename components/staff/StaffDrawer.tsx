@@ -25,6 +25,10 @@ export function StaffDrawer({
   children: ReactNode;
 }) {
   const dialogRef = useRef<HTMLElement>(null);
+  const closeRef = useRef(onClose);
+  const lockedRef = useRef(closeLocked);
+  closeRef.current = onClose;
+  lockedRef.current = closeLocked;
   const titleId = `staff-drawer-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 
   useEffect(() => {
@@ -34,9 +38,9 @@ export function StaffDrawer({
     focusables[0]?.focus();
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !closeLocked) {
+      if (event.key === "Escape" && !lockedRef.current) {
         event.preventDefault();
-        onClose();
+        closeRef.current();
         return;
       }
       if (event.key !== "Tab") return;
@@ -58,7 +62,13 @@ export function StaffDrawer({
       document.removeEventListener("keydown", onKeyDown);
       returnFocusRef.current?.focus();
     };
-  }, [closeLocked, onClose, returnFocusRef]);
+  }, [returnFocusRef]);
+
+  // A new drawer screen gets focus; typing or pending-state updates must not
+  // run the unmount cleanup and steal focus from the active input.
+  useEffect(() => {
+    if (dialogRef.current) focusableElements(dialogRef.current)[0]?.focus();
+  }, [title]);
 
   return (
     <div className="staff-drawer-layer">

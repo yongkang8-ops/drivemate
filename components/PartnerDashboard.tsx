@@ -1,6 +1,9 @@
 "use client";
 
-import Link from "next/link";
+import Link from "./StableLink";
+import { WorkspaceNavigation } from "./WorkspaceNavigation";
+import { useListFilters } from "../hooks/useListFilters";
+import { usePagination, PaginationControls } from "./PaginatedTable";
 import {
   ArrowsClockwise,
   CaretRight,
@@ -10,7 +13,7 @@ import {
   WarningCircle,
   Warehouse,
 } from "@phosphor-icons/react";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { buildApiHeaders } from "../lib/clientAuth";
 import type { PartnerDashboardAttention, PartnerDashboardShipmentSource } from "../lib/warehouseDashboard";
 import type { WarehouseHistoryAction, WarehouseHistoryTimeZone } from "../lib/warehouseHistory";
@@ -91,14 +94,22 @@ const putawayStatusLabels = {
 } as const;
 
 export function PartnerDashboard() {
-  const [displayTimeZone, setDisplayTimeZone] = useState<WarehouseHistoryTimeZone>("Australia/Brisbane");
+  const [filters, updateFilter] = useListFilters({ dashboardSearch: "", dashboardZone: "au" }, ["shipments", "attention", "activity"], { dashboardZone: ["au", "cn"] });
+  const displayTimeZone: WarehouseHistoryTimeZone = filters.dashboardZone === "cn" ? "Asia/Shanghai" : "Australia/Brisbane";
+  const setDisplayTimeZone = (zone: WarehouseHistoryTimeZone) => updateFilter("dashboardZone", zone === "Asia/Shanghai" ? "cn" : "au");
   const [searchInput, setSearchInput] = useState("");
-  const [appliedSearch, setAppliedSearch] = useState("");
+  const appliedSearch = filters.dashboardSearch;
+  useEffect(() => setSearchInput(appliedSearch), [appliedSearch]);
   const [dashboard, setDashboard] = useState<PartnerDashboardData | null>(null);
   const [message, setMessage] = useState("Loading saved operations snapshot.");
   const [isLoading, setIsLoading] = useState(true);
+  const requestVersion = useRef(0);
+  const shipmentPages = usePagination("shipments", dashboard?.shipments.length ?? 0);
+  const attentionPages = usePagination("attention", dashboard?.attention.length ?? 0);
+  const activityPages = usePagination("activity", dashboard?.activities.length ?? 0);
 
   const loadDashboard = useCallback(async (nextSearch = appliedSearch) => {
+    const version = ++requestVersion.current;
     setIsLoading(true);
     const params = new URLSearchParams({ timeZone: displayTimeZone });
     if (nextSearch.trim()) params.set("search", nextSearch.trim());
@@ -108,6 +119,7 @@ export function PartnerDashboard() {
         cache: "no-store",
       });
       const body = await response.json() as { ok?: boolean; dashboard?: PartnerDashboardData; message?: string };
+      if (version !== requestVersion.current) return;
       if (!response.ok || !body.ok || !body.dashboard) {
         setDashboard(null);
         setMessage(body.message || "Saved operations data could not be loaded.");
@@ -116,10 +128,11 @@ export function PartnerDashboard() {
       setDashboard(body.dashboard);
       setMessage("Saved operations snapshot loaded.");
     } catch {
+      if (version !== requestVersion.current) return;
       setDashboard(null);
       setMessage("Saved operations data could not be loaded.");
     } finally {
-      setIsLoading(false);
+      if (version === requestVersion.current) setIsLoading(false);
     }
   }, [appliedSearch, displayTimeZone]);
 
@@ -130,8 +143,8 @@ export function PartnerDashboard() {
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextSearch = searchInput.trim();
-    setAppliedSearch(nextSearch);
-    void loadDashboard(nextSearch);
+    if (nextSearch === appliedSearch) void loadDashboard(nextSearch);
+    else updateFilter("dashboardSearch", nextSearch);
   }
 
   return (
@@ -143,16 +156,7 @@ export function PartnerDashboard() {
           <span>Shared China &amp; Australia view</span>
         </div>
 
-        <nav className="partner-dashboard-nav" aria-label="Partner operations navigation">
-          <span>Operations</span>
-          <Link className="is-active" href="/partner">Dashboard</Link>
-          <Link href="/prearrival">Pre-arrival shipments</Link>
-          <Link href="/warehouse">Inbound operations</Link>
-          <Link href="/warehouse?view=put_away">Put away</Link>
-          <Link href="/warehouse?view=receipt_history">Receipt history</Link>
-          <Link href="/inventory">Inventory &amp; locations</Link>
-          <Link href="/admin/staff">Staff management</Link>
-        </nav>
+        <WorkspaceNavigation current="/partner" className="partner-dashboard-nav" label="Partner operations navigation" />
 
         <div className="partner-dashboard-boundary">
           <span>Read-only overview</span>
@@ -223,7 +227,8 @@ export function PartnerDashboard() {
 
               {isLoading ? <p className="partner-dashboard-empty">Loading saved shipment records…</p> : null}
               {!isLoading && dashboard?.shipments.length === 0 ? <p className="partner-dashboard-empty">No saved inbound shipment matches this filter.</p> : null}
-              {!isLoading && dashboard?.shipments.map((shipment) => (
+              {!isLoading && dashboard ? <PaginationControls state={shipmentPages} label="Inbound shipments" /> : null}
+              {!isLoading && dashboard?.shipments.slice(shipmentPages.start, shipmentPages.end).map((shipment) => (
                 <div className="partner-shipment-row" key={shipment.shipmentId}>
                   <div className="partner-shipment-reference">
                     <strong>{shipment.shipmentReference}</strong>
@@ -261,8 +266,9 @@ export function PartnerDashboard() {
                 <WarningCircle size={22} weight="duotone" />
               </div>
               {isLoading ? <p className="partner-dashboard-empty">Loading saved attention items…</p> : null}
-              {!isLoading && !dashboard?.attention.length ? <p className="partner-dashboard-empty">No saved exceptions or current attention items.</p> : null}
-              {!isLoading && dashboard?.attention.map((item) => (
+              {!isLoading && dashboard && !dashboard.attention.length ? <p className="partner-dashboard-empty">No saved exceptions or current attention items.</p> : null}
+              {!isLoading && dashboard ? <PaginationControls state={attentionPages} label="Attention queue" /> : null}
+              {!isLoading && dashboard?.attention.slice(attentionPages.start, attentionPages.end).map((item) => (
                 <div className={`partner-attention-item partner-attention-${item.type}`} key={item.id}>
                   <strong>{item.title}</strong>
                   <code>{item.reference}</code>
@@ -283,8 +289,9 @@ export function PartnerDashboard() {
                 <Link href="/warehouse?view=receipt_history">Open receipt history <CaretRight size={15} weight="bold" /></Link>
               </div>
               {isLoading ? <p className="partner-dashboard-empty">Loading saved activity…</p> : null}
-              {!isLoading && !dashboard?.activities.length ? <p className="partner-dashboard-empty">No saved activity yet.</p> : null}
-              {!isLoading && dashboard?.activities.map((activity) => (
+              {!isLoading && dashboard && !dashboard.activities.length ? <p className="partner-dashboard-empty">No saved activity yet.</p> : null}
+              {!isLoading && dashboard ? <PaginationControls state={activityPages} label="Confirmed activity" /> : null}
+              {!isLoading && dashboard?.activities.slice(activityPages.start, activityPages.end).map((activity) => (
                 <div className="partner-activity-row" key={activity.id}>
                   <time dateTime={activity.createdAt}>{activity.date}<small>{activity.time}</small></time>
                   <div><strong>{activity.actionLabel}</strong><span>{activity.outcome}</span></div>

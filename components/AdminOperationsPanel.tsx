@@ -1,9 +1,12 @@
 "use client";
 
 import { Calculator, ClipboardText, CreditCard } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { AdminSectionId } from "../lib/adminSections";
 import { buildApiHeaders } from "../lib/clientAuth";
 import { useSensitiveFetch } from "./MfaStepUpProvider";
+import { useDraftChanges } from "../hooks/useDraftChanges";
+import { useUnsavedChanges } from "../hooks/useUnsavedChanges";
 
 const emptyCosts = {
   domesticLogisticsMinor: 0,
@@ -27,8 +30,9 @@ const costLabels: Array<[keyof typeof emptyCosts, string]> = [
   ["australiaDeliveryMinor", "AU delivery"],
   ["otherCostsMinor", "Other"],
 ];
+const uncertainOutcome = "Result could not be confirmed. Check saved records before retrying.";
 
-export function AdminOperationsPanel() {
+export function AdminOperationsPanel({ section = "all" }: { section?: AdminSectionId | "all" }) {
   const sensitiveFetch = useSensitiveFetch();
   const [shipmentId, setShipmentId] = useState("");
   const [costStatus, setCostStatus] = useState<"provisional" | "final">(
@@ -52,10 +56,24 @@ export function AdminOperationsPanel() {
     | "carrier_damage"
   >("quality_confirmed");
   const [credit, setCredit] = useState("0");
-  const [message, setMessage] = useState(
-    "Finance and RMA actions are audit logged.",
-  );
+  const [messages, setMessages] = useState({ costs: "Finance actions are audit logged.", accounts: "Account actions are audit logged.", orders: "RMA actions are audit logged." });
+  const [pending, setPending] = useState<"costs" | "accounts" | "orders" | null>(null);
+  const [, markCostsSaved] = useDraftChanges({ shipmentId, costStatus, basis, costs });
+  const [, markAccountSaved] = useDraftChanges({ accountId, entryType, amount, reference });
+  const [, markRmaSaved] = useDraftChanges({ rmaId, outcome, credit });
+  useUnsavedChanges(Boolean(pending));
+  const locks = useRef(new Set<string>());
+  const shipmentRef = useRef<HTMLInputElement>(null); const accountRef = useRef<HTMLInputElement>(null); const rmaRef = useRef<HTMLInputElement>(null);
+  const invalidFocus = useRef<HTMLInputElement | null>(null);
+  useEffect(() => { if (!pending && invalidFocus.current) { invalidFocus.current.focus(); invalidFocus.current = null; } }, [pending, messages]);
+  function setOperationMessage(key: "costs" | "accounts" | "orders", value: string) { setMessages((current) => ({ ...current, [key]: value })); }
+  async function runOperation(key: "costs" | "accounts" | "orders", action: () => Promise<void>) {
+    if (locks.current.has(key)) return; locks.current.add(key); setPending(key);
+    try { await action(); } catch { setOperationMessage(key, "Result could not be confirmed. Check saved records before retrying."); }
+    finally { locks.current.delete(key); setPending((current) => current === key ? null : current); }
+  }
   async function saveLandedCost() {
+    if (!shipmentId.trim()) { setOperationMessage("costs", "Shipment ID is required."); invalidFocus.current = shipmentRef.current; return; }
     const response = await sensitiveFetch("/api/admin/landed-costs", {
       method: "POST",
       headers: await buildApiHeaders("admin", {
@@ -70,14 +88,13 @@ export function AdminOperationsPanel() {
         idempotencyKey: crypto.randomUUID(),
       }),
     });
-    const body = await response.json();
-    setMessage(
-      response.ok && body.ok
-        ? `Landed cost ${body.landedCostId} saved. Cash AUD ${(body.cashTotalMinor / 100).toFixed(2)}; COGS AUD ${(body.cogsTotalMinor / 100).toFixed(2)}.`
-        : body.message || "Landed cost could not be saved.",
-    );
+    const body = await response.json().catch(() => null);
+    if (!response.ok || body?.ok === false) setOperationMessage("costs", body?.message || "Landed cost could not be saved.");
+    else if (!body?.ok || typeof body.landedCostId !== "string" || typeof body.cashTotalMinor !== "number" || typeof body.cogsTotalMinor !== "number") setOperationMessage("costs", uncertainOutcome);
+    else { markCostsSaved(); setOperationMessage("costs", `Landed cost ${body.landedCostId} saved. Cash AUD ${(body.cashTotalMinor / 100).toFixed(2)}; COGS AUD ${(body.cogsTotalMinor / 100).toFixed(2)}.`); }
   }
   async function postAdjustment() {
+    if (!accountId.trim()) { setOperationMessage("accounts", "Trade account ID is required."); invalidFocus.current = accountRef.current; return; }
     const response = await sensitiveFetch(
       `/api/admin/accounts/${accountId}/adjustments`,
       {
@@ -93,14 +110,13 @@ export function AdminOperationsPanel() {
         }),
       },
     );
-    const body = await response.json();
-    setMessage(
-      response.ok && body.ok
-        ? `Account entry ${body.ledgerEntryId} posted.`
-        : body.message || "Account entry could not be posted.",
-    );
+    const body = await response.json().catch(() => null);
+    if (!response.ok || body?.ok === false) setOperationMessage("accounts", body?.message || "Account entry could not be posted.");
+    else if (!body?.ok || typeof body.ledgerEntryId !== "string") setOperationMessage("accounts", uncertainOutcome);
+    else { markAccountSaved(); setOperationMessage("accounts", `Account entry ${body.ledgerEntryId} posted.`); }
   }
   async function inspectRma() {
+    if (!rmaId.trim()) { setOperationMessage("orders", "RMA ID is required."); invalidFocus.current = rmaRef.current; return; }
     const response = await sensitiveFetch(`/api/admin/rma/${rmaId}/inspect`, {
       method: "POST",
       headers: await buildApiHeaders("admin", {
@@ -112,16 +128,14 @@ export function AdminOperationsPanel() {
         idempotencyKey: crypto.randomUUID(),
       }),
     });
-    const body = await response.json();
-    setMessage(
-      response.ok && body.ok
-        ? `RMA ${body.rmaId} inspection recorded.`
-        : body.message || "RMA inspection could not be recorded.",
-    );
+    const body = await response.json().catch(() => null);
+    if (!response.ok || body?.ok === false) setOperationMessage("orders", body?.message || "RMA inspection could not be recorded.");
+    else if (!body?.ok || typeof body.rmaId !== "string") setOperationMessage("orders", uncertainOutcome);
+    else { markRmaSaved(); setOperationMessage("orders", `RMA ${body.rmaId} inspection recorded.`); }
   }
   return (
-    <section className="operations-grid" id="compliance">
-      <article className="panel">
+    <fieldset className="operations-grid workspace-form-lock" disabled={Boolean(pending)} id="compliance" hidden={!["all", "costs", "accounts", "orders"].includes(section)}>
+      <article className="panel" id="costs" hidden={section !== "all" && section !== "costs"}>
         <div className="panel-title">
           <div>
             <p className="eyebrow">Shipment finance</p>
@@ -133,6 +147,9 @@ export function AdminOperationsPanel() {
           <label>
             Shipment ID
             <input
+              ref={shipmentRef}
+              aria-describedby={messages.costs.includes("required") ? "costs-error" : undefined}
+              aria-invalid={messages.costs.includes("required") || undefined}
               value={shipmentId}
               onChange={(e) => setShipmentId(e.target.value)}
             />
@@ -182,12 +199,14 @@ export function AdminOperationsPanel() {
         <button
           className="button button-primary"
           type="button"
-          onClick={() => void saveLandedCost()}
+          disabled={pending === "costs"}
+          onClick={() => void runOperation("costs", saveLandedCost)}
         >
           Save cost version
         </button>
+        <p id="costs-error" role={messages.costs.includes("required") ? "alert" : "status"}>{messages.costs}</p>
       </article>
-      <article className="panel">
+      <article className="panel" hidden={section !== "all" && section !== "accounts"}>
         <div className="panel-title">
           <div>
             <p className="eyebrow">Accounts</p>
@@ -199,6 +218,9 @@ export function AdminOperationsPanel() {
           <label>
             Trade account ID
             <input
+              ref={accountRef}
+              aria-describedby={messages.accounts.includes("required") ? "accounts-error" : undefined}
+              aria-invalid={messages.accounts.includes("required") || undefined}
               value={accountId}
               onChange={(e) => setAccountId(e.target.value)}
             />
@@ -234,12 +256,14 @@ export function AdminOperationsPanel() {
         <button
           className="button button-secondary"
           type="button"
-          onClick={() => void postAdjustment()}
+          disabled={pending === "accounts"}
+          onClick={() => void runOperation("accounts", postAdjustment)}
         >
           Post account entry
         </button>
+        <p id="accounts-error" role={messages.accounts.includes("required") ? "alert" : "status"}>{messages.accounts}</p>
       </article>
-      <article className="panel">
+      <article className="panel" hidden={section !== "all" && section !== "orders"}>
         <div className="panel-title">
           <div>
             <p className="eyebrow">Returns</p>
@@ -250,7 +274,7 @@ export function AdminOperationsPanel() {
         <div className="form-grid">
           <label>
             RMA ID
-            <input value={rmaId} onChange={(e) => setRmaId(e.target.value)} />
+            <input ref={rmaRef} aria-describedby={messages.orders.includes("required") ? "orders-error" : undefined} aria-invalid={messages.orders.includes("required") || undefined} value={rmaId} onChange={(e) => setRmaId(e.target.value)} />
           </label>
           <label>
             Outcome
@@ -278,14 +302,13 @@ export function AdminOperationsPanel() {
         <button
           className="button button-secondary"
           type="button"
-          onClick={() => void inspectRma()}
+          disabled={pending === "orders"}
+          onClick={() => void runOperation("orders", inspectRma)}
         >
           Record inspection
         </button>
+        <p id="orders-error" role={messages.orders.includes("required") ? "alert" : "status"}>{messages.orders}</p>
       </article>
-      <p className="operations-message" role="status">
-        {message}
-      </p>
-    </section>
+    </fieldset>
   );
 }

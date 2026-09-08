@@ -1,6 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import Link from "./StableLink";
+import { WorkspaceNavigation } from "./WorkspaceNavigation";
+import { confirmDiscardChanges, useUnsavedChanges } from "../hooks/useUnsavedChanges";
 import Image from "next/image";
 import {
   ArrowRight,
@@ -198,6 +200,7 @@ export function PrearrivalShipmentPanel() {
   const [draftPayload, setDraftPayload] = useState<PackingListDraftPayload | null>(null);
   const [message, setMessage] = useState("Loading pre-arrival shipment data.");
   const [busy, setBusy] = useState(false);
+  const [workspaceLoadError, setWorkspaceLoadError] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<PackingListFieldErrors>({});
   const [errorSummary, setErrorSummary] = useState<string | null>(null);
   const [pendingFocusField, setPendingFocusField] = useState<string | null>(null);
@@ -207,6 +210,9 @@ export function PrearrivalShipmentPanel() {
   const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const loadRequestToken = useRef(0);
   const draftLineIdSequence = useRef(0);
+  const draftBaseline = useRef("");
+  const draftDirty = Boolean(draftPayload && !pendingRevisionId && JSON.stringify(draftPayload) !== draftBaseline.current);
+  useUnsavedChanges(draftDirty);
   const editorLocked = busy || pendingRevisionId !== null || reconciliationRequired;
 
   function createDraftLineId(): string {
@@ -248,7 +254,7 @@ export function PrearrivalShipmentPanel() {
   }
 
   function cancelWorkingCopy() {
-    if (editorLocked) return;
+    if (editorLocked || !confirmDiscardChanges(draftDirty)) return;
     setDraftPayload(null);
     setDraftLineIds([]);
     clearDraftErrors();
@@ -276,16 +282,19 @@ export function PrearrivalShipmentPanel() {
       const body = (await response.json()) as ShipmentResponse;
       if (requestToken !== loadRequestToken.current) return;
       if (!response.ok || !body.ok) {
+        setWorkspaceLoadError(true);
         setShipment(null);
         setMessage(("message" in body && body.message) || "Pre-arrival shipment could not be loaded.");
         return;
       }
       setShipment(body.shipment);
+      setWorkspaceLoadError(false);
       clearDraftErrors();
       setSelection({ cartonIndex: 0 });
       const savedDraft = latestDraftRevision(body.shipment);
       if (savedDraft) {
         const savedPayload = structuredClone(savedDraft.payloadSnapshot);
+        draftBaseline.current = JSON.stringify(savedPayload);
         setDraftPayload(savedPayload);
         setDraftLineIds(lineIdsForPayload(savedPayload));
         setPendingRevisionId(savedDraft.id);
@@ -299,18 +308,22 @@ export function PrearrivalShipmentPanel() {
       }
     } catch {
       if (requestToken !== loadRequestToken.current) return;
+      setWorkspaceLoadError(true);
       setMessage("Pre-arrival shipment could not be loaded. Try reloading shipment status.");
     }
   }
 
   async function loadWorkspace() {
+    setWorkspaceLoadError(false);
+    try {
     const response = await fetch("/api/prearrival/shipments", {
       cache: "no-store",
       headers: await buildApiHeaders("partner"),
     });
     const body = (await response.json()) as ShipmentListResponse;
-    if (!response.ok || !body.ok || !body.shipments.length) {
-      setMessage(("message" in body && body.message) || "No pre-arrival shipments are available.");
+    if (!response.ok || !body.ok || !Array.isArray(body.shipments)) throw new Error("shipment_list_failed");
+    if (!body.shipments.length) {
+      setMessage("No pre-arrival shipments are available.");
       return;
     }
     setShipments(body.shipments);
@@ -319,6 +332,10 @@ export function PrearrivalShipmentPanel() {
       (candidate) => candidate.shipmentId === requestedShipmentId,
     ) ?? body.shipments[0];
     await loadShipment(initialShipment.shipmentId);
+    } catch {
+      setWorkspaceLoadError(true);
+      setMessage("Pre-arrival shipments could not be loaded. Check the connection and try again.");
+    }
   }
 
   useEffect(() => {
@@ -366,6 +383,7 @@ export function PrearrivalShipmentPanel() {
     clearDraftErrors();
     clearRevisionProgress();
     const nextPayload = payloadFromShipment(shipment);
+    draftBaseline.current = JSON.stringify(nextPayload);
     setDraftPayload(nextPayload);
     setDraftLineIds(lineIdsForPayload(nextPayload));
     setSelection({ cartonIndex: 0 });
@@ -613,7 +631,7 @@ export function PrearrivalShipmentPanel() {
   }
 
   if (!shipment) {
-    return <section className="prearrival-loading" role="status"><Package size={28} weight="duotone" />{message}</section>;
+    return <section className="prearrival-loading" role="status"><Package size={28} weight="duotone" /><p>{message}</p>{workspaceLoadError ? <button className="secondary-button" type="button" onClick={() => void loadWorkspace()}>Retry loading shipments</button> : null}<a href="/partner">Return to dashboard</a></section>;
   }
 
   const activeLines = draftPayload && selectedCarton
@@ -688,13 +706,8 @@ export function PrearrivalShipmentPanel() {
           <p>Partner workspace</p>
           <span>Unified operational access</span>
         </div>
-        <nav className="prearrival-nav">
-          <span>Workspace</span>
-          <Link href="/partner">Dashboard</Link>
-          <a className="is-active" href="#prearrival-workspace">Pre-arrival shipments</a>
-          <Link href={`/warehouse?shipmentId=${encodeURIComponent(shipment.shipmentId)}`}>Inbound operations</Link>
-          <Link href="/inventory">Inventory &amp; locations</Link>
-          <Link href="/admin/staff">Staff management</Link>
+        <WorkspaceNavigation current="/prearrival" shipmentId={shipment.shipmentId} className="prearrival-nav" />
+        <nav className="prearrival-section-nav" aria-label="Packing List sections">
           <span>This shipment</span>
           <a href="#shipment-overview">Shipment overview</a>
           <a href="#shipment-contents">Packing List contents</a>
@@ -729,7 +742,7 @@ export function PrearrivalShipmentPanel() {
               disabled={editorLocked}
               value={shipment.shipmentId}
               onChange={(event) => {
-                if (!editorLocked) void loadShipment(event.target.value);
+                if (!editorLocked && confirmDiscardChanges(draftDirty)) void loadShipment(event.target.value);
               }}
             >
               {shipments.map((item) => (

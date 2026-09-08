@@ -1,7 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import Link from "./StableLink";
+import { WorkspaceNavigation } from "./WorkspaceNavigation";
+import { confirmDiscardChanges, useUnsavedChanges } from "../hooks/useUnsavedChanges";
+import { historyEntryIndex, withHistoryEntryIndex } from "../lib/historyGuard";
+import { readWarehouseScope, warehouseScopeKey, writeWarehouseScope } from "../lib/warehouseScopeContext";
 import { WarehouseProductLabel } from "./WarehouseProductLabel";
 import { describeProductLabelIssues, type ProductLabelReadiness } from "../lib/warehouseLabelContent";
 import { resolveWarehouseScopeLookup } from "../lib/warehouseScopeLookup";
@@ -48,14 +52,7 @@ function WarehouseNavigation({ view, shipmentId, onViewChange }: {
   const viewerRole = useWorkspaceRole();
   const canOpenPartnerWorkspaces = viewerRole === "admin" || viewerRole === "partner";
   return <>
-    <nav className="inbound-nav inbound-workspace-nav" aria-label="Workspace navigation">
-      <span>Workspace</span>
-      {canOpenPartnerWorkspaces ? <><Link href="/partner">Dashboard</Link>
-      <Link href={`/prearrival?shipmentId=${encodeURIComponent(shipmentId)}`}>Pre-arrival shipments</Link>
-      <Link href="/inventory">Inventory &amp; locations</Link>
-      <Link href="/admin/staff">Staff management</Link></> : null}
-      <Link href="/">Public website</Link>
-    </nav>
+    <WorkspaceNavigation current="/warehouse" shipmentId={shipmentId} className="inbound-nav inbound-workspace-nav" />
     <nav className="inbound-nav" aria-label="Inbound operations navigation">
       <span>Current work</span>
       {workspaceViews.map((item) => <a key={item.value}
@@ -250,6 +247,7 @@ export function PartnerInboundWorkspace() {
   const [openedPrintJobId, setOpenedPrintJobId] = useState<string | null>(null);
   const [message, setMessage] = useState("Loading inbound shipment data.");
   const [busy, setBusy] = useState(false);
+  const [workspaceLoadError, setWorkspaceLoadError] = useState(false);
   const [scannerValue, setScannerValue] = useState("");
   const [activeBarcode, setActiveBarcode] = useState<string | null>(null);
   const [receiptMode, setReceiptMode] = useState<"scan_each" | "counted_quantity">("scan_each");
@@ -262,8 +260,21 @@ export function PartnerInboundWorkspace() {
   const [putawayResult, setPutawayResult] = useState<{ quantity: number; destinationLocation: string } | null>(null);
   const [reprintReason, setReprintReason] = useState("");
   const scopeRequestToken = useRef(0);
+  const shipmentRequestToken = useRef(0);
+  const receiptDraftDirty = !receiptResult && (scannedProductBarcodes.length > 0 || Object.values(actualByBarcode).some(value => value > 0));
+  useUnsavedChanges(receiptDraftDirty || busy);
   const requestedViewFocus = useRef<WorkspaceView | null>(null);
   const [viewNavigationCount, setViewNavigationCount] = useState(0);
+  const historyCursor = useRef({ index: 0, url: "" });
+  const restoringHistory = useRef(false);
+  const historyContext = useRef({ shipmentId, shipments, busy, receiptDraftDirty, switchShipment, preview, restoreScopeContext });
+  historyContext.current = { shipmentId, shipments, busy, receiptDraftDirty, switchShipment, preview, restoreScopeContext };
+
+  function pushWorkspaceHistory(url: URL) {
+    const index = historyCursor.current.index + 1;
+    window.history.pushState(withHistoryEntryIndex(window.history.state, index), "", url);
+    historyCursor.current = { index, url: url.href };
+  }
 
   function setView(nextView: WorkspaceView) {
     requestedViewFocus.current = nextView;
@@ -271,7 +282,7 @@ export function PartnerInboundWorkspace() {
     url.searchParams.set("view", nextView);
     if (shipmentId) url.searchParams.set("shipmentId", shipmentId);
     url.hash = "";
-    if (url.href !== window.location.href) window.history.pushState(null, "", url);
+    if (url.href !== window.location.href) pushWorkspaceHistory(url);
     setViewState(nextView);
     setViewNavigationCount((current) => current + 1);
   }
@@ -281,6 +292,7 @@ export function PartnerInboundWorkspace() {
     if (new URLSearchParams(window.location.search).has("view") || window.location.hash) requestedViewFocus.current = initialView;
     setViewState(initialView);
     const restoreView = () => {
+      if (restoringHistory.current) return;
       requestedViewFocus.current = null;
       setViewState(viewFromLocation());
     };
@@ -306,15 +318,37 @@ export function PartnerInboundWorkspace() {
   }, [view, preview, shipmentId, viewNavigationCount]);
 
   useEffect(() => {
-    const restoreShipment = () => {
-      const requested = new URLSearchParams(window.location.search).get("shipmentId");
-      if (requested && requested !== shipmentId && shipments.some((item) => item.shipmentId === requested)) {
-        switchShipment(requested, false);
+    const index = historyEntryIndex(window.history.state) ?? 0;
+    historyCursor.current = { index, url: window.location.href };
+    window.history.replaceState(withHistoryEntryIndex(window.history.state, index), "", window.location.href);
+    const restoreShipment = (event: PopStateEvent) => {
+      const targetIndex = historyEntryIndex(event.state);
+      if (restoringHistory.current) {
+        restoringHistory.current = false;
+        return;
       }
+      const current = historyContext.current;
+      const requested = new URLSearchParams(window.location.search).get("shipmentId");
+      const shipmentChanged = requested && requested !== current.shipmentId && current.shipments.some((item) => item.shipmentId === requested);
+      const scopeChanged = warehouseScopeKey(historyCursor.current.url) !== warehouseScopeKey(window.location.href);
+      if (shipmentChanged || scopeChanged) {
+        if (current.busy || !confirmDiscardChanges(current.receiptDraftDirty)) {
+          // All shipment/view entries created by this workspace carry an index.
+          // Restore the position, preserving the user's Forward destinations.
+          if (targetIndex !== null && targetIndex !== historyCursor.current.index) {
+            restoringHistory.current = true;
+            window.history.go(historyCursor.current.index - targetIndex);
+          }
+          return;
+        }
+        if (shipmentChanged) current.switchShipment(requested, false, true);
+        else if (current.preview) void current.restoreScopeContext(current.preview);
+      }
+      historyCursor.current = { index: targetIndex ?? historyCursor.current.index, url: window.location.href };
     };
-    window.addEventListener("popstate", restoreShipment);
-    return () => window.removeEventListener("popstate", restoreShipment);
-  }, [shipments, shipmentId]);
+    window.addEventListener("popstate", restoreShipment, true);
+    return () => window.removeEventListener("popstate", restoreShipment, true);
+  }, []);
 
   useEffect(() => {
     setPrintBatch(null);
@@ -380,10 +414,12 @@ export function PartnerInboundWorkspace() {
       if (requestToken !== scopeRequestToken.current) return;
       if (!response.ok || !body.ok) {
         setScopeError(true);
+        setWorkspaceLoadError(true);
         setMessage(("message" in body && body.message) || "Inbound scope could not be loaded.");
         return;
       }
       setAvailableCartons(body.shipment.cartons);
+      setWorkspaceLoadError(false);
       setPreview(body);
       setActualByBarcode(Object.fromEntries(
         body.scope.lines.map((line) => [normalizeBarcode(line.productBarcode), 0]),
@@ -397,9 +433,11 @@ export function PartnerInboundWorkspace() {
       setPutawayResult(null);
       void loadPutawayAvailability(nextShipmentId, body.scope.cartonNumbers);
       setMessage(body.printGate.ok ? "Label print confirmed. Receipt unlocked for this scope." : "Select the label queue, then confirm the physical print result.");
+      return body.printGate.ok ? "unlocked" : "locked";
     } catch {
       if (requestToken === scopeRequestToken.current) {
         setScopeError(true);
+        setWorkspaceLoadError(true);
         setMessage("Inbound scope could not be loaded. Try selecting the scope again.");
       }
     } finally {
@@ -408,6 +446,8 @@ export function PartnerInboundWorkspace() {
   }
 
   async function loadPutawayAvailability(nextShipmentId: string, cartonNumbers: string[]) {
+    const requestToken = scopeRequestToken.current;
+    try {
     const params = new URLSearchParams({ shipmentId: nextShipmentId });
     cartonNumbers.forEach((cartonNumber) => params.append("cartonNumber", cartonNumber));
     const response = await fetch(`/api/warehouse/putaway?${params.toString()}`, {
@@ -415,17 +455,24 @@ export function PartnerInboundWorkspace() {
       headers: await buildApiHeaders("warehouse_staff"),
     });
     const body = (await response.json()) as PutawayScopeResponse;
+    if (requestToken !== scopeRequestToken.current) return;
     setPutawayReady(response.ok && body.ok && body.lines.some((line) => line.remainingQuantity > 0));
+    } catch {
+      if (requestToken === scopeRequestToken.current) setPutawayReady(false);
+    }
   }
 
   async function loadWorkspace() {
+    setWorkspaceLoadError(false);
+    try {
     const response = await fetch("/api/prearrival/shipments", {
       cache: "no-store",
       headers: await buildApiHeaders("warehouse_staff"),
     });
     const body = (await response.json()) as ShipmentListResponse;
-    if (!response.ok || !body.ok || !body.shipments.length) {
-      setMessage(("message" in body && body.message) || "No inbound shipments are available.");
+    if (!response.ok || !body.ok || !Array.isArray(body.shipments)) throw new Error("shipment_list_failed");
+    if (!body.shipments.length) {
+      setMessage("No inbound shipments are available.");
       return;
     }
     setShipments(body.shipments);
@@ -437,6 +484,12 @@ export function PartnerInboundWorkspace() {
       ?? body.shipments.find((shipment) => shipment.packingListStatus === "confirmed")
       ?? body.shipments[0];
     const firstShipmentId = firstShipment.shipmentId;
+    if (!requestedShipmentId) {
+      const initialUrl = new URL(window.location.href);
+      initialUrl.searchParams.set("shipmentId", firstShipmentId);
+      window.history.replaceState(window.history.state, "", initialUrl);
+      historyCursor.current.url = initialUrl.href;
+    }
     setShipmentId(firstShipmentId);
 
     if (firstShipment.packingListStatus !== "confirmed") {
@@ -454,26 +507,78 @@ export function PartnerInboundWorkspace() {
     });
     const allScope = (await allScopeResponse.json()) as ScopePreviewResponse;
     if (!allScopeResponse.ok || !allScope.ok) {
+      setWorkspaceLoadError(true);
       setMessage(("message" in allScope && allScope.message) || "Inbound scope could not be loaded.");
       return;
     }
-    const firstPallet = allScope.shipment.pallets[0]?.sourcePalletNumber;
-    const initialPallets = firstPallet ? [firstPallet] : [];
-    setAvailableCartons(allScope.shipment.cartons);
-    setSelectedPallets(initialPallets);
-    setSelectedCartons([]);
-    await loadScope(firstShipmentId, initialPallets, []);
+    await restoreScopeContext(allScope);
+    } catch {
+      setWorkspaceLoadError(true);
+      setMessage("Inbound shipments could not be loaded. Check the connection and try again.");
+    }
   }
 
   useEffect(() => {
     void loadWorkspace();
   }, []);
 
-  function switchShipment(nextShipmentId: string, updateUrl = true) {
+  function clearReceiptDraft() {
+    setActualByBarcode({});
+    setScannedProductBarcodes([]);
+    setCompletedCountedBarcodes([]);
+    setActiveBarcode(null);
+    setDiscrepancyReasonByBarcode({});
+    setDiscrepancyTypeByBarcode({});
+    setReceiptResult(null);
+  }
+
+  async function restoreScopeContext(allScope: ScopePreview) {
+    const selection = readWarehouseScope(new URLSearchParams(window.location.search), allScope.shipment);
+    clearReceiptDraft();
+    resetOperationState();
+    setAvailableCartons(allScope.shipment.cartons);
+    if (!selection.ok) {
+      scopeRequestToken.current++;
+      setPreview(allScope);
+      setSelectedPallets([]);
+      setSelectedCartons([]);
+      setScopeLoading(false);
+      setScopeError(true);
+      setScopeLookupInvalid(true);
+      setScopeLookupMessage("The requested scope is not valid for this shipment. Choose a scope below to continue.");
+      setMessage("Choose a valid scope before preparing labels or receiving stock.");
+      return;
+    }
+    setSelectedPallets(selection.palletNumbers);
+    setSelectedCartons(selection.cartonNumbers);
+    setScopeLookupInvalid(false);
+    setScopeLookupMessage("");
+    await loadScope(allScope.shipment.shipmentId, selection.palletNumbers, selection.cartonNumbers);
+  }
+
+  function navigateScope(palletNumbers: string[], cartonNumbers: string[]) {
+    clearReceiptDraft();
+    setScopeLookupInvalid(false);
+    const url = new URL(window.location.href);
+    writeWarehouseScope(url.searchParams, palletNumbers, cartonNumbers);
+    if (url.href !== window.location.href) pushWorkspaceHistory(url);
+  }
+
+  function switchShipment(nextShipmentId: string, updateUrl = true, restoreFromHistory = false) {
+    if (!restoreFromHistory && (busy || !confirmDiscardChanges(receiptDraftDirty))) return;
+    // Discard applies before the next asynchronous load starts.
+    clearReceiptDraft();
+    const requestToken = ++shipmentRequestToken.current;
+    scopeRequestToken.current++;
+    setScopeLoading(true);
+    setScopeError(false);
     if (updateUrl) {
       const url = new URL(window.location.href);
       url.searchParams.set("shipmentId", nextShipmentId);
-      window.history.replaceState(null, "", url);
+      url.searchParams.delete("palletNumber");
+      url.searchParams.delete("cartonNumber");
+      url.searchParams.delete("scope");
+      pushWorkspaceHistory(url);
     }
     setShipmentId(nextShipmentId);
     setPrintJob(null);
@@ -488,29 +593,36 @@ export function PartnerInboundWorkspace() {
       setSelectedPallets([]);
       setSelectedCartons([]);
       setAvailableCartons([]);
+      setScopeLoading(false);
       setMessage("Confirm the Shipment Packing List in Pre-arrival to unlock Warehouse.");
       return;
     }
     void (async () => {
+      try {
       const response = await fetch(makeScopeUrl(nextShipmentId, []), {
         cache: "no-store",
         headers: await buildApiHeaders("warehouse_staff"),
       });
       const body = (await response.json()) as ScopePreviewResponse;
+      if (requestToken !== shipmentRequestToken.current) return;
       if (!response.ok || !body.ok) {
+        setScopeError(true);
+        setScopeLoading(false);
         setMessage(("message" in body && body.message) || "Inbound scope could not be loaded.");
         return;
       }
-      const firstPallet = body.shipment.pallets[0]?.sourcePalletNumber;
-      const nextPallets = firstPallet ? [firstPallet] : [];
-      setAvailableCartons(body.shipment.cartons);
-      setSelectedPallets(nextPallets);
-      setSelectedCartons([]);
-      await loadScope(nextShipmentId, nextPallets, []);
+      await restoreScopeContext(body);
+      } catch {
+        if (requestToken !== shipmentRequestToken.current) return;
+        setScopeError(true);
+        setScopeLoading(false);
+        setMessage("Inbound scope could not be loaded. Select the shipment again to retry.");
+      }
     })();
   }
 
   function togglePallet(palletNumber: string, checked: boolean) {
+    if (!confirmDiscardChanges(receiptDraftDirty)) return;
     const nextPallets = checked
       ? [...new Set([...selectedPallets, palletNumber])]
       : selectedPallets.filter((value) => value !== palletNumber);
@@ -520,6 +632,7 @@ export function PartnerInboundWorkspace() {
     }
     setSelectedPallets(nextPallets);
     setSelectedCartons([]);
+    navigateScope(nextPallets, []);
     setScopeLookupMessage("");
     setPrintJob(null);
     setPrintState("select");
@@ -536,26 +649,31 @@ export function PartnerInboundWorkspace() {
   }
 
   function toggleSourceScope(sourceCartonNumber: string, checked: boolean) {
+    if (!confirmDiscardChanges(receiptDraftDirty)) return;
     const nextCartons = checked
       ? [...new Set([...selectedCartons, sourceCartonNumber])]
       : selectedCartons.filter((value) => value !== sourceCartonNumber);
     setSelectedCartons(nextCartons);
     setSelectedPallets([]);
+    navigateScope([], nextCartons);
     setScopeLookupMessage("");
     resetOperationState();
     void loadScope(shipmentId, [], nextCartons);
   }
 
   function selectFullShipment() {
+    if (!confirmDiscardChanges(receiptDraftDirty)) return;
     setScopeLookupInvalid(false);
     setSelectedPallets([]);
     setSelectedCartons([]);
     setScopeLookupMessage("Full shipment selected.");
+    navigateScope([], []);
     resetOperationState();
     void loadScope(shipmentId, [], []);
   }
 
   function resolveScopeLookup() {
+    if (!confirmDiscardChanges(receiptDraftDirty)) return;
     const result = resolveWarehouseScopeLookup(scopeLookup, availableCartons, preview?.shipment.productIdentifiers ?? []);
     setScopeLookupInvalid(result.status !== "matched");
     if (result.status !== "matched") {
@@ -567,6 +685,7 @@ export function PartnerInboundWorkspace() {
     const sourceScope = result.carton;
     setSelectedPallets([]);
     setSelectedCartons([sourceScope.sourceCartonNumber]);
+    navigateScope([], [sourceScope.sourceCartonNumber]);
     setScopeLookup("");
     resetOperationState();
     const isMember = result.isMember;
@@ -627,8 +746,10 @@ export function PartnerInboundWorkspace() {
       setPrintBatch(null);
       setOpenedPrintJobId(null);
       setPrintState(outcome === "printed" ? "confirmed" : "cancelled");
-      await loadScope(shipmentId, selectedPallets, selectedCartons);
-      setMessage(outcome === "printed" ? "Receipt unlocked for the selected scope." : "Print cancelled. Receipt remains locked.");
+      const refreshedGate = await loadScope(shipmentId, selectedPallets, selectedCartons);
+      setMessage(!refreshedGate ? "Print outcome saved, but scope status could not be refreshed. Reload the scope before receiving." : outcome === "printed" && refreshedGate === "unlocked" ? "Receipt unlocked for the selected scope." : outcome === "cancelled" ? "Print cancelled. Receipt remains locked." : "Print outcome saved. This scope still requires label confirmation.");
+    } catch {
+      setMessage("The print outcome could not be confirmed. Check receipt history before retrying; no automatic retry was made.");
     } finally {
       setBusy(false);
     }
@@ -779,6 +900,8 @@ export function PartnerInboundWorkspace() {
       setReceiptResult({ sessionId: body.session.id, stagingLocation: body.stagingLocation });
       void loadPutawayAvailability(preview.scope.shipmentId, preview.scope.cartonNumbers);
       setMessage("Receipt confirmed. Actual quantities are recorded in system staging.");
+    } catch {
+      setMessage("The receipt result could not be confirmed. Check receipt history before retrying; your entered quantities are retained.");
     } finally {
       setBusy(false);
     }
@@ -790,7 +913,7 @@ export function PartnerInboundWorkspace() {
   }
 
   if (!preview) {
-    return <section className="inbound-loading" role="status"><Package size={28} weight="duotone" />{message}</section>;
+    return <section className="inbound-loading" role="status"><Package size={28} weight="duotone" /><p>{message}</p>{workspaceLoadError ? <button className="secondary-button" type="button" onClick={() => void loadWorkspace()}>Retry loading shipments</button> : null}<a href="/partner">Return to dashboard</a></section>;
   }
 
   const sampleLine = preview.scope.lines[0];

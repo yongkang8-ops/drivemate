@@ -1,10 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { AdminSectionId } from "../lib/adminSections";
+import { PaginatedTable } from "./PaginatedTable";
 import { buildApiHeaders } from "../lib/clientAuth";
 import { useSensitiveFetch } from "./MfaStepUpProvider";
 import type { ProductLabelProfile } from "../lib/productLabelProfile";
 import { ProductLabelProfileFields } from "./ProductLabelProfileFields";
+import { useDraftChanges } from "../hooks/useDraftChanges";
+import { confirmDiscardChanges, useUnsavedChanges } from "../hooks/useUnsavedChanges";
 
 type AdminState = {
   metrics: {
@@ -177,15 +181,33 @@ const emptyState: AdminState = {
   userRoles: [],
 };
 
+const adminStateCollections: Array<keyof Omit<AdminState, "metrics">> = [
+  "catalogue", "reorderAlerts", "stockMovements", "orders", "accountDocuments",
+  "accountApplications", "tradeAccounts", "fitmentRules", "purchaseBatches",
+  "pricingRules", "rfqReviews", "lookupRequests", "userRoles",
+];
+function isAdminState(value: unknown): value is AdminState {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  const metrics = candidate.metrics as Record<string, unknown> | undefined;
+  const metricKeys: Array<keyof AdminState["metrics"]> = ["activeSkus", "onHandUnits", "availableUnits", "reorderAlerts", "openTasks"];
+  return Boolean(metrics)
+    && metricKeys.every((key) => typeof metrics?.[key] === "number")
+    && adminStateCollections.every((key) => Array.isArray(candidate[key]));
+}
+
 function formatMoney(value: number | undefined) {
   if (value === undefined) return "Not priced";
   return new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" }).format(value / 100);
 }
 
-export function AdminDashboard() {
+export function AdminDashboard({ section = "all" }: { section?: AdminSectionId | "all" }) {
   const sensitiveFetch = useSensitiveFetch();
+  const demo = process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_SHOW_INTERNAL_NAV === "true";
   const [state, setState] = useState<AdminState>(emptyState);
   const [message, setMessage] = useState("Loading operating state.");
+  const [loadPhase, setLoadPhase] = useState<"loading" | "ready" | "error">("loading");
+  const hasLoadedState = useRef(false);
   const [masterSku, setMasterSku] = useState("");
   const [masterBarcode, setMasterBarcode] = useState("");
   const [masterOemPartNumber, setMasterOemPartNumber] = useState("");
@@ -209,16 +231,42 @@ export function AdminDashboard() {
   const [fitmentEngine, setFitmentEngine] = useState("GW4D24");
   const [fitmentConfidence, setFitmentConfidence] = useState<"exact" | "likely" | "confirm_vin">("confirm_vin");
   const [bulkSkuCsv, setBulkSkuCsv] = useState(
-    "sku,brand,name,category,barcode,oemPartNumber,reorderPoint,reorderQuantity,status\nDM-GWM-NEW-099,GWM,Genuine Service Part,Service Filter,DMPGWMNEW099,GWM-OEM-NEW-099,8,24,draft",
+    demo ? "sku,brand,name,category,barcode,oemPartNumber,reorderPoint,reorderQuantity,status\nDM-GWM-NEW-099,GWM,Genuine Service Part,Service Filter,DMPGWMNEW099,GWM-OEM-NEW-099,8,24,draft" : "",
   );
   const [bulkFitmentCsv, setBulkFitmentCsv] = useState(
-    "sku,make,model,yearFrom,yearTo,engine,confidence\nDM-GWM-NEW-099,GWM,Cannon Alpha,2024,,GW4D24,confirm_vin",
+    demo ? "sku,make,model,yearFrom,yearTo,engine,confidence\nDM-GWM-NEW-099,GWM,Cannon Alpha,2024,,GW4D24,confirm_vin" : "",
   );
   const masterInitialized = useRef(false);
   const [masterLabelProfile, setMasterLabelProfile] = useState<ProductLabelProfile | null>(null);
   const masterEditorRef = useRef<HTMLDivElement>(null);
   const masterBarcodeRef = useRef<HTMLInputElement>(null);
   const [masterEditRequest, setMasterEditRequest] = useState(0);
+  const actionLocks = useRef(new Set<string>());
+  const [pendingActions, setPendingActions] = useState<string[]>([]);
+  const [formError, setFormError] = useState("");
+  const [masterDirty, markMasterSaved] = useDraftChanges({ masterSku, masterBarcode, masterOemPartNumber, masterReorderPoint, masterReorderQuantity, masterStatus, masterLabelProfile });
+  const [, markNewProductSaved] = useDraftChanges({ newSku, newBrand, newName, newCategory, newBarcode, newOemPartNumber, newReorderPoint, newReorderQuantity, newStatus });
+  const [fitmentDirty, markFitmentSaved] = useDraftChanges({ fitmentSku, fitmentMake, fitmentModel, fitmentYearFrom, fitmentYearTo, fitmentEngine, fitmentConfidence });
+  const [, markBulkSkuSaved] = useDraftChanges(bulkSkuCsv);
+  const [, markBulkFitmentSaved] = useDraftChanges(bulkFitmentCsv);
+  useUnsavedChanges(pendingActions.length > 0);
+  const newSkuRef = useRef<HTMLInputElement>(null); const newNameRef = useRef<HTMLInputElement>(null); const newCategoryRef = useRef<HTMLInputElement>(null); const newBarcodeRef = useRef<HTMLInputElement>(null); const fitmentSkuRef = useRef<HTMLSelectElement>(null); const fitmentMakeRef = useRef<HTMLInputElement>(null); const fitmentModelRef = useRef<HTMLInputElement>(null); const fitmentYearFromRef = useRef<HTMLInputElement>(null);
+
+  function isPending(key: string) { return pendingActions.includes(key); }
+  const invalidFocus = useRef<HTMLInputElement | HTMLSelectElement | null>(null);
+  useEffect(() => {
+    if (pendingActions.length === 0 && invalidFocus.current) { invalidFocus.current.focus(); invalidFocus.current = null; }
+  }, [pendingActions, formError]);
+  async function runAction(key: string, action: () => Promise<unknown>, failureMessage = "Result could not be confirmed. Check saved records before retrying.") {
+    if (actionLocks.current.has(key)) return;
+    actionLocks.current.add(key);
+    setPendingActions((current) => [...current, key]);
+    try { await action(); } catch { setMessage(failureMessage); }
+    finally {
+      actionLocks.current.delete(key);
+      setPendingActions((current) => current.filter((item) => item !== key));
+    }
+  }
 
   useEffect(() => {
     if (!masterEditRequest) return;
@@ -226,7 +274,8 @@ export function AdminDashboard() {
     masterEditorRef.current?.scrollIntoView({ block: "start", behavior: "instant" });
   }, [masterEditRequest]);
 
-  function loadProductMaster(row: AdminState["catalogue"][number]) {
+  function loadProductMaster(row: AdminState["catalogue"][number], confirm = true) {
+    if (confirm && !confirmDiscardChanges(masterDirty)) return;
     setMasterLabelProfile(row.labelProfile ?? null);
     setMasterSku(row.sku);
     setMasterBarcode(row.barcode ?? "");
@@ -234,23 +283,38 @@ export function AdminDashboard() {
     setMasterReorderPoint(String(row.reorderPoint));
     setMasterReorderQuantity(String(row.reorderQuantity));
     setMasterStatus(row.status);
+    markMasterSaved();
   }
 
-  async function refresh() {
-    const response = await fetch("/api/admin-state", { headers: await buildApiHeaders("admin") });
+  function setMutationResult(successMessage: string, refreshed: boolean) {
+    setMessage(refreshed ? successMessage : `${successMessage.replace(/\.$/, "")}, but the list could not be refreshed. Existing records may be stale.`);
+  }
+  async function refresh(): Promise<boolean> {
+    const fail = (failureMessage: string) => {
+      setMessage(failureMessage);
+      if (!hasLoadedState.current) setLoadPhase("error");
+      return false;
+    };
+    let response: Response;
+    try { response = await fetch("/api/admin-state", { headers: await buildApiHeaders("admin") }); }
+    catch { return fail("Admin state could not be loaded. Existing records are still shown."); }
     if (!response.ok) {
-      setMessage("Admin state could not be loaded.");
-      return;
+      return fail("Admin state could not be loaded.");
     }
 
-    const nextState = (await response.json()) as AdminState;
+    const nextState = await response.json().catch(() => null) as unknown;
+    if (!isAdminState(nextState)) { return fail("Admin state returned an unreadable response. Existing records are still shown."); }
     setState(nextState);
+    hasLoadedState.current = true;
+    setLoadPhase("ready");
     if (!masterInitialized.current && nextState.catalogue[0]) {
       loadProductMaster(nextState.catalogue[0]);
       setFitmentSku(nextState.catalogue[0].sku);
+      markFitmentSaved();
       masterInitialized.current = true;
     }
     setMessage("Operating state refreshed.");
+    return true;
   }
 
   async function approveApplication(applicationId: string) {
@@ -268,8 +332,7 @@ export function AdminDashboard() {
       return;
     }
 
-    await refresh();
-    setMessage(`Trade account ${body.application.accountName} approved.`);
+    setMutationResult(`Trade account ${body.application.accountName} approved.`, await refresh());
   }
 
   async function provisionLogin(applicationId: string) {
@@ -291,8 +354,7 @@ export function AdminDashboard() {
       return;
     }
 
-    await refresh();
-    setMessage(`Login provisioned for ${body.login.email}. Password setup email sent.`);
+    setMutationResult(`Login provisioned for ${body.login.email}.${body.login.setupEmailSent ? " Password setup email sent." : " Password setup email was not sent."}`, await refresh());
   }
 
   async function updateTradeAccountStatus(
@@ -314,8 +376,7 @@ export function AdminDashboard() {
       return;
     }
 
-    await refresh();
-    setMessage(`Trade account ${body.application.accountName} set to ${body.application.status}.`);
+    setMutationResult(`Trade account ${body.application.accountName} set to ${body.application.status}.`, await refresh());
   }
 
   async function cancelOrder(orderId: string) {
@@ -333,8 +394,7 @@ export function AdminDashboard() {
       return;
     }
 
-    await refresh();
-    setMessage(`Order ${body.order.id} cancelled and reserved stock released.`);
+    setMutationResult(`Order ${body.order.id} cancelled and reserved stock released.`, await refresh());
   }
 
   async function saveProductMaster() {
@@ -365,11 +425,15 @@ export function AdminDashboard() {
       ...current,
       catalogue: current.catalogue.map((row) => (row.sku === body.product.sku ? body.product : row)),
     }));
-    await refresh();
-    setMessage(`${body.product.sku} master data saved.`);
+    markMasterSaved();
+    setMutationResult(`${body.product.sku} master data saved.`, await refresh());
   }
 
   async function createProductMaster() {
+    const required: Array<[string, string, React.RefObject<HTMLInputElement | null>]> = [[newSku, "New SKU is required.", newSkuRef], [newName, "New part name is required.", newNameRef], [newCategory, "New category is required.", newCategoryRef], [newBarcode, "New barcode is required.", newBarcodeRef]];
+    const invalid = required.find(([value]) => !value.trim());
+    if (invalid) { setFormError(invalid[1]); setMessage(invalid[1]); invalidFocus.current = invalid[2].current; return; }
+    setFormError("");
     const response = await sensitiveFetch("/api/products", {
       method: "POST",
       headers: await buildApiHeaders("admin", { "Content-Type": "application/json" }),
@@ -407,9 +471,9 @@ export function AdminDashboard() {
         },
       };
     });
-    loadProductMaster(body.product);
-    await refresh();
-    setFitmentSku(body.product.sku);
+    if (!masterDirty) loadProductMaster(body.product, false);
+    const refreshed = await refresh();
+    if (!fitmentDirty) { setFitmentSku(body.product.sku); markFitmentSaved(); }
     setNewSku("");
     setNewBarcode("");
     setNewOemPartNumber("");
@@ -417,10 +481,15 @@ export function AdminDashboard() {
     setNewReorderQuantity("0");
     setNewName("");
     setNewStatus("draft");
-    setMessage(`${body.product.sku} master data created.`);
+    markNewProductSaved();
+    setMutationResult(`${body.product.sku} master data created.`, refreshed);
   }
 
   async function createFitmentRule() {
+    const required: Array<[string, string, React.RefObject<HTMLInputElement | HTMLSelectElement | null>]> = [[fitmentSku, "Fitment SKU is required.", fitmentSkuRef], [fitmentMake, "Make is required.", fitmentMakeRef], [fitmentModel, "Model is required.", fitmentModelRef], [fitmentYearFrom, "Year from is required.", fitmentYearFromRef]];
+    const invalid = required.find(([value]) => !value.trim());
+    if (invalid) { setFormError(invalid[1]); setMessage(invalid[1]); invalidFocus.current = invalid[2].current; return; }
+    setFormError("");
     const response = await sensitiveFetch("/api/fitment-rules", {
       method: "POST",
       headers: await buildApiHeaders("admin", { "Content-Type": "application/json" }),
@@ -450,6 +519,7 @@ export function AdminDashboard() {
       fitmentRules: [body.rule, ...current.fitmentRules],
     }));
     setMessage(`${body.rule.sku} fitment rule created.`);
+    markFitmentSaved();
   }
 
   function parseBulkSkuRows(input: string): BulkImportRow[] {
@@ -550,11 +620,12 @@ export function AdminDashboard() {
       return;
     }
 
-    await refresh();
+    const refreshed = await refresh();
     const failureNote = body.failures.length
       ? ` ${body.failures.length} failed; first issue: ${body.failures[0].sku} ${body.failures[0].message}.`
       : "";
-    setMessage(`SKU import complete: ${body.summary.created} created, ${body.summary.updated} updated.${failureNote}`);
+    if (!body.summary.failed) markBulkSkuSaved();
+    setMutationResult(`SKU import complete: ${body.summary.created} created, ${body.summary.updated} updated.${failureNote}`, refreshed);
   }
 
   function parseBulkFitmentRows(input: string): BulkFitmentRow[] {
@@ -639,11 +710,12 @@ export function AdminDashboard() {
       return;
     }
 
-    await refresh();
+    const refreshed = await refresh();
     const failureNote = body.failures.length
       ? ` ${body.failures.length} failed; first issue: ${body.failures[0].sku} ${body.failures[0].message}.`
       : "";
-    setMessage(`Fitment import complete: ${body.summary.created} created.${failureNote}`);
+    if (!body.summary.failed) markBulkFitmentSaved();
+    setMutationResult(`Fitment import complete: ${body.summary.created} created.${failureNote}`, refreshed);
   }
 
   async function downloadExport(
@@ -686,8 +758,9 @@ export function AdminDashboard() {
   const managedTradeAccounts = state.tradeAccounts.filter((account) => account.status !== "pending");
 
   return (
-    <>
-      <section className="metric-grid" id="overview" style={{ marginTop: 18 }}>
+    <fieldset className="workspace-form-lock" disabled={pendingActions.length > 0}>
+      {loadPhase === "ready" ? <>
+      <section className="metric-grid" id="overview" hidden={section !== "all" && section !== "overview"} style={{ marginTop: 18 }}>
         <article className="metric">
           <span>Active SKUs</span>
           <strong>{state.metrics.activeSkus}</strong>
@@ -711,7 +784,7 @@ export function AdminDashboard() {
       </section>
 
       <p>
-        <button className="primary-button" onClick={refresh} type="button">
+        <button className="primary-button" disabled={isPending("refresh")} onClick={() => void runAction("refresh", refresh, "Admin state could not be loaded. Existing records are still shown.")} type="button">
           Refresh admin state
         </button>{" "}
         <span className="badge" role="status">
@@ -719,8 +792,8 @@ export function AdminDashboard() {
         </span>
       </p>
 
-      <section className="table-shell" style={{ marginTop: 18 }}>
-        <table>
+      <section className="table-shell" hidden={section !== "all" && section !== "overview"} style={{ marginTop: 18 }}>
+        <PaginatedTable id="reorder" label="Reorder alerts" total={state.reorderAlerts.length}>
           <thead>
             <tr>
               <th>SKU</th>
@@ -749,46 +822,46 @@ export function AdminDashboard() {
               </tr>
             )}
           </tbody>
-        </table>
+        </PaginatedTable>
       </section>
 
-      <section className="panel" id="reports" style={{ marginTop: 18 }}>
+      <section className="panel" id="reports" hidden={section !== "all" && section !== "reports"} style={{ marginTop: 18 }}>
         <h2>Operating exports</h2>
         <p>Download CSV snapshots for stock review, order follow-up, warehouse audit and account onboarding.</p>
         <p>
-          <button className="secondary-button" onClick={() => void downloadExport("catalogue")} type="button">
+          <button className="secondary-button" disabled={isPending("export-catalogue")} onClick={() => void runAction("export-catalogue", () => downloadExport("catalogue"), "Export could not be downloaded.")} type="button">
             Export inventory
           </button>{" "}
-          <button className="secondary-button" onClick={() => void downloadExport("reorder_alerts")} type="button">
+          <button className="secondary-button" disabled={isPending("export-reorder_alerts")} onClick={() => void runAction("export-reorder_alerts", () => downloadExport("reorder_alerts"), "Export could not be downloaded.")} type="button">
             Export reorder alerts
           </button>{" "}
-          <button className="secondary-button" onClick={() => void downloadExport("orders")} type="button">
+          <button className="secondary-button" disabled={isPending("export-orders")} onClick={() => void runAction("export-orders", () => downloadExport("orders"), "Export could not be downloaded.")} type="button">
             Export orders
           </button>{" "}
-          <button className="secondary-button" onClick={() => void downloadExport("stock_movements")} type="button">
+          <button className="secondary-button" disabled={isPending("export-stock_movements")} onClick={() => void runAction("export-stock_movements", () => downloadExport("stock_movements"), "Export could not be downloaded.")} type="button">
             Export movements
           </button>{" "}
-          <button className="secondary-button" onClick={() => void downloadExport("account_documents")} type="button">
+          <button className="secondary-button" disabled={isPending("export-account_documents")} onClick={() => void runAction("export-account_documents", () => downloadExport("account_documents"), "Export could not be downloaded.")} type="button">
             Export documents
           </button>{" "}
-          <button className="secondary-button" onClick={() => void downloadExport("lookup_requests")} type="button">
+          <button className="secondary-button" disabled={isPending("export-lookup_requests")} onClick={() => void runAction("export-lookup_requests", () => downloadExport("lookup_requests"), "Export could not be downloaded.")} type="button">
             Export lookups
           </button>{" "}
-          <button className="secondary-button" onClick={() => void downloadExport("purchase_batches")} type="button">
+          <button className="secondary-button" disabled={isPending("export-purchase_batches")} onClick={() => void runAction("export-purchase_batches", () => downloadExport("purchase_batches"), "Export could not be downloaded.")} type="button">
             Export batches
           </button>{" "}
-          <button className="secondary-button" onClick={() => void downloadExport("account_applications")} type="button">
+          <button className="secondary-button" disabled={isPending("export-account_applications")} onClick={() => void runAction("export-account_applications", () => downloadExport("account_applications"), "Export could not be downloaded.")} type="button">
             Export applications
           </button>{" "}
-          <button className="secondary-button" onClick={() => void downloadExport("trade_accounts")} type="button">
+          <button className="secondary-button" disabled={isPending("export-trade_accounts")} onClick={() => void runAction("export-trade_accounts", () => downloadExport("trade_accounts"), "Export could not be downloaded.")} type="button">
             Export trade accounts
           </button>
         </p>
       </section>
 
-      <section className="two-column" id="products" style={{ marginTop: 18 }}>
+      <section className="two-column" id="products" hidden={section !== "all" && section !== "products"} style={{ marginTop: 18 }}>
         <div className="table-shell" style={{ gridColumn: "1 / -1" }}>
-          <table>
+          <PaginatedTable id="products" label="Products" total={state.catalogue.length}>
             <thead>
               <tr>
                 <th>SKU</th>
@@ -831,7 +904,7 @@ export function AdminDashboard() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </PaginatedTable>
         </div>
         <div className="panel" id="sku-master-editor" ref={masterEditorRef} style={{ gridColumn: "1 / -1" }}>
           <h2>SKU master data</h2>
@@ -893,7 +966,7 @@ export function AdminDashboard() {
           </div>
           <ProductLabelProfileFields value={masterLabelProfile} onChange={setMasterLabelProfile} sku={masterSku} barcode={masterBarcode} />
           <p>
-            <button className="primary-button" onClick={() => void saveProductMaster()} type="button">
+            <button className="primary-button" disabled={isPending("save-master")} onClick={() => void runAction("save-master", saveProductMaster)} type="button">
               Save SKU master
             </button>
           </p>
@@ -912,7 +985,7 @@ export function AdminDashboard() {
             />
           </label>
           <p>
-            <button className="primary-button" onClick={() => void importProductMasters()} type="button">
+            <button className="primary-button" disabled={isPending("import-masters")} onClick={() => void runAction("import-masters", importProductMasters)} type="button">
               Import SKU masters
             </button>
           </p>
@@ -924,7 +997,7 @@ export function AdminDashboard() {
           <div className="form-grid">
             <label>
               New SKU
-              <input value={newSku} onChange={(event) => setNewSku(event.target.value)} placeholder="DM-GWM-NEW-099" />
+              <input ref={newSkuRef} aria-describedby={formError === "New SKU is required." ? "admin-form-error" : undefined} aria-invalid={formError === "New SKU is required." || undefined} value={newSku} onChange={(event) => setNewSku(event.target.value)} placeholder="DM-GWM-NEW-099" />
             </label>
             <label>
               New brand
@@ -936,15 +1009,15 @@ export function AdminDashboard() {
             </label>
             <label>
               New part name
-              <input value={newName} onChange={(event) => setNewName(event.target.value)} placeholder="Genuine Service Part" />
+              <input ref={newNameRef} aria-describedby={formError === "New part name is required." ? "admin-form-error" : undefined} aria-invalid={formError === "New part name is required." || undefined} value={newName} onChange={(event) => setNewName(event.target.value)} placeholder="Genuine Service Part" />
             </label>
             <label>
               New category
-              <input value={newCategory} onChange={(event) => setNewCategory(event.target.value)} />
+              <input ref={newCategoryRef} aria-describedby={formError === "New category is required." ? "admin-form-error" : undefined} aria-invalid={formError === "New category is required." || undefined} value={newCategory} onChange={(event) => setNewCategory(event.target.value)} />
             </label>
             <label>
               New barcode
-              <input value={newBarcode} onChange={(event) => setNewBarcode(event.target.value)} placeholder="DMPGWMNEW099" />
+              <input ref={newBarcodeRef} aria-describedby={formError === "New barcode is required." ? "admin-form-error" : undefined} aria-invalid={formError === "New barcode is required." || undefined} value={newBarcode} onChange={(event) => setNewBarcode(event.target.value)} placeholder="DMPGWMNEW099" />
             </label>
             <label>
               New OEM part number
@@ -967,22 +1040,23 @@ export function AdminDashboard() {
               </select>
             </label>
           </div>
+          {["New SKU is required.", "New part name is required.", "New category is required.", "New barcode is required."].includes(formError) ? <p id="admin-form-error" role="alert">{formError}</p> : null}
           <p>
-            <button className="primary-button" onClick={() => void createProductMaster()} type="button">
+            <button className="primary-button" disabled={isPending("create-master")} onClick={() => void runAction("create-master", createProductMaster)} type="button">
               Create SKU master
             </button>
           </p>
         </div>
       </section>
 
-      <section className="two-column" style={{ marginTop: 18 }}>
+      <section className="two-column" hidden={section !== "all" && section !== "products"} style={{ marginTop: 18 }}>
         <div className="panel" style={{ gridColumn: "1 / -1" }}>
           <h2>Create fitment rule</h2>
           <p>Map stocked SKUs to AU vehicle profiles so trade portal lookup can return the part.</p>
           <div className="form-grid">
             <label>
               Fitment SKU
-              <select value={fitmentSku} onChange={(event) => setFitmentSku(event.target.value)}>
+              <select ref={fitmentSkuRef} aria-describedby={formError === "Fitment SKU is required." ? "fitment-form-error" : undefined} aria-invalid={formError === "Fitment SKU is required." || undefined} value={fitmentSku} onChange={(event) => setFitmentSku(event.target.value)}>
                 {state.catalogue.map((row) => (
                   <option key={row.sku} value={row.sku}>
                     {row.sku}
@@ -992,15 +1066,18 @@ export function AdminDashboard() {
             </label>
             <label>
               Make
-              <input value={fitmentMake} onChange={(event) => setFitmentMake(event.target.value)} />
+              <input ref={fitmentMakeRef} aria-describedby={formError === "Make is required." ? "fitment-form-error" : undefined} aria-invalid={formError === "Make is required." || undefined} value={fitmentMake} onChange={(event) => setFitmentMake(event.target.value)} />
             </label>
             <label>
               Model
-              <input value={fitmentModel} onChange={(event) => setFitmentModel(event.target.value)} />
+              <input ref={fitmentModelRef} aria-describedby={formError === "Model is required." ? "fitment-form-error" : undefined} aria-invalid={formError === "Model is required." || undefined} value={fitmentModel} onChange={(event) => setFitmentModel(event.target.value)} />
             </label>
             <label>
               Year from
               <input
+                ref={fitmentYearFromRef}
+                aria-describedby={formError === "Year from is required." ? "fitment-form-error" : undefined}
+                aria-invalid={formError === "Year from is required." || undefined}
                 value={fitmentYearFrom}
                 type="number"
                 min="1900"
@@ -1034,8 +1111,9 @@ export function AdminDashboard() {
               </select>
             </label>
           </div>
+          {["Fitment SKU is required.", "Make is required.", "Model is required.", "Year from is required."].includes(formError) ? <p id="fitment-form-error" role="alert">{formError}</p> : null}
           <p>
-            <button className="primary-button" onClick={() => void createFitmentRule()} type="button">
+            <button className="primary-button" disabled={isPending("create-fitment")} onClick={() => void runAction("create-fitment", createFitmentRule)} type="button">
               Create fitment rule
             </button>
           </p>
@@ -1054,14 +1132,14 @@ export function AdminDashboard() {
             />
           </label>
           <p>
-            <button className="primary-button" onClick={() => void importFitmentRules()} type="button">
+            <button className="primary-button" disabled={isPending("import-fitments")} onClick={() => void runAction("import-fitments", importFitmentRules)} type="button">
               Import fitment rules
             </button>
           </p>
         </div>
 
         <div className="table-shell">
-          <table>
+          <PaginatedTable id="fitment" label="Fitment rules" total={state.fitmentRules.length}>
             <thead>
               <tr>
                 <th>SKU</th>
@@ -1086,11 +1164,13 @@ export function AdminDashboard() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </PaginatedTable>
         </div>
 
-        <div className="table-shell">
-          <table>
+      </section>
+      <section className="two-column" id="purchase-batches" hidden={section !== "all" && section !== "purchasing"} style={{ marginTop: 18 }}>
+        <div className="table-shell" style={{ gridColumn: "1 / -1" }}>
+          <PaginatedTable id="batches" label="Purchase batches" total={state.purchaseBatches.length}>
             <thead>
               <tr>
                 <th>Batch</th>
@@ -1119,13 +1199,13 @@ export function AdminDashboard() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </PaginatedTable>
         </div>
       </section>
 
-      <section className="two-column" id="pricing" style={{ marginTop: 18 }}>
+      <section className="two-column" id="pricing" hidden={section !== "all" && section !== "pricing"} style={{ marginTop: 18 }}>
         <div className="table-shell">
-          <table>
+          <PaginatedTable id="pricing" label="Pricing rules" total={state.pricingRules.length}>
             <thead>
               <tr>
                 <th>Rule</th>
@@ -1154,11 +1234,11 @@ export function AdminDashboard() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </PaginatedTable>
         </div>
 
         <div className="table-shell">
-          <table>
+          <PaginatedTable id="rfq" label="RFQ reviews" total={state.rfqReviews.length}>
             <thead>
               <tr>
                 <th>RFQ</th>
@@ -1187,12 +1267,12 @@ export function AdminDashboard() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </PaginatedTable>
         </div>
       </section>
 
-      <section className="table-shell" style={{ marginTop: 18 }}>
-        <table>
+      <section className="table-shell" hidden={section !== "all" && section !== "products"} style={{ marginTop: 18 }}>
+        <PaginatedTable id="lookups" label="Lookup requests" total={state.lookupRequests.length}>
           <thead>
             <tr>
               <th>Lookup</th>
@@ -1225,11 +1305,11 @@ export function AdminDashboard() {
               </tr>
             )}
           </tbody>
-        </table>
+        </PaginatedTable>
       </section>
 
-      <section className="table-shell" id="accounts" style={{ marginTop: 18 }}>
-        <table>
+      <section className="table-shell" id="accounts" hidden={section !== "all" && section !== "accounts"} style={{ marginTop: 18 }}>
+        <PaginatedTable id="accounts" label="Trade accounts" total={managedTradeAccounts.length}>
           <thead>
             <tr>
               <th>Trade account</th>
@@ -1257,7 +1337,8 @@ export function AdminDashboard() {
                     {account.status === "approved" ? (
                       <button
                         className="secondary-button"
-                        onClick={() => void updateTradeAccountStatus(account.id, "paused")}
+                        disabled={isPending(`account-${account.id}`)}
+                        onClick={() => void runAction(`account-${account.id}`, () => updateTradeAccountStatus(account.id, "paused"))}
                         type="button"
                       >
                         Pause
@@ -1265,7 +1346,8 @@ export function AdminDashboard() {
                     ) : account.status === "paused" ? (
                       <button
                         className="primary-button"
-                        onClick={() => void updateTradeAccountStatus(account.id, "approved")}
+                        disabled={isPending(`account-${account.id}`)}
+                        onClick={() => void runAction(`account-${account.id}`, () => updateTradeAccountStatus(account.id, "approved"))}
                         type="button"
                       >
                         Reactivate
@@ -1282,11 +1364,11 @@ export function AdminDashboard() {
               </tr>
             )}
           </tbody>
-        </table>
+        </PaginatedTable>
       </section>
 
-      <section className="table-shell" style={{ marginTop: 18 }}>
-        <table>
+      <section className="table-shell" hidden={section !== "all" && section !== "accounts"} style={{ marginTop: 18 }}>
+        <PaginatedTable id="roles" label="User roles" total={state.userRoles.length}>
           <thead>
             <tr>
               <th>User</th>
@@ -1311,11 +1393,11 @@ export function AdminDashboard() {
               </tr>
             )}
           </tbody>
-        </table>
+        </PaginatedTable>
       </section>
 
-      <section className="table-shell" style={{ marginTop: 18 }}>
-        <table>
+      <section className="table-shell" hidden={section !== "all" && section !== "accounts"} style={{ marginTop: 18 }}>
+        <PaginatedTable id="applications" label="Account applications" total={state.accountApplications.length}>
           <thead>
             <tr>
               <th>Application</th>
@@ -1342,14 +1424,16 @@ export function AdminDashboard() {
                   <td>
                     <button
                       className="primary-button"
-                      onClick={() => void approveApplication(application.id)}
+                      disabled={isPending(`application-${application.id}`)}
+                      onClick={() => void runAction(`application-${application.id}`, () => approveApplication(application.id))}
                       type="button"
                     >
                       Approve
                     </button>{" "}
                     <button
                       className="secondary-button"
-                      onClick={() => void provisionLogin(application.id)}
+                      disabled={isPending(`application-${application.id}`)}
+                      onClick={() => void runAction(`application-${application.id}`, () => provisionLogin(application.id))}
                       type="button"
                     >
                       Provision login
@@ -1363,12 +1447,12 @@ export function AdminDashboard() {
               </tr>
             )}
           </tbody>
-        </table>
+        </PaginatedTable>
       </section>
 
-      <section className="two-column" id="orders" style={{ marginTop: 18 }}>
+      <section className="two-column" id="orders" hidden={section !== "all" && section !== "orders"} style={{ marginTop: 18 }}>
         <div className="table-shell">
-          <table>
+          <PaginatedTable id="orders" label="Orders" total={state.orders.length}>
             <thead>
               <tr>
                 <th>Order</th>
@@ -1393,8 +1477,8 @@ export function AdminDashboard() {
                     <td>
                       <button
                         className="secondary-button"
-                        disabled={["dispatched", "cancelled"].includes(order.status)}
-                        onClick={() => void cancelOrder(order.id)}
+                        disabled={["dispatched", "cancelled"].includes(order.status) || isPending(`order-${order.id}`)}
+                        onClick={() => void runAction(`order-${order.id}`, () => cancelOrder(order.id))}
                         type="button"
                       >
                         Cancel
@@ -1408,11 +1492,11 @@ export function AdminDashboard() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </PaginatedTable>
         </div>
 
         <div className="table-shell">
-          <table>
+          <PaginatedTable id="movements" label="Stock movements" total={state.stockMovements.length}>
             <thead>
               <tr>
                 <th>SKU</th>
@@ -1441,11 +1525,11 @@ export function AdminDashboard() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </PaginatedTable>
         </div>
 
         <div className="table-shell" style={{ gridColumn: "1 / -1" }}>
-          <table>
+          <PaginatedTable id="documents" label="Account documents" total={state.accountDocuments.length}>
             <thead>
               <tr>
                 <th>Document</th>
@@ -1474,9 +1558,15 @@ export function AdminDashboard() {
                 </tr>
               )}
             </tbody>
-          </table>
+          </PaginatedTable>
         </div>
       </section>
-    </>
+      </> : (
+        <section aria-live="polite" role={loadPhase === "error" ? "alert" : "status"}>
+          <p>{message}</p>
+          {loadPhase === "error" ? <button className="primary-button" onClick={() => void runAction("refresh", refresh, "Admin state could not be loaded.")} type="button">Retry admin state</button> : null}
+        </section>
+      )}
+    </fieldset>
   );
 }

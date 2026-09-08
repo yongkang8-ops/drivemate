@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { buildApiHeaders } from "../lib/clientAuth";
+import { PaginatedTable } from "./PaginatedTable";
+import { useUnsavedChanges } from "../hooks/useUnsavedChanges";
+import { useDraftChanges } from "../hooks/useDraftChanges";
 
 type VehicleProfile = {
   make: string;
@@ -74,9 +77,10 @@ export function TradePortalWorkspace({
 }: {
   tradingEnabled: boolean;
 }) {
-  const [rego, setRego] = useState("QLD 24ALPHA");
-  const [vin, setVin] = useState("LGWFFEA6XRA000245");
-  const [query, setQuery] = useState("GWM Cannon Alpha filters");
+  const demo = process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_SHOW_INTERNAL_NAV === "true";
+  const [rego, setRego] = useState(demo ? "QLD 24ALPHA" : "");
+  const [vin, setVin] = useState(demo ? "LGWFFEA6XRA000245" : "");
+  const [query, setQuery] = useState(demo ? "GWM Cannon Alpha filters" : "");
   const [vehicle, setVehicle] = useState<VehicleProfile | null>(null);
   const [matches, setMatches] = useState<MatchedPart[]>([]);
   const [orderLines, setOrderLines] = useState<OrderLine[]>([]);
@@ -84,7 +88,7 @@ export function TradePortalWorkspace({
   const [accountDocuments, setAccountDocuments] = useState<AccountDocument[]>(
     [],
   );
-  const [poNumber, setPoNumber] = useState("JOB-1842");
+  const [poNumber, setPoNumber] = useState(demo ? "JOB-1842" : "");
   const [message, setMessage] = useState(
     tradingEnabled
       ? "Ready to search by rego, VIN or part number."
@@ -96,22 +100,48 @@ export function TradePortalWorkspace({
   >("quality");
   const [rmaLines, setRmaLines] = useState("");
 
+  const requestPending = useRef(false);
+  const [pending, setPending] = useState(false);
+  const [stateError, setStateError] = useState(false);
+  const [documentLink, setDocumentLink] = useState<{ href: string; reference: string } | null>(null);
+  useUnsavedChanges(orderLines.length > 0 || Boolean(rmaLines.trim()) || pending);
+  const [, markOrderContextSaved] = useDraftChanges({ rego, vin, query, poNumber });
+  const [, markReturnDraftSaved] = useDraftChanges({ rmaOrderId, rmaReason, rmaLines });
+  const requestKeys = useRef(new Map<string, string>());
+  function requestKey(name: string, payload: unknown) {
+    const key = name + JSON.stringify(payload);
+    const existing = requestKeys.current.get(key);
+    if (existing) return existing;
+    const value = crypto.randomUUID(); requestKeys.current.set(key, value); return value;
+  }
+  async function run(action: () => Promise<void>) {
+    if (requestPending.current) return;
+    requestPending.current = true; setPending(true);
+    try { await action(); }
+    catch { setMessage("The result could not be confirmed. Check account records before retrying. Your entries are retained."); }
+    finally { requestPending.current = false; setPending(false); }
+  }
+  function invalidateLookup() { setVehicle(null); setMatches([]); }
   async function loadTradeState() {
+    try {
     const response = await fetch("/api/trade-state", {
       headers: await buildApiHeaders("trade"),
     });
 
     if (!response.ok) {
-      setMessage("Trade account records could not be loaded.");
-      return;
+      throw new Error("trade_state_failed");
     }
 
     const body = (await response.json()) as {
       orders: TradeOrder[];
       accountDocuments: AccountDocument[];
     };
+    if (!Array.isArray(body.orders) || !Array.isArray(body.accountDocuments)) throw new Error("trade_state_invalid");
+    setStateError(false);
     setOrders(body.orders);
     setAccountDocuments(body.accountDocuments);
+    return true;
+    } catch { setStateError(true); return false; }
   }
 
   useEffect(() => {
@@ -136,6 +166,7 @@ export function TradePortalWorkspace({
       vehicle: VehicleProfile;
       matches: MatchedPart[];
     };
+    if (!body.vehicle || !Array.isArray(body.matches)) throw new Error("lookup_response_invalid");
     setVehicle(body.vehicle);
     setMatches(body.matches);
     setMessage(
@@ -195,7 +226,7 @@ export function TradePortalWorkspace({
       method: "POST",
       headers: await buildApiHeaders("trade", {
         "Content-Type": "application/json",
-        "Idempotency-Key": crypto.randomUUID(),
+        "Idempotency-Key": requestKey("order", { poNumber, vin, rego, orderLines }),
       }),
       body: JSON.stringify({
         poNumber,
@@ -219,16 +250,19 @@ export function TradePortalWorkspace({
       return;
     }
 
+    if (!body.order?.id) throw new Error("order_response_invalid");
+    requestKeys.current.delete("order" + JSON.stringify({ poNumber, vin, rego, orderLines }));
     setOrderLines([]);
-    await loadTradeState();
-    setMessage(`Order ${body.order.id} submitted.`);
+    markOrderContextSaved();
+    const refreshed = await loadTradeState();
+    setMessage(`Order ${body.order.id} submitted.${refreshed ? "" : " Account records could not be refreshed; check them before another action."}`);
   }
 
   async function cancelOrder(orderId: string) {
     const response = await fetch(`/api/orders/${orderId}/cancel`, {
       method: "POST",
       headers: await buildApiHeaders("trade", {
-        "Idempotency-Key": crypto.randomUUID(),
+        "Idempotency-Key": requestKey("cancel", orderId),
       }),
     });
 
@@ -243,8 +277,9 @@ export function TradePortalWorkspace({
       return;
     }
 
-    await loadTradeState();
-    setMessage(`Order ${body.order.id} cancelled.`);
+    if (!body.order?.id) throw new Error("cancel_response_invalid");
+    const refreshed = await loadTradeState();
+    setMessage(`Order ${body.order.id} cancelled.${refreshed ? "" : " Account records could not be refreshed; check them before another action."}`);
   }
 
   async function openDocument(document: AccountDocument) {
@@ -262,8 +297,11 @@ export function TradePortalWorkspace({
       return;
     }
 
-    window.open(body.downloadUrl, "_blank", "noopener,noreferrer");
-    setMessage(`${document.reference} opened.`);
+    if (typeof body.downloadUrl !== "string" || !body.downloadUrl.trim()) throw new Error("document_url_missing");
+    const url = new URL(body.downloadUrl, window.location.origin);
+    if (!["https:", "http:"].includes(url.protocol) || (url.protocol === "http:" && url.origin !== location.origin)) throw new Error("document_url_invalid");
+    setDocumentLink({ href: url.href, reference: document.reference });
+    setMessage(`${document.reference} is ready. Use the document link to open it.`);
   }
 
   async function submitRma() {
@@ -285,7 +323,7 @@ export function TradePortalWorkspace({
         reasonType: rmaReason,
         lines,
         evidence: [],
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: requestKey("rma", { rmaOrderId, rmaReason, lines }),
       }),
     });
     const body = (await response.json()) as {
@@ -293,6 +331,8 @@ export function TradePortalWorkspace({
       rmaId?: string;
       message?: string;
     };
+    if (response.ok && (!body.ok || !body.rmaId)) throw new Error("rma_response_invalid");
+    if (response.ok && body.ok) { setRmaLines(""); markReturnDraftSaved(); requestKeys.current.delete("rma" + JSON.stringify({ rmaOrderId, rmaReason, lines })); }
     setMessage(
       response.ok && body.ok
         ? `RMA ${body.rmaId} submitted for review.`
@@ -312,6 +352,8 @@ export function TradePortalWorkspace({
 
   return (
     <>
+      {stateError ? <div className="workspace-feedback is-error" role="alert">Account records could not be loaded. Existing records may be stale. <button type="button" disabled={pending} onClick={() => void run(async () => { await loadTradeState(); })}>Retry account records</button></div> : null}
+      {documentLink ? <p><a href={documentLink.href} target="_blank" rel="noopener noreferrer">Open {documentLink.reference} in a new tab</a></p> : null}
       <section className="two-column" id="lookup" style={{ marginTop: 18 }}>
         <div className="panel">
           <h2>Vehicle lookup</h2>
@@ -320,35 +362,35 @@ export function TradePortalWorkspace({
               Rego
               <input
                 value={rego}
-                onChange={(event) => setRego(event.target.value)}
+                disabled={pending} onChange={(event) => { setRego(event.target.value); invalidateLookup(); }}
               />
             </label>
             <label>
               VIN
               <input
                 value={vin}
-                onChange={(event) => setVin(event.target.value)}
+                disabled={pending} onChange={(event) => { setVin(event.target.value); invalidateLookup(); }}
               />
             </label>
             <label>
               Search keyword
               <input
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                disabled={pending} onChange={(event) => { setQuery(event.target.value); invalidateLookup(); }}
               />
             </label>
             <label>
               PO / job number
               <input
                 value={poNumber}
-                onChange={(event) => setPoNumber(event.target.value)}
+                disabled={pending} onChange={(event) => setPoNumber(event.target.value)}
               />
             </label>
           </div>
           <p>
             <button
               className="primary-button"
-              onClick={searchParts}
+              disabled={pending} onClick={() => void run(searchParts)}
               type="button"
             >
               Search matching parts
@@ -387,7 +429,7 @@ export function TradePortalWorkspace({
               : "Use parts lookup and account records while live ordering remains closed."}
           </p>
           <div className="table-shell">
-            <table>
+            <PaginatedTable id="tradePad" label="Order pad" total={orderLines.length}>
               <thead>
                 <tr>
                   <th>SKU</th>
@@ -414,7 +456,7 @@ export function TradePortalWorkspace({
                   </tr>
                 )}
               </tbody>
-            </table>
+            </PaginatedTable>
           </div>
           {tradingEnabled && orderLines.length ? (
             <p>
@@ -426,8 +468,8 @@ export function TradePortalWorkspace({
           <p>
             <button
               className="primary-button"
-              disabled={!tradingEnabled || !orderLines.length}
-              onClick={submitOrder}
+              disabled={pending || !tradingEnabled || !orderLines.length}
+              onClick={() => void run(submitOrder)}
               type="button"
             >
               {tradingEnabled ? "Submit order" : "Ordering unavailable"}
@@ -436,12 +478,12 @@ export function TradePortalWorkspace({
         </div>
       </section>
 
-      <p className="badge" role="status">
+      <p className="workspace-feedback" role="status" aria-live="polite">
         {message}
       </p>
 
       <section className="table-shell" style={{ marginTop: 18 }}>
-        <table>
+        <PaginatedTable id="tradeMatches" label="Matching parts" total={matches.length}>
           <thead>
             <tr>
               <th>SKU</th>
@@ -466,7 +508,7 @@ export function TradePortalWorkspace({
                   <td>
                     <button
                       className="primary-button"
-                      disabled={!tradingEnabled || part.available <= 0}
+                      disabled={pending || !tradingEnabled || part.available <= 0}
                       onClick={() => addToOrder(part)}
                       type="button"
                     >
@@ -481,12 +523,12 @@ export function TradePortalWorkspace({
               </tr>
             )}
           </tbody>
-        </table>
+        </PaginatedTable>
       </section>
 
       <section className="two-column" id="orders" style={{ marginTop: 18 }}>
         <div className="table-shell">
-          <table>
+          <PaginatedTable id="tradeOrders" label="Trade orders" total={orders.length}>
             <thead>
               <tr>
                 <th>Order</th>
@@ -513,10 +555,10 @@ export function TradePortalWorkspace({
                     <td>
                       <button
                         className="secondary-button"
-                        disabled={["dispatched", "cancelled"].includes(
+                        disabled={pending || ["dispatched", "cancelled"].includes(
                           order.status,
                         )}
-                        onClick={() => void cancelOrder(order.id)}
+                        onClick={() => void run(() => cancelOrder(order.id))}
                         type="button"
                       >
                         Cancel
@@ -530,11 +572,11 @@ export function TradePortalWorkspace({
                 </tr>
               )}
             </tbody>
-          </table>
+          </PaginatedTable>
         </div>
 
         <div className="table-shell" id="documents">
-          <table>
+          <PaginatedTable id="tradeDocuments" label="Account documents" total={accountDocuments.length}>
             <thead>
               <tr>
                 <th>Document</th>
@@ -555,7 +597,7 @@ export function TradePortalWorkspace({
                     <td>
                       <button
                         className="secondary-button"
-                        onClick={() => void openDocument(document)}
+                        disabled={pending} onClick={() => void run(() => openDocument(document))}
                         type="button"
                       >
                         Open {document.reference}
@@ -572,7 +614,7 @@ export function TradePortalWorkspace({
                 </tr>
               )}
             </tbody>
-          </table>
+          </PaginatedTable>
         </div>
       </section>
       <section className="panel" id="returns">
@@ -585,7 +627,8 @@ export function TradePortalWorkspace({
           <label>
             Dispatched order
             <select
-              value={rmaOrderId}
+              aria-label="Dispatched order"
+              disabled={pending} value={rmaOrderId}
               onChange={(event) => setRmaOrderId(event.target.value)}
             >
               <option value="">Select order</option>
@@ -601,7 +644,8 @@ export function TradePortalWorkspace({
           <label>
             Reason
             <select
-              value={rmaReason}
+              aria-label="Return reason"
+              disabled={pending} value={rmaReason}
               onChange={(event) =>
                 setRmaReason(event.target.value as typeof rmaReason)
               }
@@ -617,7 +661,7 @@ export function TradePortalWorkspace({
           <label>
             Return lines: SKU, quantity
             <textarea
-              value={rmaLines}
+              disabled={pending} value={rmaLines}
               onChange={(event) => setRmaLines(event.target.value)}
               placeholder="DM-GWM-0001,1"
             />
@@ -626,8 +670,8 @@ export function TradePortalWorkspace({
         <button
           className="button button-secondary"
           type="button"
-          disabled={!rmaOrderId || !rmaLines.trim()}
-          onClick={() => void submitRma()}
+          disabled={pending || !rmaOrderId || !rmaLines.trim()}
+          onClick={() => void run(submitRma)}
         >
           Submit return request
         </button>

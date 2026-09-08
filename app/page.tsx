@@ -1,5 +1,5 @@
 import Image from "next/image";
-import Link from "next/link";
+import Link from "../components/StableLink";
 import { ArrowRight, Barcode, Package, ShieldCheck, Truck } from "@phosphor-icons/react/dist/ssr";
 import { RevealSection } from "../components/RevealSection";
 import { getTradingGate } from "../lib/tradingGate";

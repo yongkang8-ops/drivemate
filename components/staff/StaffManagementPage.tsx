@@ -1,4 +1,5 @@
 "use client";
+import { WorkspaceNavigation } from "../WorkspaceNavigation";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildApiHeaders } from "../../lib/clientAuth";
@@ -20,6 +21,8 @@ import { StaffPasswordHandoff } from "./StaffPasswordHandoff";
 import { StaffSummaryMetrics } from "./StaffSummaryMetrics";
 import { useSensitiveFetch } from "../MfaStepUpProvider";
 import { useWorkspaceRole } from "../RoleGate";
+import { useListFilters } from "../../hooks/useListFilters";
+import { confirmDiscardChanges, useUnsavedChanges } from "../../hooks/useUnsavedChanges";
 
 type CollectionState = "loading" | "ready" | "error";
 type StaffCollectionResponse = {
@@ -53,12 +56,17 @@ export function StaffManagementPage() {
   const [accounts, setAccounts] = useState<StaffCollectionAccount[]>([]);
   const [viewerRole, setViewerRole] = useState<StaffViewerRole>("partner");
   const [collectionState, setCollectionState] = useState<CollectionState>("loading");
-  const [filters, setFilters] = useState<StaffFilters>(emptyFilters);
+  const [listFilters, setListFilter] = useListFilters({ staffSearch: "", staffRole: "all", staffStatus: "all" }, "staff", { staffRole: ["all", "admin", "partner", "warehouse_staff"], staffStatus: ["all", "pending_first_login", "active", "disabled"] });
+  const filters: StaffFilters = { search: listFilters.staffSearch, role: listFilters.staffRole as StaffFilters["role"], status: listFilters.staffStatus as StaffFilters["status"] };
   const [drawerMode, setDrawerMode] = useState<DrawerMode>({ kind: "closed" });
   const [drawerMessage, setDrawerMessage] = useState("");
   const [createBusy, setCreateBusy] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
+  const [draftDirty, setDraftDirty] = useState(false);
+  useUnsavedChanges(draftDirty || drawerMode.kind === "handoff" || createBusy || actionBusy);
   const selectedTrigger = useRef<HTMLElement | null>(null);
+  const detailRequest = useRef(0);
+  const mutationPending = useRef(false);
 
   async function loadAccounts(signal?: AbortSignal) {
     setCollectionState("loading");
@@ -78,13 +86,14 @@ export function StaffManagementPage() {
   useEffect(() => {
     const controller = new AbortController();
     void loadAccounts(controller.signal);
-    return () => controller.abort();
+    return () => { controller.abort(); detailRequest.current++; };
   }, []);
 
   const summary = useMemo(() => staffSummary(accounts), [accounts]);
   const filteredAccounts = useMemo(() => filterStaffAccounts(accounts, filters), [accounts, filters]);
 
   async function openAccount(userId: string, trigger: HTMLButtonElement) {
+    const request = ++detailRequest.current;
     selectedTrigger.current = trigger;
     setDrawerMessage("");
     const collectionAccount = accounts.find((account) => account.userId === userId);
@@ -96,8 +105,10 @@ export function StaffManagementPage() {
       canManage: viewerRole === "admin" && collectionAccount.role !== "admin",
       loading: true,
     });
+    try {
     const response = await fetch(`/api/admin/staff/${encodeURIComponent(userId)}`, { cache: "no-store" });
     const body = (await response.json().catch(() => ({}))) as StaffDetailResponse;
+    if (request !== detailRequest.current) return;
     if (!response.ok || !body.ok || !body.account) {
       setDrawerMessage("Account details could not be loaded. No changes were made.");
       setDrawerMode((current) => current.kind === "account" ? { ...current, loading: false } : current);
@@ -110,31 +121,41 @@ export function StaffManagementPage() {
       canManage: Boolean(body.canManage),
       loading: false,
     });
+    } catch {
+      if (request !== detailRequest.current) return;
+      setDrawerMessage("Account details could not be loaded. Close this panel and try again.");
+      setDrawerMode(current => current.kind === "account" ? { ...current, loading: false } : current);
+    }
   }
 
   const closeDrawer = useCallback(() => {
+    if (mutationPending.current || !confirmDiscardChanges(draftDirty)) return;
+    detailRequest.current++;
     setDrawerMessage("");
     setDrawerMode({ kind: "closed" });
-  }, []);
+  }, [draftDirty]);
 
   function openCreate(trigger: HTMLButtonElement) {
+    detailRequest.current++;
     selectedTrigger.current = trigger;
     setDrawerMessage("");
     setDrawerMode({ kind: "create" });
   }
 
   async function createAccount(values: CreateStaffValues) {
+    if (mutationPending.current) return;
+    mutationPending.current = true;
     setCreateBusy(true);
     setDrawerMessage("");
+    try {
     const response = await sensitiveFetch("/api/admin/staff", {
       method: "POST",
       headers: await buildApiHeaders("admin", { "Content-Type": "application/json" }),
       body: JSON.stringify(values),
     });
     const body = (await response.json().catch(() => ({}))) as StaffCreateResponse;
-    setCreateBusy(false);
     if (!response.ok || !body.ok || !body.account || !body.temporaryPassword || !body.temporaryPasswordExpiresAt) {
-      setDrawerMessage(body.message || "Staff account could not be created. No account access was changed.");
+      setDrawerMessage(!response.ok && response.status < 500 && body.ok === false ? body.message || "The request was rejected. Review the details and try again." : "The create result could not be confirmed. Check the Staff register before retrying. Your entered details are retained.");
       return;
     }
     setAccounts((current) => [body.account!, ...current.filter((account) => account.userId !== body.account!.userId)]);
@@ -144,6 +165,12 @@ export function StaffManagementPage() {
       password: body.temporaryPassword,
       expiresAt: body.temporaryPasswordExpiresAt,
     });
+    } catch {
+      setDrawerMessage("The create result could not be confirmed. Check the Staff register before retrying. Your entered details are retained.");
+    } finally {
+      mutationPending.current = false;
+      setCreateBusy(false);
+    }
   }
 
   function openAction(action: StaffActionKind) {
@@ -154,6 +181,7 @@ export function StaffManagementPage() {
   }
 
   function cancelAction() {
+    if (mutationPending.current || !confirmDiscardChanges(draftDirty)) return;
     setDrawerMessage("");
     setDrawerMode((current) => current.kind === "action"
       ? { kind: "account", account: current.account, audit: current.audit, canManage: current.canManage, loading: false }
@@ -161,19 +189,20 @@ export function StaffManagementPage() {
   }
 
   async function submitAction(payload: StaffActionPayload) {
-    if (drawerMode.kind !== "action") return;
+    if (drawerMode.kind !== "action" || mutationPending.current) return;
+    mutationPending.current = true;
     const current = drawerMode;
     setActionBusy(true);
     setDrawerMessage("");
+    try {
     const response = await sensitiveFetch(`/api/admin/staff/${encodeURIComponent(current.account.userId)}`, {
       method: "PATCH",
       headers: await buildApiHeaders("admin", { "Content-Type": "application/json" }),
       body: JSON.stringify(payload),
     });
     const body = (await response.json().catch(() => ({}))) as StaffCreateResponse;
-    setActionBusy(false);
-    if (!response.ok || !body.ok || !body.account) {
-      setDrawerMessage(body.message || "The account change was not completed. No permissions were modified.");
+    if (!response.ok || !body.ok || !body.account || (payload.action === "reset_password" && (!body.temporaryPassword || !body.temporaryPasswordExpiresAt))) {
+      setDrawerMessage(!response.ok && response.status < 500 && body.ok === false ? body.message || "The request was rejected. Review the details and try again." : "The change result could not be confirmed. Check the account status and audit history before retrying.");
       return;
     }
     setAccounts((accountsCurrent) => accountsCurrent.map((account) => account.userId === body.account!.userId ? body.account! : account));
@@ -182,6 +211,12 @@ export function StaffManagementPage() {
       return;
     }
     setDrawerMode({ kind: "account", account: body.account, audit: body.audit ?? current.audit, canManage: current.canManage, loading: false });
+    } catch {
+      setDrawerMessage("The change result could not be confirmed. Check the account status and audit history before retrying.");
+    } finally {
+      mutationPending.current = false;
+      setActionBusy(false);
+    }
   }
 
   const drawerTitle = drawerMode.kind === "create"
@@ -199,16 +234,7 @@ export function StaffManagementPage() {
     <section className="staff-operations-app">
       <aside className="staff-operations-sidebar">
         <div className="staff-operations-brand">DriveMate Parts<span>Operations system</span></div>
-        <nav aria-label="Operations modules">
-          <span>Workspace</span>
-          <a href="/partner">Dashboard</a>
-          <a href="/prearrival">Pre-arrival shipments</a>
-          <a href="/warehouse">Inbound operations</a>
-          <a href="/inventory">Inventory &amp; locations</a>
-          <span>Administration</span>
-          <a aria-current="page" className="is-active" href="/admin/staff">Staff management</a>
-          {navigationRole === "admin" ? <a href="/admin">Administration</a> : null}
-        </nav>
+        <WorkspaceNavigation current="/admin/staff" label="Operations modules" />
         <p>Private Staff module<br />Administrator and Partner accounts only</p>
       </aside>
       <div className="staff-operations-workspace">
@@ -228,21 +254,21 @@ export function StaffManagementPage() {
           <StaffSummaryMetrics summary={summary} />
           <section className="staff-collection-panel">
             <div className="staff-register-heading"><div><h2>Staff register</h2><p>Open an account to review access and security details.</p></div><div className="staff-register-filters">
-              <input aria-label="Search name or email" placeholder="Search name or email" value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} />
-              <select aria-label="Filter by role" value={filters.role} onChange={(event) => setFilters((current) => ({ ...current, role: event.target.value as "all" | StaffRole }))}><option value="all">All roles</option><option value="warehouse_staff">Warehouse staff</option><option value="partner">Partner</option><option value="admin">Administrator</option></select>
-              <select aria-label="Filter by status" value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value as "all" | StaffAccountStatus }))}><option value="all">All statuses</option><option value="pending_first_login">Pending first login</option><option value="active">Active</option><option value="disabled">Disabled</option></select>
+              <input aria-label="Search name or email" placeholder="Search name or email" value={filters.search} onChange={(event) => setListFilter("staffSearch", event.target.value)} />
+              <select aria-label="Filter by role" value={filters.role} onChange={(event) => setListFilter("staffRole", event.target.value)}><option value="all">All roles</option><option value="warehouse_staff">Warehouse staff</option><option value="partner">Partner</option><option value="admin">Administrator</option></select>
+              <select aria-label="Filter by status" value={filters.status} onChange={(event) => setListFilter("staffStatus", event.target.value)}><option value="all">All statuses</option><option value="pending_first_login">Pending first login</option><option value="active">Active</option><option value="disabled">Disabled</option></select>
             </div></div>
-            {accounts.length === 0 ? <div className="staff-empty-state"><h3>No staff accounts yet</h3><p>{viewerRole === "admin" ? "Create the first warehouse staff or partner account." : "No Staff accounts are available to this partner view."}</p>{viewerRole === "admin" ? <button className="button button-primary" onClick={(event) => openCreate(event.currentTarget)} type="button">Create staff account</button> : null}</div> : filteredAccounts.length === 0 ? <div className="staff-empty-state"><h3>No matching staff accounts</h3><p>Change the search or filters and try again.</p></div> : <StaffRegister accounts={filteredAccounts} viewerRole={viewerRole} onSelect={(userId, trigger) => void openAccount(userId, trigger)} />}
+            {accounts.length === 0 ? <div className="staff-empty-state"><h3>No staff accounts yet</h3><p>{viewerRole === "admin" ? "Create the first warehouse staff or partner account." : "No Staff accounts are available to this partner view."}</p>{viewerRole === "admin" ? <button className="button button-primary" onClick={(event) => openCreate(event.currentTarget)} type="button">Create staff account</button> : null}</div> : filteredAccounts.length === 0 ? <div className="staff-empty-state"><h3>No matching staff accounts</h3><p>Change the search or filters and try again.</p></div> : <StaffRegister filterKey={JSON.stringify(filters)} accounts={filteredAccounts} viewerRole={viewerRole} onSelect={(userId, trigger) => void openAccount(userId, trigger)} />}
           </section>
         </>
       )}
       {drawerMode.kind !== "closed" ? (
-        <StaffDrawer closeLocked={drawerMode.kind === "handoff"} onClose={closeDrawer} returnFocusRef={selectedTrigger} subtitle={drawerSubtitle} title={drawerTitle}>
+        <StaffDrawer closeLocked={drawerMode.kind === "handoff" || createBusy || actionBusy} onClose={closeDrawer} returnFocusRef={selectedTrigger} subtitle={drawerSubtitle} title={drawerTitle}>
           {drawerMessage ? <p className="staff-drawer-message" role="alert">{drawerMessage}</p> : null}
           {drawerMode.kind === "account" ? drawerMode.loading ? <div className="staff-drawer-body"><p>Loading account details.</p></div> : <StaffAccountOverview account={drawerMode.account} audit={drawerMode.audit} canManage={drawerMode.canManage} onAction={openAction} viewerRole={viewerRole} /> : null}
-          {drawerMode.kind === "create" ? <div className="staff-drawer-body"><StaffAccountForm busy={createBusy} onCancel={closeDrawer} onSubmit={createAccount} /></div> : null}
+          {drawerMode.kind === "create" ? <div className="staff-drawer-body"><StaffAccountForm busy={createBusy} onCancel={closeDrawer} onSubmit={createAccount} onDirtyChange={setDraftDirty} /></div> : null}
           {drawerMode.kind === "handoff" ? <StaffPasswordHandoff account={drawerMode.account} expiresAt={drawerMode.expiresAt} onFinish={closeDrawer} password={drawerMode.password} /> : null}
-          {drawerMode.kind === "action" ? <div className="staff-drawer-body"><StaffActionForm account={drawerMode.account} action={drawerMode.action} busy={actionBusy} onCancel={cancelAction} onSubmit={submitAction} /></div> : null}
+          {drawerMode.kind === "action" ? <div className="staff-drawer-body"><StaffActionForm account={drawerMode.account} action={drawerMode.action} busy={actionBusy} onCancel={cancelAction} onSubmit={submitAction} onDirtyChange={setDraftDirty} /></div> : null}
         </StaffDrawer>
       ) : null}
         </div>
