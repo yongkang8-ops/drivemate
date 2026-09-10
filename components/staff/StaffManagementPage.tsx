@@ -1,5 +1,6 @@
 "use client";
 import { WorkspaceNavigation } from "../WorkspaceNavigation";
+import { WorkspaceBrand } from "../WorkspaceBrand";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildApiHeaders } from "../../lib/clientAuth";
@@ -233,7 +234,7 @@ export function StaffManagementPage() {
   return (
     <section className="staff-operations-app">
       <aside className="staff-operations-sidebar">
-        <div className="staff-operations-brand">DriveMate Parts<span>Operations system</span></div>
+        <WorkspaceBrand />
         <WorkspaceNavigation current="/admin/staff" label="Operations modules" />
         <p>Private Staff module<br />Administrator and Partner accounts only</p>
       </aside>

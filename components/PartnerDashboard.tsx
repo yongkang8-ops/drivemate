@@ -2,6 +2,7 @@
 
 import Link from "./StableLink";
 import { WorkspaceNavigation } from "./WorkspaceNavigation";
+import { WorkspaceBrand } from "./WorkspaceBrand";
 import { useListFilters } from "../hooks/useListFilters";
 import { usePagination, PaginationControls } from "./PaginatedTable";
 import {
@@ -150,11 +151,7 @@ export function PartnerDashboard() {
   return (
     <section className="partner-dashboard-app" aria-label="Partner operations dashboard">
       <aside className="partner-dashboard-sidebar">
-        <div className="partner-dashboard-brand">
-          <img src="/assets/brand/DriveMate_Parts_Primary_Lockup_v2.0.svg" alt="DriveMate Parts" />
-          <p>Partner workspace</p>
-          <span>Shared China &amp; Australia view</span>
-        </div>
+        <WorkspaceBrand />
 
         <WorkspaceNavigation current="/partner" className="partner-dashboard-nav" label="Partner operations navigation" />
 

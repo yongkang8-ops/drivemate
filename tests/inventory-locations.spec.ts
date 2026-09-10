@@ -72,18 +72,20 @@ test("inventory mobile navigation uses two visible columns", async ({ page }) =>
   }
 });
 
-test.describe("unauthenticated Inventory SSR shell", () => {
-  // The local dev server explicitly enables demo bypass. Disabling JavaScript
-  // verifies the CSS/SSR signed-out boundary; Production 401 behavior is covered by auth tests.
+test.describe("unresolved Inventory SSR shell", () => {
+  // SSR cannot establish the client session. Do not equate this with signed out.
   test.use({ javaScriptEnabled: false });
 
-  test("unauthenticated Inventory retains the public access shell", async ({ page }) => {
+  test("unresolved Inventory hides protected content and explains the JavaScript requirement", async ({ page }) => {
     await page.goto("/inventory");
 
-    await expect(page.locator(".site-header")).toBeVisible();
+    await expect(page.locator(".site-header")).toBeHidden();
     await expect(page.getByLabel("Account session")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Workspace access required" })).toBeVisible();
-    await expect(page.locator(".site-footer")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Workspace access required" })).toHaveCount(0);
+    // Playwright's text engine excludes noscript; inspect its actual DOM text.
+    expect(await page.locator("noscript").evaluate(element => element.textContent)).toBe("Enable JavaScript to securely check your session and use this workspace.");
+    await expect(page.locator("noscript")).toBeVisible();
+    await expect(page.locator(".site-footer")).toBeHidden();
     await expect(page.locator(".inventory-location-app")).toHaveCount(0);
   });
 });

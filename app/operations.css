@@ -2,8 +2,10 @@
 @media screen {
   .workspace-form-lock { border: 0; margin: 0; padding: 0; min-width: 0; }
   .operations-frame { width: 100%; min-width: 0; }
-  body:has(.operations-frame.has-access) .site-header,
-  body:has(.operations-frame.has-access) .site-footer { display: none; }
+  body:has(.operations-frame:is(.has-access, .session-pending)) .site-header,
+  body:has(.operations-frame:is(.has-access, .session-pending)) .site-footer { display: none; }
+  .auth-session-status { padding: 32px; min-height: 180px; color: #183c40; background: #f5f8f7; }
+  .operations-frame.session-pending { min-height: 100dvh; background: #f5f8f7; }
   .operations-frame.has-access > .auth-panel {
     display: grid !important; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 20px;
     width: 100%; max-width: none; min-height: 0; margin: 0; padding: 12px 24px;
@@ -34,8 +36,12 @@
   .workspace-navigation a:hover { background: #1b5052; color: white; }
   .workspace-navigation a.is-active { background: #dff1ed; color: #123a3c; box-shadow: inset 3px 0 #169e99; }
   .administration-app { display: grid; background: #f5f8f7; color: #183c40; }
-  .workspace-brand img { width: 170px; max-width: 100%; filter: brightness(0) invert(1); }
-  .workspace-brand p { font-size: 12px; color: #b2cfcd; }
+  .operations-frame .workspace-brand { padding: 0 12px 16px; margin: 0; }
+  .operations-frame .workspace-brand img { display: block; width: 170px; height: 40px; max-width: 100%; object-fit: contain; object-position: left center; filter: brightness(0) invert(1); }
+  .operations-frame .workspace-brand p { margin: 12px 0 0; font-size: 12px; line-height: 18px; color: #b2cfcd; }
+  .operations-frame .workspace-navigation { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 12px 0; }
+  .operations-frame .workspace-navigation > span { display: block; margin: 0; padding: 8px 12px; font-size: 12px; line-height: 18px; letter-spacing: 0; text-transform: none; }
+  .operations-frame .workspace-navigation a { display: flex; align-items: center; height: auto; min-height: 44px; margin: 0; padding: 11px 12px; border: 0; border-radius: 6px; }
   .administration-content { padding: 28px 32px 48px; min-width: 0; }
   .administration-heading { margin-bottom: 24px; }
   .administration-heading h1 { font-size: clamp(24px, 3vw, 32px); line-height: 1.2; margin: 6px 0 10px; }
@@ -65,6 +71,20 @@
   .trade-frame :is(button, input, textarea, select) { min-height: 44px; font-size: 16px; }
   .trade-frame :is(.panel, .table-shell, .paginated-table) { min-width: 0; max-width: 100%; }
   .trade-frame .two-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .operations-frame h1 { font-size: clamp(24px, 3vw, 32px); font-weight: 700; line-height: 1.2; letter-spacing: -.02em; overflow-wrap: anywhere; }
+  .operations-frame :is(.partner-dashboard-topbar, .prearrival-topbar, .inbound-topbar, .inventory-location-topbar) {
+    min-height: 108px; padding: 24px 32px; gap: 20px; flex-wrap: wrap; background: #f5f8f7;
+  }
+  .operations-frame .partner-dashboard-controls { flex-wrap: wrap; gap: 12px; min-width: 0; }
+  .operations-frame .partner-dashboard-controls label { font-size: 12px; min-width: 0; }
+  .operations-frame .partner-dashboard-controls select { width: 100%; min-width: 230px; max-width: none; font-size: 16px; padding: 8px 12px; }
+  .operations-frame .partner-refresh-button { width: auto; padding: 8px 12px; flex: 0 0 auto; font-size: 14px; min-height: 44px; white-space: nowrap; }
+  .operations-frame .workspace-action-group { display: flex; flex-wrap: wrap; gap: 12px; }
+  .operations-frame .workspace-action-group button { margin: 0; max-width: 100%; white-space: normal; }
+  @media (max-width: 1024px) {
+    .operations-frame .partner-dashboard-topbar { align-items: stretch; flex-direction: column; }
+    .operations-frame .partner-dashboard-controls label { flex: 1 1 100%; }
+  }
   @media (min-width: 701px) and (max-width: 1024px) {
     .operations-frame .inbound-scope-bar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
     .operations-frame .inbound-scope-bar > * { min-width: 0; width: 100%; }
@@ -75,6 +95,8 @@
     .workspace-navigation > span { grid-column: 1 / -1; }
     .operations-frame.has-access > .auth-panel { padding: 12px 16px; }
     .administration-content { padding: 20px 16px 32px; }
+    .operations-frame :is(.partner-dashboard-topbar, .prearrival-topbar, .inbound-topbar, .inventory-location-topbar) { padding: 20px 16px; }
+    .operations-frame .partner-dashboard-controls select { min-width: 0; }
     .administration-content :is(.form-grid, .cost-grid, .two-column) { grid-template-columns: minmax(0, 1fr); }
     .trade-frame .two-column { grid-template-columns: minmax(0, 1fr); }
   }

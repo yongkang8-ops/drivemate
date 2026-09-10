@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { WorkspaceBrand } from "./WorkspaceBrand";
 import Link from "./StableLink";
 import { WorkspaceNavigation } from "./WorkspaceNavigation";
 import { confirmDiscardChanges, useUnsavedChanges } from "../hooks/useUnsavedChanges";
@@ -159,12 +159,7 @@ function WarehousePackingListGate({
   return (
     <div className="inbound-app" id="inbound-operations">
       <aside className="inbound-sidebar" aria-label="Inbound operations navigation">
-        <div className="inbound-brand">
-          <Image src="/assets/brand/DriveMate_Parts_Primary_Lockup_v2.0.svg" alt="DriveMate Parts" width={135} height={34} priority />
-          <p>Warehouse</p>
-          <span>Internal operations</span>
-        </div>
-        <div className="inbound-section-title">Inbound operations</div>
+        <WorkspaceBrand />
         <WarehouseNavigation view={view} shipmentId={shipmentId} onViewChange={setView} />
         <div className="inbound-rules">
           <span>{isHistoryView ? "Audit rule" : "Required operational record"}</span>
@@ -929,19 +924,19 @@ export function PartnerInboundWorkspace() {
     : receiptUnlocked ? "Receipt is unlocked for the selected scope." : "Send product labels to the Windows print dialog, then confirm the physical result.";
   const isHistoryView = view === "receipt_history";
   const showPutawayResult = view === "put_away" && putawayResult;
-  const bottomLabel = isHistoryView ? "Pre-trade boundary" : showPutawayResult ? "Putaway result" : receiptResult ? "System result after confirmation" : "Print audit boundary";
-  const bottomTitle = isHistoryView ? "This history records warehouse operations only." : showPutawayResult ? `The system moves ${putawayResult.quantity} units from internal staging to ${putawayResult.destinationLocation} and records an inventory movement.` : receiptResult ? `Receipt ${receiptResult.sessionId} is recorded in ${receiptResult.stagingLocation ?? "system staging"}.` : "Printing creates an audited task only. Stock is unchanged until receipt confirmation.";
-  const bottomCopy = isHistoryView ? "It does not create customer orders, invoices, GST, payment or dispatch activity." : showPutawayResult ? "The staging source is resolved by the system. The movement remains in warehouse audit history." : receiptResult ? "No source-location scan. No public availability, sale, GST, payment or real dispatch is created." : "Preview → Windows print → Operator confirms Printed";
+  const isPutawayView = view === "put_away";
+  const bottomLabel = isHistoryView ? "Pre-trade boundary" : showPutawayResult ? "Putaway result" : isPutawayView ? "Putaway control" : receiptResult ? "System result after confirmation" : "Print audit boundary";
+  const bottomTitle = isHistoryView ? "This history records warehouse operations only." : showPutawayResult ? `The system moves ${putawayResult.quantity} units from internal staging to ${putawayResult.destinationLocation} and records an inventory movement.` : isPutawayView ? "Put away moves confirmed stock from staging to a physical location." : receiptResult ? `Receipt ${receiptResult.sessionId} is recorded in ${receiptResult.stagingLocation ?? "system staging"}.` : "Printing creates an audited task only. Stock is unchanged until receipt confirmation.";
+  const bottomCopy = isHistoryView ? "It does not create customer orders, invoices, GST, payment or dispatch activity." : showPutawayResult ? "The staging source is resolved by the system. The movement remains in warehouse audit history." : isPutawayView ? "Select confirmed staging stock, scan the product and destination location, then check the quantity before confirming." : receiptResult ? "No source-location scan. No public availability, sale, GST, payment or real dispatch is created." : "Preview → Windows print → Operator confirms Printed";
+  // Load/operation failures remain visible; idle instructions belong to the selected module.
+  const displayMessage = isHistoryView ? "Read-only audit view." : isPutawayView && !scopeLoading && !scopeError && !workspaceLoadError && !busy
+    ? showPutawayResult ? "Putaway confirmed. Review the saved movement in receipt history." : putawayReady ? "Select staging stock to begin putaway." : "No confirmed staging stock is available in this scope."
+    : message;
 
   return (
     <div className="inbound-app" id="inbound-operations">
       <aside className="inbound-sidebar" aria-label="Inbound operations navigation">
-        <div className="inbound-brand">
-          <Image src="/assets/brand/DriveMate_Parts_Primary_Lockup_v2.0.svg" alt="DriveMate Parts" width={135} height={34} priority />
-          <p>Warehouse</p>
-          <span>Internal operations</span>
-        </div>
-        <div className="inbound-section-title">Inbound operations</div>
+        <WorkspaceBrand />
         <WarehouseNavigation view={view} shipmentId={shipmentId} onViewChange={setView} />
         <div className="inbound-rules">
           <span>{view === "label_print" ? "Print rule" : view === "receive_stock" ? "Receipt mode" : view === "put_away" ? "Putaway rule" : "Audit rule"}</span>
@@ -1031,7 +1026,7 @@ export function PartnerInboundWorkspace() {
           ) : view === "put_away" ? <WarehousePutawayPanel selection={{ shipmentId: preview.scope.shipmentId, cartonNumbers: preview.scope.cartonNumbers }} onPutawayConfirmed={(outcome) => { setPutawayResult(outcome); void loadPutawayAvailability(preview.scope.shipmentId, preview.scope.cartonNumbers); }} /> : <ReceiptHistoryPanel selection={{ shipmentId: preview.scope.shipmentId, cartonNumbers: preview.scope.cartonNumbers }} sourceCartons={availableCartons} />}
 
           <section className="inbound-bottom-note"><div><span>{bottomLabel}</span><strong>{bottomTitle}</strong><p>{bottomCopy}</p></div><button className="button button-secondary" type="button" onClick={() => setView("receipt_history")}>View receipt history</button></section>
-          <p className="inbound-message" role="status">{isHistoryView ? "Read-only audit view." : message}</p>
+          <p className="inbound-message" role="status">{displayMessage}</p>
         </main>
       </section>
     </div>

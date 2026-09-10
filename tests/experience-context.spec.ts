@@ -9,7 +9,8 @@ test("public application inputs cannot accept a draft before hydration", async (
     await beforeHydration.goto(`${baseURL}/catalogue`);
     await expect(beforeHydration.getByLabel("Search released catalogue", { exact: true })).toBeDisabled();
     await beforeHydration.goto(`${baseURL}/staff/login`);
-    await expect(beforeHydration.getByLabel("Email address", { exact: true })).toBeDisabled();
+    await expect(beforeHydration.getByLabel("Email address", { exact: true })).toHaveCount(0);
+    await expect(beforeHydration.getByText("Checking your session.", { exact: true })).toBeVisible();
     await beforeHydration.goto(`${baseURL}/password-setup`);
     await expect(beforeHydration.getByLabel("New password", { exact: true })).toBeDisabled();
   } finally { await beforeHydration.close(); }

@@ -3,7 +3,7 @@
 import Link from "./StableLink";
 import { WorkspaceNavigation } from "./WorkspaceNavigation";
 import { confirmDiscardChanges, useUnsavedChanges } from "../hooks/useUnsavedChanges";
-import Image from "next/image";
+import { WorkspaceBrand } from "./WorkspaceBrand";
 import {
   ArrowRight,
   CaretRight,
@@ -701,11 +701,7 @@ export function PrearrivalShipmentPanel() {
   return (
     <div className="prearrival-app" id="prearrival-workspace">
       <aside className="prearrival-sidebar" aria-label="Partner workspace navigation">
-        <div className="prearrival-brand">
-          <Image src="/assets/brand/DriveMate_Parts_Primary_Lockup_v2.0.svg" alt="DriveMate Parts" width={135} height={34} priority />
-          <p>Partner workspace</p>
-          <span>Unified operational access</span>
-        </div>
+        <WorkspaceBrand />
         <WorkspaceNavigation current="/prearrival" shipmentId={shipment.shipmentId} className="prearrival-nav" />
         <nav className="prearrival-section-nav" aria-label="Packing List sections">
           <span>This shipment</span>

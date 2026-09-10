@@ -828,7 +828,7 @@ export function AdminDashboard({ section = "all" }: { section?: AdminSectionId |
       <section className="panel" id="reports" hidden={section !== "all" && section !== "reports"} style={{ marginTop: 18 }}>
         <h2>Operating exports</h2>
         <p>Download CSV snapshots for stock review, order follow-up, warehouse audit and account onboarding.</p>
-        <p>
+        <p className="workspace-action-group">
           <button className="secondary-button" disabled={isPending("export-catalogue")} onClick={() => void runAction("export-catalogue", () => downloadExport("catalogue"), "Export could not be downloaded.")} type="button">
             Export inventory
           </button>{" "}

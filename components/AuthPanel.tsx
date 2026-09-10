@@ -25,7 +25,9 @@ type AuthPanelProps = {
   onAccessChange?: (hasAccess: boolean, role?: string) => void;
   entryNext?: string | null;
   redirectToWorkspace?: boolean;
+  onSessionPhaseChange?: (phase: AuthSessionPhase) => void;
 };
+export type AuthSessionPhase = "checking" | "resolved" | "unavailable";
 type AuthNoticeTone = "info" | "success" | "warning" | "error";
 type AuthNotice = {
   tone: AuthNoticeTone;
@@ -67,11 +69,16 @@ async function responseBody(response: Response): Promise<Record<string, unknown>
   }
 }
 
-export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToWorkspace = false }: AuthPanelProps) {
+export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToWorkspace = false, onSessionPhaseChange }: AuthPanelProps) {
   const hydrated = useHydrated();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [sessionPhase, setSessionPhase] = useState<AuthSessionPhase>("checking");
+  function updateSessionPhase(phase: AuthSessionPhase) {
+    setSessionPhase(phase);
+    onSessionPhaseChange?.(phase);
+  }
   const [configured, setConfigured] = useState(true);
   const [signingIn, setSigningIn] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -91,6 +98,7 @@ export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToW
   }
   async function refreshSession() {
     const version = lifecycleVersion.current;
+    updateSessionPhase("checking");
     try {
       const response = await fetch("/api/auth/session", { cache: "no-store" });
       const body = (await responseBody(response)) as {
@@ -101,6 +109,9 @@ export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToW
         passwordChangeRequired?: boolean;
       };
       if (version !== lifecycleVersion.current) return;
+      if (response.status >= 500 || (response.ok && typeof body.authenticated !== "boolean")) {
+        throw new Error("Session check unavailable");
+      }
 
       if (!response.ok || !body.authenticated || !body.profile) {
         if (localDemoWorkspaceEnabled()) {
@@ -111,6 +122,7 @@ export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToW
             text: "Demo workspace active for local testing.",
           });
           onAccessChange?.(true, expectedRole);
+          updateSessionPhase("resolved");
           return;
         }
 
@@ -126,6 +138,7 @@ export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToW
           });
         }
         onAccessChange?.(false);
+        updateSessionPhase("resolved");
         return;
       }
 
@@ -151,6 +164,7 @@ export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToW
       }
       const hasAccess = roleCanAccess(nextProfile.role, expectedRole);
       setProfile(nextProfile);
+      updateSessionPhase("resolved");
       onAccessChange?.(hasAccess, nextProfile.role);
       setNotice({
         tone: hasAccess ? "success" : "error",
@@ -163,6 +177,7 @@ export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToW
       setProfile(null);
       const demoWorkspaceEnabled = localDemoWorkspaceEnabled();
       setConfigured(!demoWorkspaceEnabled);
+      updateSessionPhase(demoWorkspaceEnabled ? "resolved" : "unavailable");
       onAccessChange?.(demoWorkspaceEnabled, demoWorkspaceEnabled ? expectedRole : undefined);
       setNotice({
         tone: demoWorkspaceEnabled ? "info" : "error",
@@ -292,13 +307,22 @@ export function AuthPanel({ expectedRole, onAccessChange, entryNext, redirectToW
       lifecycleVersion.current++;
       // Purge protected children and credentials before a page can be kept in
       // browser back/forward cache. Restoring always requires a fresh session.
-      flushSync(() => { setPassword(""); setProfile(null); onAccessChange?.(false); });
+      flushSync(() => { setPassword(""); setProfile(null); updateSessionPhase("checking"); onAccessChange?.(false); });
     };
     const resume = (event: PageTransitionEvent) => { if (event.persisted) void refreshSession(); };
     window.addEventListener("pagehide", suspend);
     window.addEventListener("pageshow", resume);
     return () => { lifecycleVersion.current++; window.removeEventListener("pagehide", suspend); window.removeEventListener("pageshow", resume); };
   }, []);
+
+  if (sessionPhase === "checking" || (sessionPhase === "unavailable" && onSessionPhaseChange)) {
+    return <section className="auth-session-status" aria-label="Account session">
+      <p className="eyebrow">DriveMate workspace</p>
+      <p role="status" aria-live="polite">{sessionPhase === "checking" ? "Checking your session." : "Your session could not be checked. Please retry."}</p>
+      <noscript>Enable JavaScript to securely check your session and use this workspace.</noscript>
+      {sessionPhase === "unavailable" && <button type="button" className="secondary-button" onClick={() => void refreshSession()}>Retry session check</button>}
+    </section>;
+  }
 
   return (
     <section className={`panel auth-panel${profile ? " is-authenticated" : ""}`} aria-label="Account session">

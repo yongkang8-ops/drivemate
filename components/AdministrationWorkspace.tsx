@@ -6,6 +6,7 @@ import { AdminDashboard } from "./AdminDashboard";
 import { AdminOperationsPanel } from "./AdminOperationsPanel";
 import { PurchaseImportPanel } from "./PurchaseImportPanel";
 import { WorkspaceNavigation } from "./WorkspaceNavigation";
+import { WorkspaceBrand } from "./WorkspaceBrand";
 
 export function AdministrationWorkspace() {
   const [section, setSection] = useState<AdminSectionId>("overview");
@@ -30,7 +31,7 @@ export function AdministrationWorkspace() {
   }
   return <div className="administration-app">
     <aside className="administration-sidebar">
-      <div className="workspace-brand"><img src="/assets/brand/DriveMate_Parts_Primary_Lockup_v2.0.svg" alt="DriveMate Parts" /><p>Operations workspace</p></div>
+      <WorkspaceBrand />
       <WorkspaceNavigation current="/admin" />
       <nav className="workspace-navigation admin-modules" aria-label="Admin modules">
         <span>Management</span>

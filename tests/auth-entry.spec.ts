@@ -1,5 +1,37 @@
 import { expect, test, type Page } from "@playwright/test";
 
+test("pending workspace authentication never presents a signed-out form or public chrome", async ({ page }) => {
+  let release!: () => void;
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/auth/session", async route => {
+    await pending;
+    await route.fulfill({ json: session("admin") });
+  });
+  await page.goto("/admin");
+  try {
+    await expect(page.getByText("Checking your session.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign in", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Workspace access required" })).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "Main navigation" })).not.toBeVisible();
+  } finally { release(); }
+  await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
+});
+
+test("session service failure offers retry without claiming a workspace user is signed out", async ({ page }) => {
+  let available = false;
+  await page.route("**/api/auth/session", route => {
+    return !available
+      ? route.fulfill({ status: 503, json: { message: "Unavailable" } })
+      : route.fulfill({ json: session("admin") });
+  });
+  await page.goto("/admin");
+  await expect(page.getByRole("button", { name: "Retry session check" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign in", exact: true })).toHaveCount(0);
+  available = true;
+  await page.getByRole("button", { name: "Retry session check" }).click();
+  await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
+});
+
 test("password recovery prevents repeat requests while pending and permits an explicit retry after failure", async ({ page }) => {
   await signedOut(page);
   let calls = 0; let release!: () => void;

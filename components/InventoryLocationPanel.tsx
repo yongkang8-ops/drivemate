@@ -2,6 +2,7 @@
 
 import Link from "./StableLink";
 import { WorkspaceNavigation } from "./WorkspaceNavigation";
+import { WorkspaceBrand } from "./WorkspaceBrand";
 import { PaginatedTable } from "./PaginatedTable";
 import { useListFilters } from "../hooks/useListFilters";
 import { confirmDiscardChanges, useUnsavedChanges } from "../hooks/useUnsavedChanges";
@@ -362,11 +363,7 @@ export function InventoryLocationPanel() {
   return (
     <section className="inventory-location-app" aria-label="Inventory location workspace">
       <aside className="inventory-location-sidebar">
-        <div className="inventory-location-brand">
-          <img src="/assets/brand/DriveMate_Parts_Primary_Lockup_v2.0.svg" alt="DriveMate Parts" />
-          <p>Partner workspace</p>
-          <span>Physical location control</span>
-        </div>
+        <WorkspaceBrand />
         <WorkspaceNavigation current="/inventory" className="inventory-location-nav" label="Partner operations navigation" />
         <div className="inventory-location-boundary">
           <span>Location boundary</span>

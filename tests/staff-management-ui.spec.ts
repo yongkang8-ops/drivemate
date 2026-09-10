@@ -142,18 +142,18 @@ test("staff mobile navigation uses two visible columns", async ({ page }) => {
   }
 });
 
-test.describe("unauthenticated Staff SSR shell", () => {
-  // The local dev server explicitly enables demo bypass. Disabling JavaScript
-  // verifies the CSS/SSR signed-out boundary; Production 401 behavior is covered by auth tests.
+test.describe("unresolved Staff SSR shell", () => {
+  // Session checking must not present an unauthenticated or protected workspace.
   test.use({ javaScriptEnabled: false });
 
-  test("unauthenticated Staff retains the public access shell", async ({ page }) => {
+  test("unresolved Staff retains the neutral access shell", async ({ page }) => {
     await page.goto("/admin/staff");
 
-    await expect(page.locator(".site-header")).toBeVisible();
+    await expect(page.locator(".site-header")).toBeHidden();
     await expect(page.getByLabel("Account session")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Workspace access required" })).toBeVisible();
-    await expect(page.locator(".site-footer")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Workspace access required" })).toHaveCount(0);
+    await expect(page.getByText("Checking your session.", { exact: true })).toBeVisible();
+    await expect(page.locator(".site-footer")).toBeHidden();
     await expect(page.locator(".staff-operations-app")).toHaveCount(0);
 
     const routeSpacing = await page.locator(".staff-management-route").evaluate((element) => {
