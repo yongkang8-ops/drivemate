@@ -1,3 +1,5 @@
+import { MemoryTestPrintStore } from './memoryTestPrintStore';
+const memoryTestPrintStore = new MemoryTestPrintStore();
 import {
   accountDocumentDataUrl,
   createDeliveryRecordText,
@@ -500,6 +502,10 @@ function validateWarehouseReceiptScopeAgainstExpected(
 }
 
 export class MemoryRepository implements DrivemateRepository {
+  testPrint = memoryTestPrintStore;
+  async findPendingWarehouseLabelPrintJob(shipmentId: string) {
+    return structuredClone(warehouseLabelPrintJobs.find(job=>job.templateId==='unit_product'&&job.status==='pending'&&job.payloadSnapshot.shipmentId===shipmentId)??null);
+  }
   mode = "memory" as const;
 
   private async validateCurrentWarehouseReceiptScope(
@@ -1633,6 +1639,7 @@ export class MemoryRepository implements DrivemateRepository {
   }
 
   async resetForTests(options: RepositoryTestResetOptions = {}): Promise<void> {
+    memoryTestPrintStore.clear();
     resetProductMasterData();
     resetStoreForTests();
     warehouseLabelJobSequence = 0;

@@ -5,6 +5,14 @@ import {
 } from "../lib/workspaceRouting";
 
 describe("workspace destination authorization", () => {
+  it("preserves an isolated test request only on the warehouse route", () => {
+    const id = "11111111-1111-4111-8111-111111111111";
+    const path = `/warehouse?shipmentId=S1&testPrintRequest=${id}`;
+    expect(safeWorkspaceNext(path)).toBe(path);
+    expect(safeWorkspaceNext(path.replace('testPrintRequest','testPrintJob'))).toBe(path.replace('testPrintRequest','testPrintJob'));
+    expect(safeWorkspaceNext(`/admin?testPrintRequest=${id}`)).toBeNull();
+    expect(safeWorkspaceNext('/warehouse?testPrintRequest=secret')).toBeNull();
+  });
   it.each([
     ["admin", "/partner"],
     ["partner", "/partner"],

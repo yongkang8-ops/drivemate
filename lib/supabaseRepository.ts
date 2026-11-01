@@ -1,4 +1,5 @@
 import { createAccountDocumentText } from "./accountDocumentContent";
+import { SupabaseTestPrintStore } from './supabaseTestPrintStore';
 import type {
   CreateFitmentRuleInput,
   CreateProductMasterInput,
@@ -791,6 +792,12 @@ function deliveryRecordStoragePath(orderId: string): string {
 }
 
 export class SupabaseRepository implements DrivemateRepository {
+  testPrint = new SupabaseTestPrintStore();
+  async findPendingWarehouseLabelPrintJob(shipmentId: string) {
+    const {data,error}=await this.client().from('warehouse_label_print_jobs').select('*').eq('template_id','unit_product').eq('status','pending').eq('payload_snapshot->>shipmentId',shipmentId).order('created_at',{ascending:true}).limit(1).maybeSingle();
+    if(error)throw error;
+    return data?toWarehouseLabelPrintJob(data as WarehouseLabelPrintJobRecord):null;
+  }
   mode = "supabase" as const;
 
   private client() {

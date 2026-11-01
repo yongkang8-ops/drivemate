@@ -13,7 +13,8 @@ describe("Supabase migration chain", () => {
 
     expect(new Set(versions).size).toBe(versions.length);
     expect(files[0]).toBe("20260529_initial_schema.sql");
-    expect(files.at(-1)).toBe("20260908_v23_product_label_profiles.sql");
+    expect(files).toContain("20260908_v23_product_label_profiles.sql");
+    expect(files.at(-1)).toBe("20261101091923_warehouse_test_print_jobs.sql");
 
     const baseline = readFileSync(join(migrationDirectory, files[0]), "utf8");
     expect(baseline).toContain("create table public.products");

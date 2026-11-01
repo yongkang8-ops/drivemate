@@ -553,6 +553,8 @@ export type CreateFitmentRuleResult =
   { ok: true; rule: AdminFitmentRule } | { ok: false; message: string };
 
 export interface DrivemateRepository {
+  testPrint: import('./warehouseTestPrint').TestPrintStore;
+  findPendingWarehouseLabelPrintJob(shipmentId: string): Promise<WarehouseLabelPrintJob | null>;
   mode: "memory" | "supabase";
   getAdminState(): Promise<AdminState>;
   getWarehouseLabelProducts(skus: string[]): Promise<import("./warehouseLabelContent").WarehouseLabelProduct[]>;

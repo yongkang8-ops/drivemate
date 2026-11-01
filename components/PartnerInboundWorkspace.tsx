@@ -24,6 +24,7 @@ import { buildApiHeaders } from "../lib/clientAuth";
 import type { PrearrivalShipmentSummary, WarehouseLabelPrintJob, WarehouseLabelPrintItem } from "../lib/repository";
 import { prepareProductLabelBatch, type ProductLabelPage } from "../lib/productLabelBatch";
 import { ProductLabelPrintBatch } from "./ProductLabelPrintBatch";
+import { WarehouseTestPrintPanel } from "./WarehouseTestPrintPanel";
 import type { ReceiptDiscrepancyType, WarehouseReceiptScope } from "../lib/warehouseReceiving";
 import { describeUnmappedPalletSelection } from "../lib/warehouseScopePresentation";
 import { WarehousePutawayPanel } from "./WarehousePutawayPanel";
@@ -69,6 +70,7 @@ function WarehouseNavigation({ view, shipmentId, onViewChange }: {
 }
 
 type ScopePreview = {
+  pendingFormalJob?: WarehouseLabelPrintJob | null;
   labelProducts?: ProductLabelReadiness[];
   shipment: {
     productIdentifiers?: string[];
@@ -242,6 +244,9 @@ export function PartnerInboundWorkspace() {
   const [openedPrintJobId, setOpenedPrintJobId] = useState<string | null>(null);
   const [message, setMessage] = useState("Loading inbound shipment data.");
   const [busy, setBusy] = useState(false);
+  const [testPrintOpen, setTestPrintOpen] = useState(false);
+  const [recoveredFormal, setRecoveredFormal] = useState(false);
+  const testPrintTrigger = useRef<HTMLButtonElement>(null);
   const [workspaceLoadError, setWorkspaceLoadError] = useState(false);
   const [scannerValue, setScannerValue] = useState("");
   const [activeBarcode, setActiveBarcode] = useState<string | null>(null);
@@ -256,7 +261,7 @@ export function PartnerInboundWorkspace() {
   const [reprintReason, setReprintReason] = useState("");
   const scopeRequestToken = useRef(0);
   const shipmentRequestToken = useRef(0);
-  const receiptDraftDirty = !receiptResult && (scannedProductBarcodes.length > 0 || Object.values(actualByBarcode).some(value => value > 0));
+  const receiptDraftDirty = testPrintOpen || (!receiptResult && (scannedProductBarcodes.length > 0 || Object.values(actualByBarcode).some(value => value > 0)));
   useUnsavedChanges(receiptDraftDirty || busy);
   const requestedViewFocus = useRef<WorkspaceView | null>(null);
   const [viewNavigationCount, setViewNavigationCount] = useState(0);
@@ -351,6 +356,7 @@ export function PartnerInboundWorkspace() {
   }, [shipmentId, selectedPallets, selectedCartons]);
 
   useEffect(() => { setPrintBatch(null); }, [view]);
+  useEffect(() => { setTestPrintOpen(false); }, [shipmentId, selectedPallets, selectedCartons, view]);
 
   function printSavedBatch(job: WarehouseLabelPrintJob, items?: WarehouseLabelPrintItem[]) {
     setOpenedPrintJobId(null);
@@ -637,6 +643,7 @@ export function PartnerInboundWorkspace() {
   }
 
   function resetOperationState() {
+    setRecoveredFormal(false);
     setPrintJob(null);
     setPrintState("select");
     setPutawayReady(false);
@@ -712,6 +719,7 @@ export function PartnerInboundWorkspace() {
         return;
       }
       setPrintJob(body.job);
+      setRecoveredFormal(false);
       setPrintState("awaiting_outcome");
       printSavedBatch(body.job, body.items);
     } catch (error) {
@@ -948,6 +956,7 @@ export function PartnerInboundWorkspace() {
       <section className="inbound-content">
         <header className="inbound-topbar"><h1>Inbound operations</h1><div><span>Warehouse only</span><b>W</b></div></header>
         {printBatch ? <ProductLabelPrintBatch jobId={printBatch.jobId} labels={printBatch.labels} /> : null}
+        {testPrintOpen && preview ? <WarehouseTestPrintPanel returnFocusRef={testPrintTrigger} selection={{shipmentId,palletNumbers:selectedPallets,cartonNumbers:selectedCartons}} products={preview.labelProducts ?? []} onClose={()=>setTestPrintOpen(false)} /> : null}
         <main className="inbound-main">
           <section className="inbound-scope-bar">
             <div><span>Active inbound scope</span><strong>{preview.shipment.shipmentReference ?? `Shipment ${preview.shipment.shipmentId}`}</strong></div>
@@ -999,7 +1008,9 @@ export function PartnerInboundWorkspace() {
                 <span className="inbound-section-label">Product label queue</span>
                 <div className="inbound-queue" role="table"><div className="inbound-queue-head" role="row"><span>SKU</span><span>Expected</span><span>Labels</span><span>Status</span></div>{preview.scope.lines.map((line) => <div className="inbound-queue-row" role="row" key={line.sku}><code>{line.sku}</code><strong>{line.expectedQuantity}</strong><strong>{line.expectedQuantity}</strong><b>{labelProblems.some(product => product.sku === line.sku) ? "Details needed" : "Ready"}</b></div>)}</div>
                 {labelProblems.length ? <div className="label-readiness-alert" role="alert"><strong>Complete label details for {labelProblems.length} selected products</strong><ul>{labelProblems.map(line => <li key={line.sku}>{line.sku}: {describeProductLabelIssues(preview.labelProducts?.find(product => product.sku === line.sku)?.issues ?? ["labelProfile"])}</li>)}</ul><p>An authorised product editor can complete these details in the SKU master. Existing receipt records and saved print jobs are unchanged.</p></div> : null}
-                <div className="inbound-actions"><button className="button button-secondary" type="button" disabled={scopeLoading || scopeError || busy || labelProblems.length > 0 || printState === "awaiting_outcome"} onClick={() => setPrintState("preview")}>Preview labels</button><button className="button button-primary" type="button" disabled={scopeLoading || scopeError || busy || labelProblems.length > 0 || printState === "awaiting_outcome"} onClick={() => void createPrintJob()}><Printer size={18} />Print labels</button></div>
+                <div className="inbound-actions"><button className="button button-secondary" type="button" disabled={scopeLoading || scopeError || busy || labelProblems.length > 0 || printState === "awaiting_outcome" || testPrintOpen} onClick={() => setPrintState("preview")}>Preview labels</button><button className="button button-primary" type="button" disabled={scopeLoading || scopeError || busy || labelProblems.length > 0 || printState === "awaiting_outcome" || testPrintOpen} onClick={() => void createPrintJob()}><Printer size={18} />Print labels</button><button ref={testPrintTrigger} className="button button-secondary" type="button" disabled={scopeLoading || scopeError || busy || printState === "awaiting_outcome" || testPrintOpen || Boolean(preview.pendingFormalJob)} onClick={()=>{setPrintBatch(null);setTestPrintOpen(true);}}>Test print</button></div>
+                {preview.pendingFormalJob ? <section className="workspace-feedback"><p>Formal task {preview.pendingFormalJob.id} needs an outcome before test printing. Saved quantity: {preview.pendingFormalJob.requestedQuantity}. Saved source scope: {Array.isArray(preview.pendingFormalJob.payloadSnapshot.cartonNumbers)?preview.pendingFormalJob.payloadSnapshot.cartonNumbers.join(', '):'See saved task'}.</p><button type="button" disabled={busy} onClick={()=>{setPrintBatch(null);setPrintJob(preview.pendingFormalJob!);setPrintState('awaiting_outcome');setOpenedPrintJobId(null);setRecoveredFormal(true);}}>Review pending formal print</button></section> : null}
+                {recoveredFormal && printJob?.status==='pending' ? <label className="workspace-feedback"><input type="checkbox" checked={openedPrintJobId===printJob.id} onChange={event=>setOpenedPrintJobId(event.target.checked?printJob.id:null)} />I checked that all {printJob.requestedQuantity} labels for this saved formal task physically printed. Confirm only the saved task, not a test print.</label> : null}
                 {printState === "preview" ? <p className="inbound-message" role="status">Preview ready. The queue contains {expectedUnits} fixed-size Unit Product labels.</p> : null}
                 {printJob ? <section className="inbound-job-row"><div><span>Print job</span><strong>{printJob.id}</strong></div><div><span>Status</span><strong>{printState === "awaiting_outcome" ? "Awaiting physical confirmation" : printJob.status === "printed" ? "Printed confirmation recorded" : "Cancelled"}</strong></div>{printState === "awaiting_outcome" ? <div className="inbound-job-actions"><button className="button button-secondary" type="button" disabled={busy} onClick={() => void recordPrintOutcome("cancelled")}>Cancel print</button><button className="button button-primary" type="button" disabled={busy || openedPrintJobId !== printJob.id} onClick={() => void recordPrintOutcome("printed")}>Confirm printed</button></div> : null}</section> : null}
               </section>

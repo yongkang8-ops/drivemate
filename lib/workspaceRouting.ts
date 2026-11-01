@@ -82,6 +82,10 @@ export function safeWorkspaceNext(value: string | null | undefined): string | nu
 
   if (url.origin !== "https://drivemate.local" || !knownRoutes.has(url.pathname)) return null;
   for (const [key, contextValue] of url.searchParams.entries()) {
+    if (key === "testPrintRequest" || key === "testPrintJob") {
+      if (url.pathname !== "/warehouse" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(contextValue)) return null;
+      continue;
+    }
     if (key === "cartonNumber" || key === "palletNumber") {
       if (url.pathname !== "/warehouse" || !contextValue || contextValue.length > 200 || /\p{Cc}/u.test(contextValue)) return null;
       continue;

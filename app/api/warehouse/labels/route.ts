@@ -69,6 +69,7 @@ export async function GET(request: Request) {
   });
   return NextResponse.json({
     ok: true,
+    pendingFormalJob: await repository.findPendingWarehouseLabelPrintJob(resolved.scope.shipmentId),
     shipment: {
       shipmentId: resolved.shipment.shipmentId,
       shipmentReference,
