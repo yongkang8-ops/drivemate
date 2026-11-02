@@ -61,6 +61,34 @@ test("translated task and record summaries update after creating and cancelling 
   expect(saved.jobs[0].status).toBe("cancelled");
   expect(errors).toEqual([]);
 });
+
+test("a late translation response cannot restore stale operational totals", async ({ page }) => {
+  await page.goto("/warehouse");
+  await page.getByRole("button", { name: "Test print", exact: true }).click();
+  const panel = page.getByRole("dialog");
+  // Chrome may receive an old translation after React has rendered newer data.
+  // Only eligible elements are translated, matching the browser's translate contract.
+  const captured = await panel.evaluateHandle((root) =>
+    Array.from(root.querySelectorAll("fieldset > p, section > p, [role=status]"))
+      .filter((el) => !el.closest('[translate="no"], .notranslate'))
+      .map((el) => ({ el, text: el.textContent })),
+  );
+  await panel.getByRole("checkbox").first().check();
+  await expect(panel.locator("fieldset > p")).toHaveText("1 SKUs · 2 labels");
+  await panel.getByRole("button", { name: "Create test task", exact: true }).click();
+  await expect(panel.getByText("1 records · Page 1", { exact: true })).toBeVisible();
+  await page.evaluate((entries) => {
+    for (const { el, text } of entries) {
+      if (el.isConnected) {
+        const font = document.createElement("font");
+        font.textContent = text;
+        el.replaceChildren(font);
+      }
+    }
+  }, captured);
+  await expect(panel.getByText("1 records · Page 1", { exact: true })).toBeVisible();
+  await expect(panel.getByRole("status")).toContainText("Test task saved.");
+});
 test("persisted formal task blocks test printing after refresh and can be reviewed", async ({
   page,
 }) => {

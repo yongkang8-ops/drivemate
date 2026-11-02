@@ -358,7 +358,7 @@ export function WarehouseTestPrintPanel({
           70 × 50 mm · 100% scale · Copies = 1 · no headers/footers · background
           graphics on.
         </p>
-        <p role="status" className="workspace-feedback">
+        <p role="status" className="workspace-feedback" translate="no">
           {message}
         </p>
         {uncertain ? (
@@ -435,8 +435,8 @@ export function WarehouseTestPrintPanel({
                 ) : null}
               </div>
             ))}
-            {/* A single text child stays current when Chrome Translate replaces text nodes. */}
-            <p aria-live="polite">
+            {/* Keep live data out of delayed translation responses; static instructions remain translatable. */}
+            <p aria-live="polite" translate="no">
               {`${Object.keys(chosen).length} SKUs · ${Object.values(chosen).reduce((n, q) => n + q, 0)} labels`}
             </p>
             <button type="button" onClick={() => void create()} disabled={busy}>
@@ -446,11 +446,11 @@ export function WarehouseTestPrintPanel({
         ) : null}
         {job ? (
           <section>
-            <h3>{`Test task ${job.id}`}</h3>
-            <p>
+            <h3 translate="no">{`Test task ${job.id}`}</h3>
+            <p translate="no">
               {`${job.labels.length} labels · ${job.status}`}
             </p>
-            <p>
+            <p translate="no">
               {`Saved SKUs: ${[...new Set(job.labels.map((label) => label.sku))].join(", ")}`}
             </p>
             {job.status === "pending" ? (
@@ -522,19 +522,20 @@ export function WarehouseTestPrintPanel({
           <button type="button" disabled={busy} onClick={() => void list()}>
             Refresh test records
           </button>
-          <p>
+          <p translate="no">
             {`${total} records · Page ${page}`}
           </p>
           {jobs.map((j) => (
             <p key={j.id}>
               <button
                 type="button"
+                translate="no"
                 disabled={busy || uncertain || job?.status === "pending"}
                 onClick={() => void loadJob(j.id)}
               >
                 {`Open test ${j.id}`}
               </button>{" "}
-              <span>{`${j.status} · ${j.labels.length} labels · ${new Date(j.createdAt).toLocaleString()}`}</span>
+              <span translate="no">{`${j.status} · ${j.labels.length} labels · ${new Date(j.createdAt).toLocaleString()}`}</span>
             </p>
           ))}
           <button
