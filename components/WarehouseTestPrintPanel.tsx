@@ -435,9 +435,9 @@ export function WarehouseTestPrintPanel({
                 ) : null}
               </div>
             ))}
-            <p>
-              {Object.keys(chosen).length} SKUs ·{" "}
-              {Object.values(chosen).reduce((n, q) => n + q, 0)} labels
+            {/* A single text child stays current when Chrome Translate replaces text nodes. */}
+            <p aria-live="polite">
+              {`${Object.keys(chosen).length} SKUs · ${Object.values(chosen).reduce((n, q) => n + q, 0)} labels`}
             </p>
             <button type="button" onClick={() => void create()} disabled={busy}>
               {uncertain ? "Retry selected request" : "Create test task"}
@@ -446,13 +446,12 @@ export function WarehouseTestPrintPanel({
         ) : null}
         {job ? (
           <section>
-            <h3>Test task {job.id}</h3>
+            <h3>{`Test task ${job.id}`}</h3>
             <p>
-              {job.labels.length} labels · {job.status}
+              {`${job.labels.length} labels · ${job.status}`}
             </p>
             <p>
-              Saved SKUs:{" "}
-              {[...new Set(job.labels.map((label) => label.sku))].join(", ")}
+              {`Saved SKUs: ${[...new Set(job.labels.map((label) => label.sku))].join(", ")}`}
             </p>
             {job.status === "pending" ? (
               <>
@@ -524,7 +523,7 @@ export function WarehouseTestPrintPanel({
             Refresh test records
           </button>
           <p>
-            {total} records · Page {page}
+            {`${total} records · Page ${page}`}
           </p>
           {jobs.map((j) => (
             <p key={j.id}>
@@ -533,10 +532,9 @@ export function WarehouseTestPrintPanel({
                 disabled={busy || uncertain || job?.status === "pending"}
                 onClick={() => void loadJob(j.id)}
               >
-                Open test {j.id}
+                {`Open test ${j.id}`}
               </button>{" "}
-              {j.status} · {j.labels.length} labels ·{" "}
-              {new Date(j.createdAt).toLocaleString()}
+              <span>{`${j.status} · ${j.labels.length} labels · ${new Date(j.createdAt).toLocaleString()}`}</span>
             </p>
           ))}
           <button

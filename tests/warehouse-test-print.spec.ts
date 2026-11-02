@@ -1,5 +1,66 @@
 import { expect, test } from "@playwright/test";
 import { buildProductLabelContent } from "../lib/warehouseLabelContent";
+// Reproduce Chrome Translate's observed replacement of React-owned text nodes.
+async function replaceTranslatedText(panel: import("@playwright/test").Locator) {
+  await panel.evaluate((root) => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const nodes: Text[] = [];
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      if (node.textContent?.trim() && !node.parentElement?.closest('[translate="no"], .notranslate, svg')) nodes.push(node);
+    }
+    for (const node of nodes) {
+      const outer = document.createElement("font");
+      const inner = document.createElement("font");
+      inner.textContent = node.textContent;
+      outer.append(inner);
+      node.replaceWith(outer);
+    }
+  });
+}
+
+test("translated selection totals track checking, copy edits and unchecking", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/warehouse");
+  await page.getByRole("button", { name: "Test print", exact: true }).click();
+  const panel = page.getByRole("dialog");
+  const summary = panel.locator("fieldset > p");
+  await expect(summary).toHaveText("0 SKUs · 0 labels");
+  await replaceTranslatedText(panel);
+  await panel.getByRole("checkbox").first().check();
+  await expect(summary).toHaveText("1 SKUs · 2 labels");
+  await replaceTranslatedText(panel);
+  await panel.getByRole("spinbutton").fill("3");
+  await expect(summary).toHaveText("1 SKUs · 3 labels");
+  await replaceTranslatedText(panel);
+  await panel.getByRole("checkbox").first().uncheck();
+  await expect(summary).toHaveText("0 SKUs · 0 labels");
+  expect(errors).toEqual([]);
+});
+
+test("translated task and record summaries update after creating and cancelling a test", async ({ page, request }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/warehouse");
+  await page.getByRole("button", { name: "Test print", exact: true }).click();
+  const panel = page.getByRole("dialog");
+  await replaceTranslatedText(panel);
+  await panel.getByRole("checkbox").first().check();
+  await panel.getByRole("button", { name: "Create test task", exact: true }).click();
+  await expect(panel.getByText("1 records · Page 1", { exact: true })).toBeVisible();
+  await expect(panel.getByText("2 labels · pending", { exact: true })).toBeVisible();
+  await replaceTranslatedText(panel);
+  await panel.getByLabel("Test result reason").fill("Browser validation only; no physical printing.");
+  await panel.getByRole("button", { name: "Cancel test", exact: true }).click();
+  await expect(panel.getByText("2 labels · cancelled", { exact: true })).toBeVisible();
+  await expect(panel.getByRole("status")).toContainText("cancelled");
+  const result = await request.get("/api/warehouse/test-labels?shipmentId=shipment-test-1", { headers: { "x-drivemate-role": "warehouse_staff" } });
+  const saved = await result.json();
+  expect(saved.total).toBe(1);
+  expect(saved.jobs[0].status).toBe("cancelled");
+  expect(errors).toEqual([]);
+});
 test("persisted formal task blocks test printing after refresh and can be reviewed", async ({
   page,
 }) => {
