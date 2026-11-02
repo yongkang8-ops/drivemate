@@ -169,8 +169,14 @@ test("opens account details in a drawer and protects the system administrator", 
   await mockStaffApi(page);
   await page.goto("/admin/staff");
 
-  await page.getByRole("button", { name: /Warehouse Operator 01/ }).click();
+  const member = page.getByRole("button", { name: /Warehouse Operator 01/ });
+  await expect(member.getByText("Warehouse Operator 01", { exact: true })).toHaveJSProperty("translate", false);
+  await expect(member.getByText(accounts[0].email, { exact: true })).toHaveJSProperty("translate", false);
+  await member.click();
   await expect(page.getByRole("dialog", { name: "Warehouse Operator 01" })).toBeVisible();
+  const drawer = page.getByRole("dialog", { name: "Warehouse Operator 01" });
+  await expect(drawer.getByRole("heading", { name: "Warehouse Operator 01" })).toHaveJSProperty("translate", false);
+  await expect(drawer.getByText(accounts[0].email, { exact: true })).toHaveJSProperty("translate", false);
   await expect(page.getByRole("button", { name: "Change role" })).toBeVisible();
   await page.getByRole("button", { name: "Close account panel" }).click();
 
@@ -193,6 +199,10 @@ test("locks the one-time password handoff until secure delivery is confirmed", a
   await dialog.getByRole("button", { name: "Create account" }).click();
 
   await expect(page.getByRole("dialog", { name: "Deliver one-time password" })).toContainText("One-Time-Password-123!");
+  const handoff = page.getByRole("dialog", { name: "Deliver one-time password" });
+  await expect(handoff.getByText("Warehouse Operator 03", { exact: true })).toHaveJSProperty("translate", false);
+  await expect(handoff.locator(".staff-handoff-account").getByText("operator03@drivemateparts.com.au", { exact: true })).toHaveJSProperty("translate", false);
+  await expect(handoff.getByRole("heading", { name: "Deliver one-time password" })).toHaveJSProperty("translate", true);
   await expect(page.getByRole("button", { name: "Finish and close" })).toBeDisabled();
   await page.getByLabel("I confirm that I delivered the password securely").check();
   await page.getByRole("button", { name: "Finish and close" }).click();

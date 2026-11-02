@@ -41,8 +41,8 @@ export function StaffRegister({
             <tr key={account.userId}>
               <td data-label="Staff member">
                 <button className="staff-row-trigger" onClick={(event) => onSelect(account.userId, event.currentTarget)} type="button">
-                  <strong>{account.displayName || "Unnamed staff account"}</strong>
-                  <span>{account.email}</span>
+                  <strong translate={account.displayName ? "no" : undefined}>{account.displayName || "Unnamed staff account"}</strong>
+                  <span translate="no">{account.email}</span>
                 </button>
               </td>
               <td data-label="Role">{roleLabel(account.role)}</td>

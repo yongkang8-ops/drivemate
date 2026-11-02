@@ -229,7 +229,9 @@ export function StaffManagementPage() {
       : drawerMode.kind === "account"
         ? drawerMode.account.displayName || "Staff account"
         : "Staff account";
-  const drawerSubtitle = drawerMode.kind === "account" || drawerMode.kind === "handoff" || drawerMode.kind === "action" ? drawerMode.account.email : "Administrator managed access";
+  const drawerSubtitle = drawerMode.kind === "account" || drawerMode.kind === "handoff" || drawerMode.kind === "action"
+    ? <bdi translate="no">{drawerMode.account.email}</bdi>
+    : "Administrator managed access";
 
   return (
     <section className="staff-operations-app">
@@ -264,7 +266,8 @@ export function StaffManagementPage() {
         </>
       )}
       {drawerMode.kind !== "closed" ? (
-        <StaffDrawer closeLocked={drawerMode.kind === "handoff" || createBusy || actionBusy} onClose={closeDrawer} returnFocusRef={selectedTrigger} subtitle={drawerSubtitle} title={drawerTitle}>
+        <StaffDrawer closeLocked={drawerMode.kind === "handoff" || createBusy || actionBusy} onClose={closeDrawer} returnFocusRef={selectedTrigger} subtitle={drawerSubtitle} title={drawerTitle}
+          translateTitle={drawerMode.kind === "account" && drawerMode.account.displayName ? "no" : undefined}>
           {drawerMessage ? <p className="staff-drawer-message" role="alert">{drawerMessage}</p> : null}
           {drawerMode.kind === "account" ? drawerMode.loading ? <div className="staff-drawer-body"><p>Loading account details.</p></div> : <StaffAccountOverview account={drawerMode.account} audit={drawerMode.audit} canManage={drawerMode.canManage} onAction={openAction} viewerRole={viewerRole} /> : null}
           {drawerMode.kind === "create" ? <div className="staff-drawer-body"><StaffAccountForm busy={createBusy} onCancel={closeDrawer} onSubmit={createAccount} onDirtyChange={setDraftDirty} /></div> : null}

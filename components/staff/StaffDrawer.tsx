@@ -11,6 +11,7 @@ function focusableElements(container: HTMLElement) {
 
 export function StaffDrawer({
   title,
+  translateTitle,
   subtitle,
   closeLocked = false,
   returnFocusRef,
@@ -18,7 +19,8 @@ export function StaffDrawer({
   children,
 }: {
   title: string;
-  subtitle?: string;
+  translateTitle?: "no";
+  subtitle?: ReactNode;
   closeLocked?: boolean;
   returnFocusRef: RefObject<HTMLElement | null>;
   onClose: () => void;
@@ -75,7 +77,7 @@ export function StaffDrawer({
       <button aria-label="Dismiss account panel" className="staff-drawer-backdrop" disabled={closeLocked} onClick={onClose} type="button" />
       <section aria-labelledby={titleId} aria-modal="true" className="staff-drawer" ref={dialogRef} role="dialog">
         <header className="staff-drawer-header">
-          <div><p className="eyebrow">Staff account</p><h2 id={titleId}>{title}</h2>{subtitle ? <p>{subtitle}</p> : null}</div>
+          <div><p className="eyebrow">Staff account</p><h2 id={titleId} translate={translateTitle}>{title}</h2>{subtitle ? <p>{subtitle}</p> : null}</div>
           <button aria-label="Close account panel" className="icon-button" disabled={closeLocked} onClick={onClose} type="button"><X size={19} /></button>
         </header>
         {children}
