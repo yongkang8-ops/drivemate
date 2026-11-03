@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { replaceTranslatedText } from "./helpers/replaceTranslatedText";
 
 test.beforeEach(async ({ request }) => {
   await request.post("/api/test/reset");
@@ -53,6 +54,50 @@ test("keeps every Warehouse module accessible before Packing List confirmation",
   await expect(page.getByRole("button", { name: "Print labels" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Confirm receipt" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Confirm put away" })).toHaveCount(0);
+});
+
+test("translated scope switches between the full shipment, a single carton and a group", async ({ page, request }) => {
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  const shipmentId = "shipment-test-1";
+  const headers = { "x-drivemate-role": "partner" };
+  const rev = await request.post(`/api/prearrival/shipments/${shipmentId}/revisions`, {
+    headers, data: { schemaVersion: 3, shipmentId, cartons: [
+      { sourceCartonNumber: "34#", kind: "carton", physicalCartonCount: 1, memberCartonNumbers: ["34#"], sourcePalletNumber: null, lines: [{ sku: "DM-GWM-OF-001", expectedQuantity: 2 }] },
+      { sourceCartonNumber: "7#8#9#", kind: "carton_group", physicalCartonCount: 3, memberCartonNumbers: ["7#", "8#", "9#"], sourcePalletNumber: null, lines: [{ sku: "DM-GWM-AF-002", expectedQuantity: 6 }] },
+    ] },
+  });
+  expect(rev.status()).toBe(201);
+  const { revision } = await rev.json();
+  const confirmation = await request.post(`/api/prearrival/revisions/${revision.id}/confirm`, { headers });
+  await expect(confirmation).toBeOK();
+  await page.goto("/warehouse");
+  const scope = page.locator(".inbound-scope-summary");
+  const range = page.locator(".inbound-range-row");
+  await expect(scope).toHaveText("2 source scopes · 4 physical cartons · 1 group");
+  await replaceTranslatedText(page.locator(".inbound-main"));
+  await page.getByRole("checkbox", { name: "Source scope 34#", exact: true }).check();
+  await expect(range).toContainText("2 labels");
+  await expect(scope).toHaveText("1 source scope · 1 physical carton");
+  await expect(page.locator(".inbound-queue-row")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Print labels", exact: true })).toBeEnabled();
+  await replaceTranslatedText(page.locator(".inbound-main"));
+  await page.getByRole("button", { name: "Full shipment", exact: true }).click();
+  await expect(range).toContainText("8 labels");
+  await expect(scope).toHaveText("2 source scopes · 4 physical cartons · 1 group");
+  await page.getByLabel("Find source scope or member carton").fill("8#");
+  await page.getByLabel("Find source scope or member carton").press("Enter");
+  await expect(range).toContainText("6 labels");
+  await expect(range).toContainText("7#8#9#");
+  await page.getByRole("button", { name: "Full shipment", exact: true }).click();
+  await expect(range).toContainText("8 labels");
+  await page.getByRole("link", { name: "Receipt history", exact: true }).click();
+  const historySummary = page.locator(".inbound-history-scope-summary");
+  await expect(historySummary).toHaveText("2 source scopes · 4 physical cartons · 1 group");
+  await replaceTranslatedText(page.locator(".inbound-main"));
+  await page.getByLabel("Source scope", { exact: true }).selectOption("34#");
+  await expect(historySummary).toHaveText("1 source scope · 1 physical carton");
+  expect(errors).toEqual([]);
 });
 
 async function confirmReceipt(page: Page) {

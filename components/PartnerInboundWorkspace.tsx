@@ -28,6 +28,7 @@ import { WarehouseTestPrintPanel } from "./WarehouseTestPrintPanel";
 import type { ReceiptDiscrepancyType, WarehouseReceiptScope } from "../lib/warehouseReceiving";
 import { describeUnmappedPalletSelection } from "../lib/warehouseScopePresentation";
 import { WarehousePutawayPanel } from "./WarehousePutawayPanel";
+import { WarehouseScopeSummary } from "./WarehouseScopeSummary";
 import { ReceiptHistoryPanel } from "./ReceiptHistoryPanel";
 import { useWorkspaceRole } from "./RoleGate";
 
@@ -960,7 +961,7 @@ export function PartnerInboundWorkspace() {
         <main className="inbound-main">
           <section className="inbound-scope-bar">
             <div><span>Active inbound scope</span><strong>{preview.shipment.shipmentReference ?? `Shipment ${preview.shipment.shipmentId}`}</strong></div>
-            <p>{scopeLoading ? "Loading selected scope…" : scopeError ? "Selected scope could not be loaded. Choose a scope to retry." : `${activePalletLabel} / ${preview.scope.cartonNumbers.join(", ")} / ${expectedUnits} expected units`}</p>
+            <p translate="no">{scopeLoading ? "Loading selected scope…" : scopeError ? "Selected scope could not be loaded. Choose a scope to retry." : `${activePalletLabel} / ${preview.scope.cartonNumbers.join(", ")} / ${expectedUnits} expected units`}</p>
             <select disabled={busy} aria-label="Shipment" value={shipmentId} onChange={(event) => switchShipment(event.target.value)}>
               {shipments.map((shipment) => <option key={shipment.shipmentId} value={shipment.shipmentId}>{shipment.shipmentReference ?? shipment.shipmentId}</option>)}
             </select>
@@ -970,7 +971,7 @@ export function PartnerInboundWorkspace() {
             <legend>Optional pallet filter</legend>
             {preview.shipment.pallets.length
               ? preview.shipment.pallets.map((pallet) => <label key={pallet.sourcePalletNumber}><input aria-label={`Pallet ${pallet.sourcePalletNumber}`} checked={selectedPallets.includes(pallet.sourcePalletNumber)} disabled={scopeLoading || busy} onChange={(event) => togglePallet(pallet.sourcePalletNumber, event.target.checked)} type="checkbox" />Pallet {pallet.sourcePalletNumber}</label>)
-              : <span className="inbound-pallet-unmapped">{describeUnmappedPalletSelection(selectedCartons)}</span>}
+              : <span className="inbound-pallet-unmapped" translate="no">{describeUnmappedPalletSelection(selectedCartons)}</span>}
           </fieldset>
 
           <section className="inbound-source-scope-picker" aria-labelledby="source-scope-heading">
@@ -990,7 +991,8 @@ export function PartnerInboundWorkspace() {
                 return <label className={selectedCartons.includes(carton.sourceCartonNumber) ? "is-selected" : ""} key={carton.sourceCartonNumber}><input aria-label={`Source scope ${carton.sourceCartonNumber}`} checked={selectedCartons.includes(carton.sourceCartonNumber)} disabled={scopeLoading || busy} onChange={(event) => toggleSourceScope(carton.sourceCartonNumber, event.target.checked)} type="checkbox" /><span><strong>{carton.sourceCartonNumber}</strong>{isGroup ? <b>Group</b> : null}<small>{count} physical {count === 1 ? "carton" : "cartons"} · {carton.memberCartonNumbers?.join(", ") || carton.sourceCartonNumber}</small></span></label>;
               })}
             </div>
-            <p className="inbound-scope-summary"><strong>{activeSourceScopes.length}</strong> source {activeSourceScopes.length === 1 ? "scope" : "scopes"} · <strong>{activePhysicalCartons}</strong> physical {activePhysicalCartons === 1 ? "carton" : "cartons"}{activeCartonGroups ? ` · ${activeCartonGroups} ${activeCartonGroups === 1 ? "group" : "groups"}` : ""}</p>
+            <WarehouseScopeSummary className="inbound-scope-summary" sourceScopeCount={activeSourceScopes.length}
+              physicalCartonCount={activePhysicalCartons} cartonGroupCount={activeCartonGroups} />
           </section>
 
           <section className={`inbound-gate ${isHistoryView ? "is-neutral" : activeGateReady ? "is-unlocked" : "is-locked"}`} role="status">
@@ -1004,7 +1006,7 @@ export function PartnerInboundWorkspace() {
               <section className="inbound-work-panel">
                 <div className="inbound-work-heading"><div><h2>Label print</h2><p>Create product labels from packing-list quantities before receiving begins.</p></div><Printer size={27} weight="duotone" /></div>
                 <span className="inbound-section-label">Print range</span>
-                <div className="inbound-range-row"><strong>{activePalletLabel}</strong><span>Selected</span><strong>{preview.scope.cartonNumbers.join(", ")}</strong><span>{expectedUnits} labels</span></div>
+                <div className="inbound-range-row"><strong translate="no">{activePalletLabel}</strong><span>Selected</span><strong translate="no">{preview.scope.cartonNumbers.join(", ")}</strong><span translate="no">{`${expectedUnits} labels`}</span></div>
                 <span className="inbound-section-label">Product label queue</span>
                 <div className="inbound-queue" role="table"><div className="inbound-queue-head" role="row"><span>SKU</span><span>Expected</span><span>Labels</span><span>Status</span></div>{preview.scope.lines.map((line) => <div className="inbound-queue-row" role="row" key={line.sku}><code>{line.sku}</code><strong>{line.expectedQuantity}</strong><strong>{line.expectedQuantity}</strong><b>{labelProblems.some(product => product.sku === line.sku) ? "Details needed" : "Ready"}</b></div>)}</div>
                 {labelProblems.length ? <div className="label-readiness-alert" role="alert"><strong>Complete label details for {labelProblems.length} selected products</strong><ul>{labelProblems.map(line => <li key={line.sku}>{line.sku}: {describeProductLabelIssues(preview.labelProducts?.find(product => product.sku === line.sku)?.issues ?? ["labelProfile"])}</li>)}</ul><p>An authorised product editor can complete these details in the SKU master. Existing receipt records and saved print jobs are unchanged.</p></div> : null}

@@ -3,6 +3,7 @@
 import { ArrowClockwise, FunnelSimple, ListMagnifyingGlass } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { buildApiHeaders } from "../lib/clientAuth";
+import { WarehouseScopeSummary } from "./WarehouseScopeSummary";
 import {
   summarizeWarehouseHistoryScope,
   type WarehouseHistorySourceScope,
@@ -114,7 +115,7 @@ export function ReceiptHistoryPanel({ selection, sourceCartons = [] }: ReceiptHi
         <label>Display timezone<select aria-label="Display timezone" value={timeZone} onChange={(event) => setTimeZone(event.target.value as HistoryRow["timeZone"])}><option value="Australia/Brisbane">Australia/Brisbane</option><option value="Asia/Shanghai">China Standard Time</option></select></label>
         <button className="button button-secondary" type="button" onClick={clearFilters}><FunnelSimple size={17} />Clear filters</button>
       </div>
-      {sourceCartons.length ? <p className="inbound-history-scope-summary"><strong>{scopeSummary.sourceScopeCount}</strong> source {scopeSummary.sourceScopeCount === 1 ? "scope" : "scopes"} · <strong>{scopeSummary.physicalCartonCount}</strong> physical {scopeSummary.physicalCartonCount === 1 ? "carton" : "cartons"}{scopeSummary.cartonGroupCount ? ` · ${scopeSummary.cartonGroupCount} ${scopeSummary.cartonGroupCount === 1 ? "group" : "groups"}` : ""}</p> : null}
+      {sourceCartons.length ? <WarehouseScopeSummary className="inbound-history-scope-summary" {...scopeSummary} /> : null}
       <p className="inbound-history-timezone">{timeZone === "Asia/Shanghai" ? "China Standard Time" : "Australia/Brisbane"}</p>
       {rows.length ? <div className="inbound-history-table" role="table"><div role="row"><span>Date</span><span>Time</span><span>Action</span><span>Reference</span><span>Operator</span><span>Outcome</span></div>{rows.map((row) => <div role="row" key={row.id}><time data-label="Date">{row.date}</time><time data-label="Time">{row.time}</time><strong data-label="Action">{row.actionLabel}</strong><code data-label="Reference">{row.reference}</code><span data-label="Operator">{row.actor ?? "System"}</span><span data-label="Outcome">{row.outcome}</span></div>)}</div> : <div className="inbound-history-empty"><ListMagnifyingGlass size={24} /><strong role={current.status === "error" ? "alert" : undefined}>{message}</strong>{current.status === "error" && !validationError ? <button className="button button-secondary" disabled={busy} type="button" onClick={() => setRetry(value => value + 1)}><ArrowClockwise size={17} />Retry history</button> : null}</div>}
       <p className="inbound-message" role="status">{busy ? "Refreshing audit history..." : current.status === "error" ? "History is unavailable. No records have been changed." : rows.length ? message : "History view loaded."}</p>

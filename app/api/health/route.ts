@@ -36,7 +36,8 @@ async function databaseChecks(readiness: ReturnType<typeof getRuntimeReadiness>)
     purchase.final_total_minor === 6300000 &&
     purchase.gate_mismatch_count === 0 &&
     purchase.public_product_count === 0 &&
-    purchase.available_stock === 0;
+    // Putaway releases units from staging quarantine into available stock.
+    Number.isSafeInteger(purchase.available_stock) && purchase.available_stock >= 0;
 
   const checks: HealthCheck[] = [
     {
@@ -58,8 +59,8 @@ async function databaseChecks(readiness: ReturnType<typeof getRuntimeReadiness>)
       name: "purchase_import",
       status: purchaseReady ? "pass" : "fail",
       message: purchaseReady
-        ? "Authoritative purchase controls and initial inventory gates are verified."
-        : "Authoritative purchase data or initial inventory gates do not reconcile.",
+        ? "Authoritative purchase controls, release gates and available-stock total are verified."
+        : "Authoritative purchase data, release gates or available-stock total do not reconcile.",
     });
   }
   return checks;
